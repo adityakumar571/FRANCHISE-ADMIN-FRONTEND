@@ -32,6 +32,7 @@ function ServerDay(props) {
       day={day}
       outsideCurrentMonth={outsideCurrentMonth}
       sx={{
+        
         width: 36,
         height: 36,
         borderRadius: "50%",
