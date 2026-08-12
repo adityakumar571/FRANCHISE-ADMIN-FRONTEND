@@ -1,0 +1,160 @@
+import React, { useEffect, useState } from 'react'
+import { Building2, Edit, Trash2, Plus, AlertTriangle } from 'lucide-react'
+import { deleteRequest, getRequest, putRequest } from '../../../Helpers'
+import toast from 'react-hot-toast'
+import DepartmentModal from './DepartmentModal'
+import AppTable, { Td } from '../../../components/AppTable'
+
+const DepartmentMaster = () => {
+  const [data, setData] = useState([])
+  const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(20)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [isToggling, setIsToggling] = useState(false)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [selectedItem, setSelectedItem] = useState(null)
+  const [updateStatus, setUpdateStatus] = useState(false)
+
+  useEffect(() => {
+    setLoading(true)
+    const query = new URLSearchParams({ search: searchTerm, page, limit }).toString()
+    getRequest(`hr/departments?${query}`)
+      .then((res) => {
+        setData(res?.data?.data?.departments || [])
+        setTotal(res?.data?.data?.total || 0)
+      })
+      .catch(() => toast.error('Failed to fetch departments'))
+      .finally(() => setLoading(false))
+  }, [page, limit, searchTerm, updateStatus])
+
+  const handleToggle = (id) => {
+    if (isToggling) return
+    const item = data.find((d) => d._id === id)
+    if (!item) return
+    setIsToggling(true)
+    const newStatus = !item.isActive
+    putRequest({ url: `hr/departments/${id}`, cred: { isActive: newStatus } })
+      .then(() => {
+        toast.success(`Department ${newStatus ? 'Activated' : 'Deactivated'}`)
+        setData((prev) => prev.map((d) => (d._id === id ? { ...d, isActive: newStatus } : d)))
+      })
+      .catch(() => toast.error('Failed to update status'))
+      .finally(() => setIsToggling(false))
+  }
+
+  const confirmDelete = () => {
+    if (!selectedItem?._id) return
+    setLoading(true)
+    deleteRequest(`hr/departments/${selectedItem._id}`)
+      .then((res) => {
+        toast.success(res?.data?.message || 'Department deleted')
+        setUpdateStatus((prev) => !prev)
+        setShowDeleteModal(false)
+        setSelectedItem(null)
+      })
+      .catch((err) => toast.error(err?.response?.data?.message || 'Delete failed'))
+      .finally(() => setLoading(false))
+  }
+
+  return (
+    <div className="min-h-screen">
+      {/* DELETE MODAL */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white p-6 w-full max-w-md rounded shadow-xl">
+            <div className="flex items-center mb-4">
+              <AlertTriangle className="w-6 h-6 text-red-500 mr-3" />
+              <h3 className="text-lg font-semibold">Confirm Delete</h3>
+            </div>
+            <p className="text-gray-600 mb-6">Are you sure you want to delete <b>{selectedItem?.name}</b>?</p>
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setShowDeleteModal(false)} className="px-4 py-2 border rounded text-gray-600 hover:bg-gray-100">Cancel</button>
+              <button onClick={confirmDelete} disabled={loading} className={`px-5 py-2 text-white rounded ${loading ? 'bg-red-300' : 'bg-red-600 hover:bg-red-700'}`}>
+                {loading ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* HEADER */}
+      <div className="px-4 py-3 bg-white rounded border mb-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-base sm:text-lg font-semibold flex items-center gap-2">
+              <Building2 className="text-[#e24028] w-5 h-5" />
+              Department Master
+            </h1>
+            <p className="text-xs sm:text-sm text-gray-500">Manage school departments for HR module</p>
+          </div>
+          <button onClick={() => { setSelectedItem(null); setIsModalOpen(true) }} className="bg-[#0c3b73] hover:bg-blue-700 text-white px-4 py-2 rounded flex items-center gap-2 text-sm">
+            <Plus size={16} /> Add Department
+          </button>
+        </div>
+      </div>
+
+      {/* SEARCH */}
+      <div className="bg-white border rounded p-3 mb-4">
+        <input type="text" placeholder="Search departments..." value={searchTerm}
+          onChange={(e) => { setSearchTerm(e.target.value); setPage(1) }}
+          className="border border-gray-300 rounded px-3 py-2 text-sm w-full sm:w-72 focus:outline-none focus:ring-2 focus:ring-blue-200" />
+      </div>
+
+      {/* TABLE */}
+      <AppTable
+        columns={[
+          { key: 'sr', label: 'Sr. No.', align: 'center', width: 70 },
+          { key: 'name', label: 'Department Name', align: 'left', width: 200 },
+          { key: 'description', label: 'Description', align: 'left', width: 260 },
+          { key: 'status', label: 'Status', align: 'center', width: 100 },
+          { key: 'actions', label: 'Actions', align: 'center', width: 100, sticky: 'right' },
+        ]}
+        data={data}
+        loading={loading}
+        emptyText="No departments found"
+        page={page}
+        limit={limit}
+        total={total}
+        onPageChange={(p) => setPage(p)}
+        onPageSizeChange={(size) => { setLimit(size); setPage(1) }}
+        rowKey={(item) => item._id}
+      >
+        {(item, index) => (
+          <>
+            <Td align="center">{(page - 1) * limit + index + 1}</Td>
+            <Td><span className="font-medium text-gray-800">{item.name}</span></Td>
+            <Td>{item.description || '—'}</Td>
+            <Td align="center">
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" className="sr-only peer" checked={item.isActive} disabled={isToggling} onChange={() => handleToggle(item._id)} />
+                <div className="w-9 h-5 bg-red-400 peer-checked:bg-green-500 rounded-full transition-colors" />
+                <div className="absolute left-1 top-1 w-3 h-3 bg-white rounded-full transition peer-checked:translate-x-4" />
+              </label>
+            </Td>
+            <Td align="center" sticky="right">
+              <div className="flex justify-center gap-2">
+                <button onClick={() => { setSelectedItem(item); setIsModalOpen(true) }} className="text-blue-600 hover:bg-blue-600 hover:text-white p-2 rounded transition" title="Edit"><Edit size={15} /></button>
+                <button onClick={() => { setSelectedItem(item); setShowDeleteModal(true) }} className="text-red-600 hover:bg-red-600 hover:text-white p-2 rounded transition" title="Delete"><Trash2 size={15} /></button>
+              </div>
+            </Td>
+          </>
+        )}
+      </AppTable>
+
+      {isModalOpen && (
+        <DepartmentModal
+          isModalOpen={isModalOpen}
+          setIsModalOpen={setIsModalOpen}
+          modalData={selectedItem}
+          setModalData={setSelectedItem}
+          setUpdateStatus={setUpdateStatus}
+        />
+      )}
+    </div>
+  )
+}
+
+export default DepartmentMaster
