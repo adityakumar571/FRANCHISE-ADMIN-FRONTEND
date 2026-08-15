@@ -1,59 +1,40 @@
+/* eslint-disable prettier/prettier */
 import React, { Suspense, useContext } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
-import { CContainer, CSpinner } from '@coreui/react'
-
-// routes config
+import { CSpinner } from '@coreui/react'
 import routes from '../routes'
-import { AppContext } from '../Context/AppContext'
+import { FranchiseContext } from '../Context/FranchiseContext'
 
 const AppContent = () => {
-  const { user } = useContext(AppContext)
-  const userRole = user?.role || user?.user?.role
+  const { franchiseUser } = useContext(FranchiseContext)
+  const role = franchiseUser?.role
 
   return (
-    <>
-      <div style={{ backgroundColor: '#F7F7F7' }} className="p-4">
-        <Suspense fallback={<CSpinner color="primary" />}>
-          <Routes>
-            {routes.map((route, idx) => {
-              // Route has role restriction defined
-              if (route.roles && route.roles.length > 0) {
-                const allowed = route.roles.includes(userRole)
-                return (
-                  route.element && (
-                    <Route
-                      key={idx}
-                      path={route.path}
-                      exact={route.exact}
-                      name={route.name}
-                      element={
-                        allowed
-                          ? <route.element />
-                          : <Navigate to="/dashboard" replace />
-                      }
-                    />
-                  )
-                )
-              }
-
-              // No role restriction — open to all logged-in users
-              return (
-                route.element && (
-                  <Route
-                    key={idx}
-                    path={route.path}
-                    exact={route.exact}
-                    name={route.name}
-                    element={<route.element />}
-                  />
-                )
+    <div style={{ backgroundColor: '#f8fafc', padding: '20px', minHeight: 'calc(100vh - 52px)' }}>
+      <Suspense fallback={<div className="text-center pt-5"><CSpinner color="primary" /></div>}>
+        <Routes>
+          {routes.map((route, idx) => {
+            if (route.roles && route.roles.length > 0) {
+              const allowed = route.roles.includes(role)
+              return route.element && (
+                <Route
+                  key={idx}
+                  path={route.path}
+                  element={allowed ? <route.element /> : <Navigate to="/franchise/dashboard" replace />}
+                />
               )
-            })}
-            <Route path="/" element={<Navigate to="dashboard" replace />} />
-          </Routes>
-        </Suspense>
-      </div>
-    </>
+            }
+            return route.element && (
+              <Route key={idx} path={route.path} element={<route.element />} />
+            )
+          })}
+
+          {/* Default redirects */}
+          <Route path="/"          element={<Navigate to="/franchise/dashboard" replace />} />
+          <Route path="/dashboard" element={<Navigate to="/franchise/dashboard" replace />} />
+        </Routes>
+      </Suspense>
+    </div>
   )
 }
 

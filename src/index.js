@@ -10,13 +10,16 @@ import store from './store'
 import { AppProvider } from './Context/AppContext'
 import { RolesProvider } from './Context/AuthContext'
 import { SessionProvider } from './Context/Seesion'
+import { FranchiseProvider } from './Context/FranchiseContext'
 
 createRoot(document.getElementById('root')).render(
   <Provider store={store}>
     <AppProvider>
       <RolesProvider>
         <SessionProvider>
-          <App />
+          <FranchiseProvider>
+            <App />
+          </FranchiseProvider>
         </SessionProvider>
       </RolesProvider>
     </AppProvider>

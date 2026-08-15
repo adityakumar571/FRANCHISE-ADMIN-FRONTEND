@@ -1,84 +1,60 @@
 /* eslint-disable prettier/prettier */
 import React, { useContext } from 'react'
 import { CDropdown, CDropdownItem, CDropdownMenu, CDropdownToggle } from '@coreui/react'
-import { cilBell, cilLockLocked, cilUser } from '@coreui/icons'
+import { cilLockLocked, cilUser } from '@coreui/icons'
 import CIcon from '@coreui/icons-react'
-
-import { deleteCookie } from '../../Hooks/cookie'
-import { useNavigate } from 'react-router-dom'
-import { useRoles } from '../../Context/AuthContext'
-import { DropletIcon } from 'lucide-react'
 import { MdArrowDropDown } from 'react-icons/md'
-import { AppContext } from '../../Context/AppContext'
+import { useNavigate } from 'react-router-dom'
+import { FranchiseContext } from '../../Context/FranchiseContext'
 
 const AppHeaderDropdown = () => {
   const navigate = useNavigate()
-  const { user } = useContext(AppContext)
+  const { franchiseUser, logoutFranchise } = useContext(FranchiseContext)
 
-  const { role } = useRoles() // ✅ CONTEXT SE ROLE
-  const logOut = (e) => {
+  const handleLogout = (e) => {
     e.preventDefault()
-    deleteCookie('LMS')
-    localStorage.removeItem('LMS')
-    navigate('/login')
-    window.location.reload()
+    logoutFranchise()
+    navigate('/franchise-login', { replace: true })
   }
 
-  const handleProfileNavigate = () => {
-    if (role === 'Student') {
-      navigate(`/studentdetail/:studentId`)
-    } else if (role === 'Teacher') {
-      navigate(`/TeacherDetailPage/:teacherId`)
-    }
-  }
-  const showProfile = role === 'Student' || role === 'Teacher'
+  const name = franchiseUser?.name || franchiseUser?.userId || 'Admin'
+  const role = franchiseUser?.role || 'Franchise Admin'
+  const initial = name.slice(0, 1).toUpperCase()
 
   return (
-    <CDropdown style={{ height: '50px' }} className="" variant="nav-item">
-      <CDropdownToggle placement="bottom-end" className=" py-0 pe-0 p-0 m-0" caret={false}>
-        <div className="flex items-center ">
-          <div className="flex text-white items-start">
-            <div className=" text-white text-right">
-              <div className=" fw-semibold text-capitalize">{user?.name || 'Guest'}</div>
-
-              <div className="text-xs text-capitalize">{role || 'User'}</div>
-            </div>
-            <div>
-              <MdArrowDropDown className="h-4 w-4" />
-            </div>
+    <CDropdown variant="nav-item">
+      <CDropdownToggle placement="bottom-end" className="py-0 pe-0 p-0 m-0" caret={false}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ color: '#fff', fontWeight: 600, fontSize: 13 }}>{name}</div>
+            <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11 }}>{role}</div>
           </div>
-
-          <img
-            src={user?.profilePic || "https://cdn-icons-png.flaticon.com/128/3135/3135715.png"}
-            alt="Profile"
-            style={{ width: '50px', height: '50px', borderRadius: '50%', objectFit: 'cover' }}
-          />
+          <MdArrowDropDown style={{ color: '#fff', fontSize: 18 }} />
+          {/* Avatar */}
+          <div style={{
+            width: 36, height: 36, borderRadius: '50%',
+            background: '#fabf22', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontWeight: 700, fontSize: 14, color: '#0c3b73', flexShrink: 0,
+          }}>
+            {initial}
+          </div>
         </div>
-
-        {/* <CAvatar src={avatar8} size="md" /> */}
       </CDropdownToggle>
 
-      <CDropdownMenu
-        style={{ overflow: 'hidden', cursor: 'pointer', minWidth: '180px' }}
-        className="pt-0 p-0 m-0 "
-        placement="bottom-end"
-      >
-        <div className="px-3 py-2 border-bottom bg-light">
-          <div className="fw-semibold text-capitalize">{role || 'User'}</div>
+      <CDropdownMenu style={{ minWidth: 180 }} placement="bottom-end">
+        <div style={{ padding: '8px 12px', borderBottom: '1px solid #f0f0f0', background: '#f9fafb' }}>
+          <div style={{ fontWeight: 600, fontSize: 13 }}>{name}</div>
+          <div style={{ fontSize: 11, color: '#9ca3af' }}>{role}</div>
         </div>
-
-        {showProfile && (
-          <CDropdownItem className="p-2" onClick={handleProfileNavigate}>
-            <CIcon icon={cilUser} className="me-2" />
-            Profile
-          </CDropdownItem>
-        )}
-        <CDropdownItem className="p-2" onClick={() => navigate('/change-password')}>
+        <CDropdownItem onClick={() => navigate('/franchise/settings')}>
+          <CIcon icon={cilUser} className="me-2" />
+          Profile
+        </CDropdownItem>
+        <CDropdownItem onClick={() => navigate('/franchise/settings')}>
           <CIcon icon={cilLockLocked} className="me-2" />
           Change Password
         </CDropdownItem>
-
-        <CDropdownItem className="p-2" onClick={logOut}>
+        <CDropdownItem onClick={handleLogout} style={{ color: '#ef4444' }}>
           <CIcon icon={cilLockLocked} className="me-2" />
           Log Out
         </CDropdownItem>

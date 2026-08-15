@@ -1,134 +1,71 @@
-
-
-
-
-
-import React, { useContext, useRef, useState } from 'react'
+/* eslint-disable prettier/prettier */
+import React, { useContext } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
-
-import {
-  CContainer,
-  CHeader,
-  CHeaderNav,
-  CHeaderToggler,
-  CButton,
-} from '@coreui/react'
-
+import { CContainer, CHeader, CHeaderNav, CHeaderToggler } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilMenu, cilHeadphones } from '@coreui/icons'
-
-import { SessionContext } from '../Context/Seesion'
-import { AppContext } from '../Context/AppContext'
-
+import { cilMenu } from '@coreui/icons'
+import { Bell, Store } from 'lucide-react'
+import { FranchiseContext } from '../Context/FranchiseContext'
 import { AppHeaderDropdown } from './header/index'
-import Notification from './header/Notification'
-
-import SupportModal from './SupportModal'
 
 const AppHeader = () => {
-
-  const headerRef = useRef()
-
-  const dispatch = useDispatch()
-
+  const dispatch    = useDispatch()
   const sidebarShow = useSelector((state) => state.sidebarShow)
-
-  const { currentSession, loading } = useContext(SessionContext)
-
-  const { tenantDetails } = useContext(AppContext)
-
-  // ==========================================
-  // Modal State
-  // ==========================================
-
-  const [visible, setVisible] = useState(false)
+  const { franchiseInfo, franchiseUser } = useContext(FranchiseContext)
 
   return (
-    <>
-      <CHeader position="sticky" className="p-0" ref={headerRef}>
+    <CHeader position="sticky" className="p-0" style={{ background: '#0c3b73', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+      <CContainer
+        fluid
+        className="px-4 d-flex align-items-center justify-content-between"
+        style={{ minHeight: 52 }}
+      >
+        {/* LEFT — menu toggle + franchise code */}
+        <div className="d-flex align-items-center gap-3">
+          <CHeaderToggler
+            onClick={() => dispatch({ type: 'set', sidebarShow: !sidebarShow })}
+            style={{ marginInlineStart: '-14px', color: '#fff' }}
+          >
+            <CIcon icon={cilMenu} size="lg" style={{ color: '#fff' }} />
+          </CHeaderToggler>
 
-        <CContainer
-          fluid
-          className="border-bottom px-4 d-flex align-items-center justify-content-between"
-          style={{
-            backgroundColor: '#042954',
-            color: 'white',
-          }}
-        >
+          {franchiseInfo?.franchiseCode && (
+            <span style={{
+              fontSize: 11, color: 'rgba(255,255,255,0.6)',
+              fontFamily: 'monospace', background: 'rgba(255,255,255,0.1)',
+              padding: '2px 8px', borderRadius: 4,
+            }}>
+              {franchiseInfo.franchiseCode}
+            </span>
+          )}
+        </div>
 
-          {/* LEFT */}
-          <div className="d-flex align-items-center gap-3">
+        {/* RIGHT — franchise name + notifications + profile */}
+        <CHeaderNav className="d-flex align-items-center gap-3">
 
-            <CHeaderToggler
-              onClick={() =>
-                dispatch({
-                  type: 'set',
-                  sidebarShow: !sidebarShow,
-                })
-              }
-              style={{ marginInlineStart: '-14px' }}
-            >
-              <CIcon
-                icon={cilMenu}
-                style={{ color: 'white' }}
-                size="lg"
-              />
-            </CHeaderToggler>
-
-          </div>
-
-          {/* RIGHT */}
-          <CHeaderNav className="d-flex align-items-center gap-3">
-
-            {/* SESSION */}
-            <div className="d-flex flex-column text-white">
-              <span className="text-xs">Session</span>
-
-              <span className="fw-semibold text-warning">
-                {loading
-                  ? 'Loading...'
-                  : currentSession?.sessionName || 'N/A'}
+          {/* Franchise name badge */}
+          {franchiseInfo?.franchiseName && (
+            <div className="d-flex align-items-center gap-2" style={{ color: '#fff' }}>
+              <Store size={14} style={{ opacity: 0.7 }} />
+              <span style={{ fontSize: 12, fontWeight: 600, opacity: 0.9 }}>
+                {franchiseInfo.franchiseName}
               </span>
             </div>
+          )}
 
-            {/* DIVIDER */}
-            <span
-              style={{
-                height: '32px',
-                width: '1px',
-                backgroundColor: 'rgba(255,255,255,0.5)',
-              }}
-            />
+          <span style={{ height: 24, width: 1, background: 'rgba(255,255,255,0.25)' }} />
 
-            {/* SUPPORT BUTTON */}
-            <CButton
-              color="warning"
-              size="sm"
-              className="d-flex align-items-center gap-2 fw-semibold"
-              onClick={() => setVisible(true)}
-            >
-              <CIcon icon={cilHeadphones} />
-              Support
-            </CButton>
+          {/* Notifications */}
+          <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#fff', padding: '4px 6px', borderRadius: 6 }}>
+            <Bell size={17} />
+          </button>
 
-            {/* PROFILE */}
-            <AppHeaderDropdown />
+          {/* Profile dropdown */}
+          <AppHeaderDropdown />
 
-            {/* NOTIFICATION */}
-            <Notification />
-
-          </CHeaderNav>
-        </CContainer>
-      </CHeader>
-
-      {/* SUPPORT MODAL */}
-<SupportModal
-   visible={visible}
-   setVisible={setVisible}
-   tenantDetails={tenantDetails}
-   onSuccess={() => setUpdateStatus(prev => !prev)}
-/>
-    </>
+        </CHeaderNav>
+      </CContainer>
+    </CHeader>
   )
 }
 
