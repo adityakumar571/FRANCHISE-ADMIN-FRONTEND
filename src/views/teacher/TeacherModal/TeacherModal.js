@@ -576,7 +576,7 @@ const TeacherModal = ({ isModalOpen, setIsModalOpen, modalData, setUpdateStatus 
   const addExperience = () => {
     const temp = formData.experience[0]
     if (!temp.schoolName || !temp.designation) {
-      toast.error('School & Designation required')
+      toast.error('Organization & Designation required')
       return
     }
     setFormData((p) => {
@@ -1566,12 +1566,12 @@ const TeacherModal = ({ isModalOpen, setIsModalOpen, modalData, setUpdateStatus 
             <div className="card-body">
               <div className="row g-2 align-items-end mb-3">
                 <div className="col-md-3">
-                  <label className="form-label">School Name</label>
+                  <label className="form-label">Organization Name</label>
                   <input
                     className="form-control form-control-sm"
                     value={formData.experience[0]?.schoolName || ''}
                     onChange={(e) => handleExperienceChange(0, 'schoolName', e.target.value)}
-                    placeholder="Enter Schoolname"
+                    placeholder="Enter Organization name"
                   />
                 </div>
 
@@ -1640,7 +1640,7 @@ const TeacherModal = ({ isModalOpen, setIsModalOpen, modalData, setUpdateStatus 
                       <th style={{ width: 60 }} className="text-center">
                         Sr. No.
                       </th>
-                      <th className="text-center">School</th>
+                      <th className="text-center">Organization</th>
                       <th className="text-center">Designation</th>
                       <th className="text-center">From Date</th>
                       <th className="text-center">To Date</th>

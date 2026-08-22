@@ -274,7 +274,7 @@ const AiChatWidget = () => {
 
   const INITIAL_MSG = {
     role: 'assistant', ts: Date.now(),
-    content: `👋 Hey! Main **SchoolCloudX AI** hoon — ${schoolName || 'aapke school'} ka built-in assistant.\n\n**Kya kar sakta hoon:**\n• Individual student ki complete profile (naam batao)\n• Fees, attendance, results — koi bhi data\n• Software ka koi bhi sawal\n\nBejhijhak poochho! 😊`,
+    content: `👋 Hey! Main **Franchise AI** hoon — ${schoolName || 'aapki franchise'} ka built-in assistant.\n\n**Kya kar sakta hoon:**\n• Individual student ki complete profile (naam batao)\n• Fees, attendance, results — koi bhi data\n• Software ka koi bhi sawal\n\nBejhijhak poochho! 😊`,
   }
 
   const [isOpen,    setIsOpen]    = useState(false)
@@ -411,7 +411,7 @@ const AiChatWidget = () => {
 
           <div style={{ flex: 1 }}>
             <p style={{ margin: 0, fontSize: '13px', fontWeight: 600, color: T.textPrimary, lineHeight: '1.3' }}>
-              SchoolCloudX AI
+              Franchise AI
             </p>
             <p style={{ margin: 0, fontSize: '11px', color: T.textFaint, lineHeight: '1.3', marginTop: '1px' }}>
               Ask anything about your school
@@ -435,7 +435,7 @@ const AiChatWidget = () => {
       {isOpen && (
         <div
           ref={panelRef}
-          role="dialog" aria-label="SchoolCloudX AI" aria-modal="true"
+          role="dialog" aria-label="Franchise AI" aria-modal="true"
           className="ai-panel"
           style={{
             position: 'fixed', bottom: '16px', right: '16px', zIndex: 9999,
@@ -467,7 +467,7 @@ const AiChatWidget = () => {
               </div>
               <div>
                 <p style={{ margin: 0, fontSize: '14px', fontWeight: 600, color: T.textPrimary, lineHeight: '1.3' }}>
-                  SchoolCloudX AI
+                  Franchise AI
                 </p>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginTop: '2px' }}>
                   <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#4ade80', flexShrink: 0 }} />
@@ -724,7 +724,7 @@ const AiChatWidget = () => {
             </div>
 
             <p style={{ margin: '8px 0 0', textAlign: 'center', fontSize: '10px', color: T.textFaint }}>
-              Powered by SchoolCloudX AI · Enter to send, Shift+Enter for new line
+              Powered by Franchise AI · Enter to send, Shift+Enter for new line
             </p>
           </div>
         </div>

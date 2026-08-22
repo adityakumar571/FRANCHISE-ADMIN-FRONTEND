@@ -139,7 +139,7 @@ const SubjectMaster = () => {
               Subject Master
             </h1>
             <p className="text-xs sm:text-sm text-gray-500">
-              Manage Subject used across the school system
+              Manage Subject used across the franchise system
             </p>
           </div>
 

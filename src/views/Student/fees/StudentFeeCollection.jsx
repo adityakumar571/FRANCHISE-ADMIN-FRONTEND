@@ -45,7 +45,7 @@ const FeePaymentModal = ({ isModalOpen, setIsModalOpen, onPay, defaultAmount }) 
       title={
         <div className="text-center">
           <h2 className="text-lg font-semibold text-[#0c3b73]">
-            School Fee Payment
+            Franchise Fee Payment
           </h2>
           <p className="text-xs text-gray-500">
             Secure Online Payment
@@ -549,7 +549,7 @@ const isSeniorClass = currentClass?.isSenior || false
           currency={orderData.currency || 'INR'}
           amount={orderData.amount}
           razorpayKey={orderData.key}
-          schoolName={tenantDetails?.schoolName || tenantDetails?.name || 'School Fee Payment'}
+          schoolName={tenantDetails?.schoolName || tenantDetails?.name || 'Franchise Fee Payment'}
           setUpdateStatus={async (paymentResponse) => {
             try {
               await postRequest({

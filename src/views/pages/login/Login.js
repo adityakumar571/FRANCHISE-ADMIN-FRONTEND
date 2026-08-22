@@ -69,7 +69,7 @@ const Login = () => {
     e.preventDefault()
     setLoading(true)
     if (tenantDetail?.isActive === false) {
-      toast.error('Your school is not active. Please contact administrator.')
+      toast.error('Your franchise is not active. Please contact administrator.')
       setLoading(false)
       return
     } else

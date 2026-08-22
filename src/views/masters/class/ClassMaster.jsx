@@ -207,7 +207,7 @@ const ClassMaster = () => {
               Class Master
             </h1>
             <p className="text-xs sm:text-sm text-gray-500">
-              Manage classes used across the school system
+              Manage classes used across the franchise system
             </p>
           </div>
 

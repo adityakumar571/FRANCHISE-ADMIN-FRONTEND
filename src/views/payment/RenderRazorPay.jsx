@@ -30,7 +30,7 @@ const RenderRazorPay = ({ orderId, currency, amount, razorpayKey, schoolName, se
       key: razorpayKey || "rzp_test_RnspXBsJPOZzW1",
       amount,
       currency,
-      name: schoolName || "School Fee Payment",
+      name: schoolName || "Franchise Fee Payment",
       order_id: orderId,
       handler: (response) => {
 

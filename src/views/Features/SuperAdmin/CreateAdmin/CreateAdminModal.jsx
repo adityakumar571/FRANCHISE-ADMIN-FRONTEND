@@ -114,7 +114,7 @@ onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}          
               size="large"
               type="email"
               value={formData.email}
-              placeholder="admin@school.com"
+              placeholder="admin@franchise.com"
               onChange={(e) => setFormData((p) => ({ ...p, email: e.target.value }))}
             />
           </Col>

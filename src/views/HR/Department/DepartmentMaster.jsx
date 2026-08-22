@@ -88,7 +88,7 @@ const DepartmentMaster = () => {
               <Building2 className="text-[#e24028] w-5 h-5" />
               Department Master
             </h1>
-            <p className="text-xs sm:text-sm text-gray-500">Manage school departments for HR module</p>
+            <p className="text-xs sm:text-sm text-gray-500">Manage franchise departments for HR module</p>
           </div>
           <button onClick={() => { setSelectedItem(null); setIsModalOpen(true) }} className="bg-[#0c3b73] hover:bg-blue-700 text-white px-4 py-2 rounded flex items-center gap-2 text-sm">
             <Plus size={16} /> Add Department

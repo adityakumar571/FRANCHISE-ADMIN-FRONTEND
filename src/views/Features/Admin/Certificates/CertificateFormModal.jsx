@@ -331,7 +331,7 @@ const CertificateFormModal = ({ open, onClose, editData, defaultType = 'transfer
         )}
 
         {/* ── School / Certificate Header Info ── */}
-        <SectionHeader title="School & Certificate Info" />
+        <SectionHeader title="Franchise & Certificate Info" />
         <SectionBody>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             <Field label="Affiliation No.">

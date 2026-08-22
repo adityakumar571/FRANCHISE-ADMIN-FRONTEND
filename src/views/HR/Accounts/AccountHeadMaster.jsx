@@ -5,7 +5,7 @@ import toast from 'react-hot-toast'
 import { Empty } from 'antd'
 import Loader from '../../../components/Loading/Loader'
 
-const INCOME_EXAMPLES  = ['School Fee Collection', 'Admission Fee', 'Transport Fee', 'Examination Fee', 'Late Fee', 'Other Income']
+const INCOME_EXAMPLES  = ['Franchise Fee Collection', 'Admission Fee', 'Transport Fee', 'Examination Fee', 'Late Fee', 'Other Income']
 const EXPENSE_EXAMPLES = ['Staff Salary', 'Electricity Expense', 'Rent Expense', 'Transport Expense', 'Maintenance Expense', 'Stationery Expense', 'Internet Expense', 'Security Expense', 'Housekeeping Expense', 'Other Expense']
 
 const AccountHeadMaster = () => {
@@ -120,7 +120,7 @@ const AccountHeadMaster = () => {
               </div>
               <div>
                 <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">Account Name <span className="text-red-500">*</span></label>
-                <input type="text" value={form.accountName} onChange={set('accountName')} placeholder="e.g. School Fee Collection"
+                <input type="text" value={form.accountName} onChange={set('accountName')} placeholder="e.g. Franchise Fee Collection"
                   className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 bg-slate-50 font-medium text-slate-700 ${errors.accountName ? 'border-red-400' : 'border-slate-200'}`} />
                 {errors.accountName && <p className="text-red-500 text-xs mt-1 font-medium">{errors.accountName}</p>}
                 <div className="mt-2 flex flex-wrap gap-1.5">

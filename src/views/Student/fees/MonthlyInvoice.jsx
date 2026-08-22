@@ -66,7 +66,7 @@ const MonthlyInvoice = ({ student, monthLedger }) => {
               )}
               <div style={{ flex: 1, textAlign: 'center' }}>
                 <div style={{ fontSize: 20, fontWeight: 'bold', lineHeight: 1.2 }}>
-                  {tenantDetails?.schoolName || 'School Name'}
+                  {tenantDetails?.schoolName || 'Franchise Name'}
                 </div>
                 {tenantDetails?.schoolAddress && (
                   <div style={{ fontSize: 11, color: '#444', marginTop: 2 }}>

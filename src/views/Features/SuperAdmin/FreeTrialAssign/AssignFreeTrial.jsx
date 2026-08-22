@@ -106,7 +106,7 @@ const AssignModal = ({ school, packages, onClose, onSuccess }) => {
           <div>
             <div style={{ fontSize: 16, fontWeight: 700, color: '#111' }}>Assign Free Trial</div>
             <div style={{ fontSize: 12, color: '#6b7280', marginTop: 1 }}>
-              School: <b>{school.schoolName}</b>
+              Franchise: <b>{school.schoolName}</b>
             </div>
           </div>
         </div>
@@ -337,10 +337,10 @@ const AssignFreeTrial = () => {
           <div>
             <h1 className="text-lg font-semibold flex items-center gap-2">
               <Zap className="text-blue-600" size={20} />
-              Assign Free Trial to Schools
+              Assign Free Trial to Franchises
             </h1>
             <p className="text-sm text-gray-500 mt-0.5">
-              Select any school and assign a free trial package manually
+              Select any franchise and assign a free trial package manually
             </p>
           </div>
           <button
@@ -371,13 +371,13 @@ const AssignFreeTrial = () => {
       <div className="bg-white p-4 rounded border mb-4 shadow-sm">
         <h3 className="flex items-center gap-2 text-base font-semibold text-gray-700 mb-3">
           <Filter size={15} className="text-orange-500" />
-          Search Schools
+          Search Franchises
         </h3>
         <div className="flex flex-wrap gap-3 items-end">
           <div className="w-full sm:w-[280px]">
-            <label className="block text-xs font-medium mb-1 text-gray-500">School Name</label>
+            <label className="block text-xs font-medium mb-1 text-gray-500">Franchise Name</label>
             <Input
-              placeholder="Search by school name..."
+              placeholder="Search by franchise name..."
               prefix={<Search size={14} className="text-gray-400" />}
               value={draftSearch}
               onChange={(e) => setDraftSearch(e.target.value)}
@@ -404,7 +404,7 @@ const AssignFreeTrial = () => {
       {/* ── Summary bar ── */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
         {[
-          { icon: Building2, label: 'Total Schools', value: total, color: '#185FA5' },
+          { icon: Building2, label: 'Total Franchises', value: total, color: '#185FA5' },
           { icon: Zap,       label: 'Trial Packages', value: packages.length, color: '#2563eb' },
         ].map(({ icon: Icon, label, value, color }) => (
           <div key={label} style={{
@@ -431,14 +431,14 @@ const AssignFreeTrial = () => {
         {loading ? (
           <div className="p-10 text-center">
             <Loader />
-            <p className="mt-2 text-gray-500">Loading schools...</p>
+            <p className="mt-2 text-gray-500">Loading franchises...</p>
           </div>
         ) : (
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
                 <th className="px-3 py-3 text-center w-12">Sr.</th>
-                <th className="px-3 py-3 text-left">School Name</th>
+                <th className="px-3 py-3 text-left">Franchise Name</th>
                 <th className="px-3 py-3 text-left">Subdomain</th>
                 <th className="px-3 py-3 text-center">Status</th>
                 <th className="px-3 py-3 text-center">Subscription</th>
@@ -449,7 +449,7 @@ const AssignFreeTrial = () => {
               {schools.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-10 text-center text-gray-400 italic">
-                    No schools found
+                    No franchises found
                   </td>
                 </tr>
               ) : (
@@ -512,7 +512,7 @@ const AssignFreeTrial = () => {
                         }}
                         title={
                           !school.isActive
-                            ? 'School is inactive'
+                            ? 'Franchise is inactive'
                             : packages.length === 0
                             ? 'No packages available'
                             : 'Assign free trial'
@@ -533,7 +533,7 @@ const AssignFreeTrial = () => {
         {!loading && schools.length > 0 && (
           <div className="px-6 py-4 flex items-center justify-between bg-gray-50/50">
             <div className="text-xs text-gray-500">
-              Showing {(page - 1) * limit + 1}–{Math.min(page * limit, total)} of {total} schools
+              Showing {(page - 1) * limit + 1}–{Math.min(page * limit, total)} of {total} franchises
             </div>
             <Pagination
               current={page}

@@ -181,7 +181,7 @@ const HRLogin = () => {
 
           {/* Footer */}
           <div className="px-8 py-3 bg-gray-50 border-t text-center">
-            <p className="text-xs text-gray-400">SchoolCloudX &mdash; HR Module</p>
+            <p className="text-xs text-gray-400">Franchise Management System &mdash; HR Module</p>
           </div>
         </div>
 

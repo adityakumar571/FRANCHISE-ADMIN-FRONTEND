@@ -312,7 +312,7 @@ const FeeReports = () => {
 
     const today = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })
     const msg =
-      `*${tenantDetails?.schoolName || 'School'}*\n` +
+      `*${tenantDetails?.schoolName || 'Franchise'}*\n` +
       `--------------------------------\n*FEE PAYMENT RECEIPT*\n--------------------------------\n\n` +
       `Dear Parent,\n\nFee payment received for your ward.\n\n` +
       `*Student    :* ${studentName}\n*Amount     :* Rs. ${item.amountPaid}\n` +

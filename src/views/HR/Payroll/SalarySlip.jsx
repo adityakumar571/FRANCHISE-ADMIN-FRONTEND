@@ -180,7 +180,7 @@ const SalarySlip = () => {
               }
               <div>
                 <div style={{ fontWeight:'800', fontSize:'16px', color:'#1a1a1a', lineHeight:'1.2' }}>
-                  {slip.schoolName || 'School'}
+                  {slip.schoolName || 'Franchise'}
                 </div>
                 <div style={{ fontSize:'10px', color:'#888', marginTop:'3px', letterSpacing:'0.3px' }}>
                   HR &amp; Payroll Department
@@ -481,7 +481,7 @@ const SalarySlip = () => {
               Confidential — For authorized personnel only. Do not share.
             </span>
             <span style={{ fontSize:'9px', color:'#888' }}>
-              SchoolCloudX HR &nbsp;·&nbsp; {slip.salaryMonth}
+              Franchise Management System HR &nbsp;·&nbsp; {slip.salaryMonth}
             </span>
           </div>
 

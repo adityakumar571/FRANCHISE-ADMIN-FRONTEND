@@ -1,124 +1,37 @@
 /* eslint-disable prettier/prettier */
-/**
- * routes.js — Franchise Portal Routes
- *
- * Only franchise-domain routes.
- * All school-specific routes removed.
- * These are rendered inside DefaultLayout → AppContent.
- *
- * Note: /franchise/* routes are handled separately in App.js
- * via FranchiseLayout. This file handles the legacy DefaultLayout
- * shell which now redirects to /franchise/dashboard.
- */
 import FranchiseDashboard   from './views/franchise/Dashboard/FranchiseDashboard'
-import FranchisePlaceholder from './views/franchise/Placeholder/FranchisePlaceholder'
+import Branches             from './views/franchise/Branches/Branches'
+import Customers            from './views/franchise/Customers/Customers'
+import Products             from './views/franchise/Products/Products'
+import Inventory            from './views/franchise/Inventory/Inventory'
+import Orders               from './views/franchise/Orders/Orders'
+import Staff                from './views/franchise/Staff/Staff'
+import Billing              from './views/franchise/Billing/Billing'
+import Attendance           from './views/franchise/Attendance/Attendance'
+import ActivityLogs         from './views/franchise/ActivityLogs/ActivityLogs'
+import Settings             from './views/franchise/Settings/Settings'
+import SalesReport          from './views/franchise/Reports/SalesReport'
+import PurchaseReport       from './views/franchise/Reports/PurchaseReport'
+import StockReport          from './views/franchise/Reports/StockReport'
+import FinancialReport      from './views/franchise/Reports/FinancialReport'
 
 const routes = [
-  /* Dashboard */
-  {
-    path: '/dashboard',
-    element: FranchiseDashboard,
-    roles: ['SuperAdmin', 'Admin'],
-  },
-
-  /* Branches */
-  {
-    path: '/franchise/branches',
-    element: () => <FranchisePlaceholder title="Branches / Outlets" icon="🏪" />,
-    roles: ['SuperAdmin', 'Admin'],
-  },
-
-  /* Customers */
-  {
-    path: '/franchise/customers',
-    element: () => <FranchisePlaceholder title="Customers" icon="👥" />,
-    roles: ['SuperAdmin', 'Admin'],
-  },
-
-  /* Products */
-  {
-    path: '/franchise/products',
-    element: () => <FranchisePlaceholder title="Products" icon="📦" />,
-    roles: ['SuperAdmin', 'Admin'],
-  },
-
-  /* Inventory */
-  {
-    path: '/franchise/inventory',
-    element: () => <FranchisePlaceholder title="Inventory" icon="🗂️" />,
-    roles: ['SuperAdmin', 'Admin'],
-  },
-
-  /* Orders */
-  {
-    path: '/franchise/orders',
-    element: () => <FranchisePlaceholder title="Orders" icon="🛒" />,
-    roles: ['SuperAdmin', 'Admin'],
-  },
-
-  /* Billing */
-  {
-    path: '/franchise/billing',
-    element: () => <FranchisePlaceholder title="Billing & Invoices" icon="💳" />,
-    roles: ['SuperAdmin', 'Admin'],
-  },
-
-  /* Staff */
-  {
-    path: '/franchise/staff',
-    element: () => <FranchisePlaceholder title="Staff Management" icon="👤" />,
-    roles: ['SuperAdmin', 'Admin'],
-  },
-
-  /* Reports */
-  {
-    path: '/franchise/reports/sales',
-    element: () => <FranchisePlaceholder title="Sales Report" icon="📈" />,
-    roles: ['SuperAdmin', 'Admin'],
-  },
-  {
-    path: '/franchise/reports/purchase',
-    element: () => <FranchisePlaceholder title="Purchase Report" icon="📊" />,
-    roles: ['SuperAdmin', 'Admin'],
-  },
-  {
-    path: '/franchise/reports/stock',
-    element: () => <FranchisePlaceholder title="Stock Report" icon="📉" />,
-    roles: ['SuperAdmin', 'Admin'],
-  },
-  {
-    path: '/franchise/reports/financial',
-    element: () => <FranchisePlaceholder title="Financial Report" icon="💰" />,
-    roles: ['SuperAdmin', 'Admin'],
-  },
-
-  /* Attendance */
-  {
-    path: '/franchise/attendance',
-    element: () => <FranchisePlaceholder title="Attendance" icon="📅" />,
-    roles: ['SuperAdmin', 'Admin'],
-  },
-
-  /* Activity Logs */
-  {
-    path: '/franchise/activity',
-    element: () => <FranchisePlaceholder title="Activity Logs" icon="🔍" />,
-    roles: ['SuperAdmin', 'Admin'],
-  },
-
-  /* Settings */
-  {
-    path: '/franchise/settings',
-    element: () => <FranchisePlaceholder title="Settings" icon="⚙️" />,
-    roles: ['SuperAdmin', 'Admin'],
-  },
-
-  /* Support */
-  {
-    path: '/franchise/support',
-    element: () => <FranchisePlaceholder title="Help & Support" icon="🎧" />,
-    roles: ['SuperAdmin', 'Admin'],
-  },
+  { path: '/dashboard',                  element: FranchiseDashboard, roles: ['SuperAdmin', 'Admin'] },
+  { path: '/franchise/dashboard',        element: FranchiseDashboard, roles: ['SuperAdmin', 'Admin'] },
+  { path: '/franchise/branches',         element: Branches,           roles: ['SuperAdmin', 'Admin'] },
+  { path: '/franchise/customers',        element: Customers,          roles: ['SuperAdmin', 'Admin'] },
+  { path: '/franchise/products',         element: Products,           roles: ['SuperAdmin', 'Admin'] },
+  { path: '/franchise/inventory',        element: Inventory,          roles: ['SuperAdmin', 'Admin'] },
+  { path: '/franchise/orders',           element: Orders,             roles: ['SuperAdmin', 'Admin'] },
+  { path: '/franchise/billing',          element: Billing,            roles: ['SuperAdmin', 'Admin'] },
+  { path: '/franchise/staff',            element: Staff,              roles: ['SuperAdmin', 'Admin'] },
+  { path: '/franchise/reports/sales',    element: SalesReport,        roles: ['SuperAdmin', 'Admin'] },
+  { path: '/franchise/reports/purchase', element: PurchaseReport,     roles: ['SuperAdmin', 'Admin'] },
+  { path: '/franchise/reports/stock',    element: StockReport,        roles: ['SuperAdmin', 'Admin'] },
+  { path: '/franchise/reports/financial',element: FinancialReport,    roles: ['SuperAdmin', 'Admin'] },
+  { path: '/franchise/attendance',       element: Attendance,         roles: ['SuperAdmin', 'Admin'] },
+  { path: '/franchise/activity',         element: ActivityLogs,       roles: ['SuperAdmin', 'Admin'] },
+  { path: '/franchise/settings',         element: Settings,           roles: ['SuperAdmin', 'Admin'] },
 ]
 
 export default routes

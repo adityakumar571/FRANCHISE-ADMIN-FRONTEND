@@ -56,7 +56,7 @@ const AdmissionForm = () => {
             </div>
             <div>
               <h1 className="text-lg font-bold">Student Admission Form</h1>
-              <p className="text-indigo-100 text-sm mt-1">School Management System - New Enrollment</p>
+              <p className="text-indigo-100 text-sm mt-1">Franchise Management System - New Enrollment</p>
             </div>
           </div>
         </div>

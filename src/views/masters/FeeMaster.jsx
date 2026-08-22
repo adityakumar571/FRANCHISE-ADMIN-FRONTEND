@@ -46,7 +46,7 @@ const FeeMaster = () => {
             Fee Master
           </h1>
           <p className="text-sm text-gray-500">
-            Manage school fee structure
+            Manage franchise fee structure
           </p>
         </div>
 

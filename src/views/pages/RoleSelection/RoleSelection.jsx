@@ -19,7 +19,7 @@ const RoleSelection = ({ onRoleSelect }) => {
       icon: FaUserShield,
       color: '#EF4444',
       gradient: 'linear-gradient(135deg, #EF4444 0%, #DC2626 100%)',
-      description: 'Manage school operations and staff'
+      description: 'Manage franchise operations and staff'
     },
     {
       id: 'Teacher',
@@ -67,7 +67,7 @@ const RoleSelection = ({ onRoleSelect }) => {
               <div className="card-body p-5">
                 <div className="text-center mb-5">
                   <h2 className="fw-bold mb-2" style={{ color: '#F1F5F9', fontSize: '2rem' }}>
-                    Welcome to School Management System
+                    Welcome to Franchise Management System
                   </h2>
                   <p className="text-muted mb-0" style={{ color: '#94A3B8', fontSize: '1.1rem' }}>
                     Please select your role to continue
