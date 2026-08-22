@@ -1,0 +1,163 @@
+/* eslint-disable prettier/prettier */
+import { useState } from 'react'
+import {
+  Bell, AlertTriangle, Package, ShoppingCart, IndianRupee,
+  Users, Settings, CheckCircle, Trash2, MarkAsUnread,
+  Clock, Filter, RefreshCw
+} from 'lucide-react'
+
+const ALL_NOTIFS = [
+  { id: 1,  type: 'low_stock',  title: 'Low Stock Alert',           message: 'Paracetamol 650mg is running low — only 15 strips left.', time: '10 min ago', read: false, icon: Package,      color: '#dc2626', bg: '#fff1f2' },
+  { id: 2,  type: 'low_stock',  title: 'Low Stock Alert',           message: 'Azithromycin 500mg stock critical — 8 strips remaining.', time: '25 min ago', read: false, icon: Package,      color: '#dc2626', bg: '#fff1f2' },
+  { id: 3,  type: 'expiry',     title: 'Expiry Alert',              message: 'Augmentin 625 will expire in 25 days. Review and return.', time: '1 hr ago',  read: false, icon: AlertTriangle, color: '#d97706', bg: '#fffbeb' },
+  { id: 4,  type: 'order',      title: 'New Order Received',        message: 'Online order ORD-250520-015 placed by Ankit Verma.', time: '1 hr ago',  read: false, icon: ShoppingCart,  color: '#7c3aed', bg: '#f5f3ff' },
+  { id: 5,  type: 'payment',    title: 'Payment Received',          message: 'INV-2025-1523 — ₹2,450 received via UPI from Rahul Sharma.', time: '2 hr ago',  read: true,  icon: IndianRupee,   color: '#16a34a', bg: '#f0fdf4' },
+  { id: 6,  type: 'expiry',     title: 'Expiry Alert',              message: 'Monocef 200 expiring in 32 days. Take necessary action.', time: '3 hr ago',  read: true,  icon: AlertTriangle, color: '#d97706', bg: '#fffbeb' },
+  { id: 7,  type: 'order',      title: 'Order Delivered',           message: 'ORD-250519-012 marked as delivered successfully.',        time: '4 hr ago',  read: true,  icon: ShoppingCart,  color: '#16a34a', bg: '#f0fdf4' },
+  { id: 8,  type: 'system',     title: 'System Update',             message: 'PharmaNexus ERP updated to v2.5.1 successfully.',        time: '6 hr ago',  read: true,  icon: Settings,      color: '#6b7280', bg: '#f3f4f6' },
+  { id: 9,  type: 'customer',   title: 'New Customer Registered',   message: 'Ramesh Gupta registered as a new customer.',             time: 'Yesterday', read: true,  icon: Users,         color: '#0891b2', bg: '#f0f9ff' },
+  { id: 10, type: 'payment',    title: 'Payment Due Reminder',      message: 'INV-2025-1519 — ₹2,250 due from Neha Singh.',            time: 'Yesterday', read: true,  icon: IndianRupee,   color: '#dc2626', bg: '#fff1f2' },
+  { id: 11, type: 'low_stock',  title: 'Stock Replenished',         message: 'Dolo 650 stock updated — 200 strips added by Amit Kumar.', time: '2 days ago', read: true, icon: Package,     color: '#16a34a', bg: '#f0fdf4' },
+  { id: 12, type: 'system',     title: 'Auto Backup Completed',     message: 'Daily backup completed successfully at 11:45 PM.',       time: '2 days ago', read: true,  icon: CheckCircle,   color: '#16a34a', bg: '#f0fdf4' },
+]
+
+const TYPE_LABELS = {
+  all:       'All',
+  low_stock: 'Low Stock',
+  expiry:    'Expiry',
+  order:     'Orders',
+  payment:   'Payments',
+  customer:  'Customers',
+  system:    'System',
+}
+
+export default function Notifications() {
+  const [notifs, setNotifs]       = useState(ALL_NOTIFS)
+  const [activeType, setActiveType] = useState('all')
+
+  const unread = notifs.filter(n => !n.read).length
+
+  const filtered = notifs.filter(n => activeType === 'all' || n.type === activeType)
+
+  const markAllRead = () => setNotifs(n => n.map(x => ({ ...x, read: true })))
+  const markRead    = (id) => setNotifs(n => n.map(x => x.id === id ? { ...x, read: true } : x))
+  const deleteNotif = (id) => setNotifs(n => n.filter(x => x.id !== id))
+  const clearAll    = () => setNotifs([])
+
+  return (
+    <div style={{ fontFamily: 'Inter, sans-serif', display: 'flex', flexDirection: 'column', gap: 18 }}>
+
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+        <div>
+          <h1 style={{ fontSize: 18, fontWeight: 700, color: '#111827', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Bell size={20} color="#0c3b73" />
+            Notifications
+            {unread > 0 && (
+              <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: '#dc2626', color: '#fff' }}>{unread}</span>
+            )}
+          </h1>
+          <p style={{ fontSize: 12, color: '#9ca3af', margin: '2px 0 0' }}>Stay updated with all important alerts and activities</p>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {unread > 0 && (
+            <button onClick={markAllRead} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', color: '#0c3b73', border: '1px solid #e5e7eb', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+              <CheckCircle size={13} /> Mark All Read
+            </button>
+          )}
+          {notifs.length > 0 && (
+            <button onClick={clearAll} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff1f2', color: '#dc2626', border: '1px solid #fecdd3', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+              <Trash2 size={13} /> Clear All
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Summary cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12 }}>
+        {[
+          { label: 'Total',      value: notifs.length,                                        color: '#0c3b73' },
+          { label: 'Unread',     value: notifs.filter(n => !n.read).length,                   color: '#dc2626' },
+          { label: 'Low Stock',  value: notifs.filter(n => n.type === 'low_stock').length,    color: '#d97706' },
+          { label: 'Expiry',     value: notifs.filter(n => n.type === 'expiry').length,       color: '#ea580c' },
+          { label: 'Orders',     value: notifs.filter(n => n.type === 'order').length,        color: '#7c3aed' },
+          { label: 'Payments',   value: notifs.filter(n => n.type === 'payment').length,      color: '#16a34a' },
+        ].map(c => (
+          <div key={c.label} style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10, padding: '12px 14px' }}>
+            <p style={{ fontSize: 10, color: '#6b7280', margin: '0 0 3px', textTransform: 'uppercase', fontWeight: 600 }}>{c.label}</p>
+            <p style={{ fontSize: 20, fontWeight: 700, color: c.color, margin: 0 }}>{c.value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Filter tabs */}
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        {Object.entries(TYPE_LABELS).map(([key, label]) => (
+          <button key={key} onClick={() => setActiveType(key)}
+            style={{ padding: '6px 14px', borderRadius: 20, border: activeType === key ? 'none' : '1px solid #e5e7eb', background: activeType === key ? '#0c3b73' : '#fff', color: activeType === key ? '#fff' : '#374151', fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s' }}>
+            {label}
+            {key !== 'all' && (
+              <span style={{ marginLeft: 5, fontSize: 10, opacity: 0.85 }}>
+                ({notifs.filter(n => n.type === key).length})
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* Notification list */}
+      <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
+        {filtered.length === 0 ? (
+          <div style={{ padding: '60px 0', textAlign: 'center' }}>
+            <Bell size={40} color="#e5e7eb" style={{ marginBottom: 12 }} />
+            <p style={{ fontSize: 15, fontWeight: 600, color: '#9ca3af', margin: 0 }}>No notifications</p>
+            <p style={{ fontSize: 12, color: '#d1d5db', margin: '4px 0 0' }}>You're all caught up!</p>
+          </div>
+        ) : (
+          filtered.map((n, i) => {
+            const Icon = n.icon
+            return (
+              <div key={n.id}
+                style={{ display: 'flex', alignItems: 'flex-start', gap: 14, padding: '14px 18px', borderBottom: i < filtered.length - 1 ? '1px solid #f3f4f6' : 'none', background: n.read ? '#fff' : '#f8f9ff', transition: 'background 0.15s' }}
+                onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
+                onMouseLeave={e => e.currentTarget.style.background = n.read ? '#fff' : '#f8f9ff'}>
+
+                {/* Icon */}
+                <div style={{ width: 40, height: 40, borderRadius: 10, background: n.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 2 }}>
+                  <Icon size={17} color={n.color} />
+                </div>
+
+                {/* Content */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+                    <span style={{ fontSize: 13, fontWeight: n.read ? 500 : 700, color: '#111827' }}>{n.title}</span>
+                    {!n.read && <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#0c3b73', display: 'inline-block', flexShrink: 0 }} />}
+                  </div>
+                  <p style={{ fontSize: 12, color: '#6b7280', margin: '0 0 5px', lineHeight: 1.5 }}>{n.message}</p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <Clock size={11} color="#9ca3af" />
+                    <span style={{ fontSize: 11, color: '#9ca3af' }}>{n.time}</span>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                  {!n.read && (
+                    <button title="Mark as read" onClick={() => markRead(n.id)}
+                      style={{ background: '#e0e7ff', border: 'none', borderRadius: 6, padding: '5px 7px', cursor: 'pointer', color: '#0c3b73' }}>
+                      <CheckCircle size={13} />
+                    </button>
+                  )}
+                  <button title="Delete" onClick={() => deleteNotif(n.id)}
+                    style={{ background: '#fff1f2', border: 'none', borderRadius: 6, padding: '5px 7px', cursor: 'pointer', color: '#dc2626' }}>
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              </div>
+            )
+          })
+        )}
+      </div>
+    </div>
+  )
+}
