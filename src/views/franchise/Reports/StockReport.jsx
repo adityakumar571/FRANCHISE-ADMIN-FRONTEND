@@ -1,117 +1,115 @@
 /* eslint-disable prettier/prettier */
+/**
+ * StockReport — Current Stock & Movement Report
+ */
 import { useState } from 'react'
-import { Package, Search, AlertTriangle, Download } from 'lucide-react'
+import { FileText, Download, Package, AlertTriangle, TrendingDown, CheckCircle2 } from 'lucide-react'
+import PageHeader from '../components/PageHeader'
+import DataTable from '../components/DataTable'
 
-const MOCK = [
-  { name: 'Paracetamol 650mg',    category: 'Tablets',    company: 'GSK',      mrp: 15.00, stock: 1250, lowStock: false, expiry: '2026-12-31', value: 18750 },
-  { name: 'Amoxicillin 500mg',    category: 'Capsules',   company: 'Cipla',    mrp: 25.50, stock: 22,   lowStock: true,  expiry: '2025-08-15', value: 561 },
-  { name: 'Azithromycin 500mg',   category: 'Tablets',    company: 'Alembic',  mrp: 32.00, stock: 18,   lowStock: true,  expiry: '2025-10-20', value: 576 },
-  { name: 'Pantoprazole 40mg',    category: 'Tablets',    company: 'GSK',      mrp: 20.00, stock: 12,   lowStock: true,  expiry: '2025-07-10', value: 240 },
-  { name: 'Cetrizine 10mg',       category: 'Tablets',    company: 'Cipla',    mrp: 8.50,  stock: 650,  lowStock: false, expiry: '2026-09-30', value: 5525 },
-  { name: 'Dolo 650 Tablet',      category: 'Tablets',    company: 'Micro Labs',mrp: 16.00, stock: 920,  lowStock: false, expiry: '2026-06-15', value: 14720 },
-  { name: 'Vitamin D3 60K',       category: 'Capsules',   company: 'Lupin',    mrp: 85.00, stock: 200,  lowStock: false, expiry: '2026-03-31', value: 17000 },
-  { name: 'Metformin 500mg',      category: 'Tablets',    company: 'Sun Pharma',mrp: 12.00, stock: 8,    lowStock: true,  expiry: '2025-09-20', value: 96 },
-  { name: 'Atorvastatin 10mg',    category: 'Tablets',    company: 'Pfizer',   mrp: 22.00, stock: 340,  lowStock: false, expiry: '2026-11-15', value: 7480 },
-  { name: 'ORS Powder',           category: 'Powder',     company: 'Electral', mrp: 45.00, stock: 150,  lowStock: false, expiry: '2026-08-01', value: 6750 },
+const MOCK_STOCK = [
+  { code: 'MED-001', name: 'Paracetamol 650mg', brand: 'Calpol', category: 'Analgesic', rack: 'A01-S2', qty: 342, unit: 'Strip', mrp: '₹28', value: '₹9,576', reorder: 50, status: 'Adequate' },
+  { code: 'MED-002', name: 'Amoxicillin 500mg', brand: 'Novamox', category: 'Antibiotic', rack: 'B02-S1', qty: 38, unit: 'Strip', mrp: '₹65', value: '₹2,470', reorder: 50, status: 'Low' },
+  { code: 'MED-003', name: 'Metformin 500mg', brand: 'Glycomet', category: 'Antidiabetic', rack: 'C01-S3', qty: 120, unit: 'Strip', mrp: '₹42', value: '₹5,040', reorder: 30, status: 'Adequate' },
+  { code: 'MED-004', name: 'Atorvastatin 10mg', brand: 'Storvas', category: 'Cardiac', rack: 'D03-S1', qty: 18, unit: 'Strip', mrp: '₹88', value: '₹1,584', reorder: 30, status: 'Low' },
+  { code: 'MED-005', name: 'Omeprazole 20mg', brand: 'Omez', category: 'Antacid', rack: 'A03-S1', qty: 0, unit: 'Strip', mrp: '₹38', value: '₹0', reorder: 20, status: 'Out of Stock' },
+  { code: 'MED-006', name: 'Cetirizine 10mg', brand: 'Cetzine', category: 'Antihistamine', rack: 'B01-S2', qty: 256, unit: 'Strip', mrp: '₹22', value: '₹5,632', reorder: 40, status: 'Adequate' },
+  { code: 'MED-007', name: 'Azithromycin 500mg', brand: 'Azithral', category: 'Antibiotic', rack: 'B02-S3', qty: 72, unit: 'Strip', mrp: '₹125', value: '₹9,000', reorder: 20, status: 'Adequate' },
 ]
 
-const Th = ({ c }) => <th style={{ padding: '10px 12px', fontSize: 11, color: '#6b7280', fontWeight: 700, textTransform: 'uppercase', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', textAlign: 'left', whiteSpace: 'nowrap' }}>{c}</th>
-const Td = ({ children, style = {} }) => <td style={{ padding: '10px 12px', fontSize: 13, color: '#374151', borderBottom: '1px solid #f3f4f6', ...style }}>{children}</td>
+const statusConfig = {
+  Adequate: { color: '#16a34a', bg: '#dcfce7' },
+  Low: { color: '#d97706', bg: '#fef3c7' },
+  'Out of Stock': { color: '#dc2626', bg: '#fee2e2' },
+}
 
-export default function StockReport() {
-  const [search, setSearch]       = useState('')
-  const [category, setCategory]   = useState('All')
-  const [lowOnly, setLowOnly]     = useState(false)
+const StockReport = () => {
+  const [filter, setFilter] = useState('All')
+  const [search, setSearch] = useState('')
 
-  const categories = ['All', ...new Set(MOCK.map(m => m.category))]
-
-  const filtered = MOCK.filter(m =>
-    (search === '' || m.name.toLowerCase().includes(search.toLowerCase()) || m.company.toLowerCase().includes(search.toLowerCase())) &&
-    (category === 'All' || m.category === category) &&
-    (!lowOnly || m.lowStock)
+  const filtered = MOCK_STOCK.filter(m =>
+    (filter === 'All' || m.status === filter) &&
+    m.name.toLowerCase().includes(search.toLowerCase())
   )
 
-  const totalItems  = MOCK.length
-  const totalValue  = MOCK.reduce((a, m) => a + m.value, 0)
-  const lowStockCt  = MOCK.filter(m => m.lowStock).length
-  const totalQty    = MOCK.reduce((a, m) => a + m.stock, 0)
+  const summary = [
+    { label: 'Total SKUs', value: MOCK_STOCK.length, color: '#0c3b73', icon: Package },
+    { label: 'Adequate', value: MOCK_STOCK.filter(m => m.status === 'Adequate').length, color: '#16a34a', icon: CheckCircle2 },
+    { label: 'Low Stock', value: MOCK_STOCK.filter(m => m.status === 'Low').length, color: '#d97706', icon: AlertTriangle },
+    { label: 'Out of Stock', value: MOCK_STOCK.filter(m => m.status === 'Out of Stock').length, color: '#dc2626', icon: TrendingDown },
+  ]
+
+  const columns = [
+    { title: 'Code', key: 'code', render: v => <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#6b7280' }}>{v}</span> },
+    { title: 'Medicine', key: 'name', render: (v, row) => (
+      <div>
+        <p style={{ margin: 0, fontWeight: 600, fontSize: 13, color: '#111827' }}>{v}</p>
+        <p style={{ margin: 0, fontSize: 11, color: '#9ca3af' }}>{row.brand}</p>
+      </div>
+    )},
+    { title: 'Category', key: 'category', render: v => <span style={{ fontSize: 12, color: '#6b7280' }}>{v}</span> },
+    { title: 'Rack', key: 'rack', render: v => <span style={{ fontFamily: 'monospace', fontSize: 12, color: '#7c3aed', fontWeight: 600 }}>{v}</span> },
+    { title: 'Qty', key: 'qty', align: 'center', render: (v, row) => (
+      <span style={{ fontWeight: 700, color: v === 0 ? '#dc2626' : v <= row.reorder ? '#d97706' : '#111827' }}>{v}</span>
+    )},
+    { title: 'Unit', key: 'unit', render: v => <span style={{ fontSize: 12, color: '#9ca3af' }}>{v}</span> },
+    { title: 'MRP', key: 'mrp', align: 'right' },
+    { title: 'Stock Value', key: 'value', align: 'right', render: v => <strong style={{ color: '#0c3b73' }}>{v}</strong> },
+    { title: 'Reorder', key: 'reorder', align: 'center', render: v => <span style={{ fontSize: 12, color: '#9ca3af' }}>{v}</span> },
+    {
+      title: 'Status', key: 'status', render: v => {
+        const cfg = statusConfig[v] || { color: '#9ca3af', bg: '#f3f4f6' }
+        return <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600, background: cfg.bg, color: cfg.color }}>{v}</span>
+      }
+    },
+  ]
 
   return (
-    <div style={{ fontFamily: 'Inter, sans-serif', display: 'flex', flexDirection: 'column', gap: 18 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
-        <div>
-          <h1 style={{ fontSize: 18, fontWeight: 700, color: '#111827', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Package size={20} color="#0c3b73" /> Stock Report
-          </h1>
-          <p style={{ fontSize: 12, color: '#9ca3af', margin: '2px 0 0' }}>Inventory stock summary</p>
-        </div>
-        <button style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#16a34a', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <PageHeader icon={FileText} title="Stock Report" subtitle="Current stock levels, rack locations and reorder status" color="#0891b2">
+        <button style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
           <Download size={14} /> Export
         </button>
-      </div>
+      </PageHeader>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 12 }}>
-        {[
-          { label: 'Total Items',   value: String(totalItems),                        color: '#0c3b73' },
-          { label: 'Total Qty',     value: totalQty.toLocaleString('en-IN'),           color: '#7c3aed' },
-          { label: 'Total Value',   value: `₹${totalValue.toLocaleString('en-IN')}`,  color: '#16a34a' },
-          { label: 'Low Stock',     value: String(lowStockCt),                         color: '#dc2626' },
-        ].map(c => (
-          <div key={c.label} style={{ background: '#fff', borderRadius: 10, padding: '14px 16px', border: '1px solid #e5e7eb' }}>
-            <p style={{ fontSize: 11, color: '#6b7280', margin: '0 0 4px', textTransform: 'uppercase', fontWeight: 600 }}>{c.label}</p>
-            <p style={{ fontSize: 18, fontWeight: 700, color: c.color, margin: 0 }}>{c.value}</p>
+      {/* Summary Cards */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+        {summary.map(s => (
+          <div key={s.label} style={{ flex: '1 1 140px', background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 9, background: s.color + '18', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <s.icon size={17} color={s.color} />
+            </div>
+            <div>
+              <p style={{ margin: 0, fontSize: 11, color: '#9ca3af', fontWeight: 500 }}>{s.label}</p>
+              <p style={{ margin: '2px 0 0', fontSize: 20, fontWeight: 700, color: s.color }}>{s.value}</p>
+            </div>
           </div>
         ))}
       </div>
 
-      <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10, padding: '12px 16px', display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-        <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
-          <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by medicine or company..." style={{ width: '100%', padding: '8px 10px 8px 30px', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 13, outline: 'none', background: '#f9fafb' }} />
+      {/* Filters */}
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Search medicine…"
+          style={{ flex: 1, minWidth: 200, padding: '9px 12px', borderRadius: 8, border: '1px solid #d1d5db', fontSize: 13, outline: 'none' }}
+        />
+        <div style={{ display: 'flex', gap: 6 }}>
+          {['All', 'Adequate', 'Low', 'Out of Stock'].map(s => (
+            <button key={s} onClick={() => setFilter(s)} style={{
+              padding: '7px 14px', borderRadius: 8, border: '1px solid', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+              borderColor: filter === s ? '#0c3b73' : '#e5e7eb',
+              background: filter === s ? '#0c3b73' : '#fff',
+              color: filter === s ? '#fff' : '#374151',
+            }}>{s}</button>
+          ))}
         </div>
-        <select value={category} onChange={e => setCategory(e.target.value)} style={{ padding: '8px 12px', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 13, background: '#f9fafb', cursor: 'pointer' }}>
-          {categories.map(c => <option key={c}>{c}</option>)}
-        </select>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer', fontWeight: 500, color: lowOnly ? '#dc2626' : '#374151' }}>
-          <input type="checkbox" checked={lowOnly} onChange={e => setLowOnly(e.target.checked)} style={{ cursor: 'pointer' }} />
-          <AlertTriangle size={13} color={lowOnly ? '#dc2626' : '#9ca3af'} /> Low Stock Only
-        </label>
       </div>
 
-      <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10, overflow: 'hidden' }}>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead><tr>{['Medicine Name', 'Category', 'Company', 'MRP (₹)', 'Stock Qty', 'Expiry', 'Stock Value (₹)', 'Status'].map(h => <Th key={h} c={h} />)}</tr></thead>
-            <tbody>
-              {filtered.length === 0
-                ? <tr><td colSpan={8} style={{ padding: 40, textAlign: 'center', color: '#9ca3af' }}>No records found</td></tr>
-                : filtered.map((m, i) => (
-                  <tr key={i} onMouseEnter={e => e.currentTarget.style.background = '#fafafa'} onMouseLeave={e => e.currentTarget.style.background = ''}>
-                    <Td style={{ fontWeight: 600 }}>{m.name}</Td>
-                    <Td><span style={{ fontSize: 11, background: '#f3f4f6', padding: '2px 7px', borderRadius: 4 }}>{m.category}</span></Td>
-                    <Td style={{ color: '#6b7280' }}>{m.company}</Td>
-                    <Td>₹{m.mrp.toFixed(2)}</Td>
-                    <Td>
-                      <span style={{ fontWeight: 700, color: m.lowStock ? '#dc2626' : '#16a34a' }}>
-                        {m.stock} {m.lowStock && <AlertTriangle size={11} style={{ display: 'inline', marginLeft: 3 }} />}
-                      </span>
-                    </Td>
-                    <Td style={{ color: '#6b7280', fontSize: 12 }}>{m.expiry}</Td>
-                    <Td style={{ fontWeight: 600 }}>₹{m.value.toLocaleString('en-IN')}</Td>
-                    <Td>
-                      <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 20, background: m.lowStock ? '#fff1f2' : '#f0fdf4', color: m.lowStock ? '#dc2626' : '#16a34a', border: `1px solid ${m.lowStock ? '#fecdd3' : '#bbf7d0'}` }}>
-                        {m.lowStock ? 'Low Stock' : 'In Stock'}
-                      </span>
-                    </Td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
-        </div>
-        <div style={{ padding: '10px 16px', borderTop: '1px solid #f3f4f6' }}>
-          <span style={{ fontSize: 12, color: '#6b7280' }}>Showing {filtered.length} of {MOCK.length} items</span>
-        </div>
-      </div>
+      <DataTable columns={columns} data={filtered} total={filtered.length} page={1} limit={20} />
     </div>
   )
 }
+
+export default StockReport
