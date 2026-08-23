@@ -49,7 +49,14 @@ import SupplierList from './views/franchise/Suppliers/SupplierList'
 import B2BOrders from './views/franchise/B2BOrders/B2BOrders'
 
 // ── Customers ─────────────────────────────────────────────────────────────────
-import CustomerList from './views/franchise/Customers/CustomerList'
+import CustomerList      from './views/franchise/Customers/CustomerList'
+import CustomerDetails   from './views/franchise/Customers/CustomerDetails'
+import CustomerWallet    from './views/franchise/Customers/CustomerWallet'
+import PurchaseHistory   from './views/franchise/Customers/PurchaseHistory'
+import MedicineReminder  from './views/franchise/Customers/MedicineReminder'
+import Membership        from './views/franchise/Customers/Membership'
+import Loyalty           from './views/franchise/Customers/Loyalty'
+import CareCoin          from './views/franchise/Customers/CareCoin'
 
 // ── Staff & Users ─────────────────────────────────────────────────────────────
 import StaffUsers from './views/franchise/Staff/StaffUsers'
@@ -122,7 +129,14 @@ const routes = [
   { path: '/franchise/b2b-orders', element: B2BOrders },
 
   /* ── Customers ── */
-  { path: '/franchise/customers', element: CustomerList },
+  { path: '/franchise/customers',                          element: CustomerList     },
+  { path: '/franchise/customers/:id',                      element: CustomerDetails  },
+  { path: '/franchise/customers/:id/wallet',               element: CustomerWallet   },
+  { path: '/franchise/customers/:id/history',              element: PurchaseHistory  },
+  { path: '/franchise/customers/:id/reminders',            element: MedicineReminder },
+  { path: '/franchise/customers/:id/membership',           element: Membership       },
+  { path: '/franchise/customers/:id/loyalty',              element: Loyalty          },
+  { path: '/franchise/customers/:id/carecoin',             element: CareCoin         },
 
   /* ── Staff ── */
   { path: '/franchise/staff', element: StaffUsers },

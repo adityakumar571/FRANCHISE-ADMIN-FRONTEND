@@ -30,6 +30,12 @@ import {
   Layers,
   Calendar,
   ClipboardList,
+  List,
+  Wallet,
+  Crown,
+  Bell,
+  Award,
+  History,
 } from 'lucide-react'
 
 const C = '#fabf22'
@@ -153,12 +159,21 @@ const franchiseNav = [
     badge: { color: 'success', text: '13' },
   },
 
-  /* 11 ── Customers ── */
+  /* 11 ── Customers (group) ── */
   {
-    component: CNavItem,
+    component: CNavGroup,
     name: 'Customers',
     to: '/franchise/customers',
     icon: ic(Users),
+    items: [
+      { component: CNavItem, name: 'Customer List',       to: '/franchise/customers',                     icon: ic(List)        },
+      { component: CNavItem, name: 'Customer Wallet',     to: '/franchise/customers/CUS001/wallet',       icon: ic(Wallet)      },
+      { component: CNavItem, name: 'Purchase History',    to: '/franchise/customers/CUS001/history',      icon: ic(History)     },
+      { component: CNavItem, name: 'Medicine Reminder',   to: '/franchise/customers/CUS001/reminders',    icon: ic(Bell)        },
+      { component: CNavItem, name: 'Membership',          to: '/franchise/customers/CUS001/membership',   icon: ic(Crown)       },
+      { component: CNavItem, name: 'Loyalty',             to: '/franchise/customers/CUS001/loyalty',      icon: ic(Star)        },
+      { component: CNavItem, name: 'CareCoin',            to: '/franchise/customers/CUS001/carecoin',     icon: ic(Award)       },
+    ],
   },
 
   /* 12 ── Suppliers ── */
@@ -195,7 +210,7 @@ const franchiseNav = [
   {
     component: CNavItem,
     name: 'CRM & Loyalty',
-    to: '/franchise/customers',
+    to: '/franchise/customers/CUS001/loyalty',
     icon: ic(Star),
   },
 
