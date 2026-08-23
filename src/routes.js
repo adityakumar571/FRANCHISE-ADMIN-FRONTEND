@@ -42,10 +42,20 @@ import StockLedger          from './views/franchise/Inventory/StockLedger'
 import PhysicalVerification from './views/franchise/Inventory/PhysicalVerification'
 import InventoryAudit       from './views/franchise/Inventory/InventoryAudit'
 
+// ── Live Wholesale Rates ──────────────────────────────────────────────────────
+import LiveRatesDashboard from './views/franchise/LiveRates/LiveRatesDashboard'
+import CompareSuppliers   from './views/franchise/LiveRates/CompareSuppliers'
+import SupplierStock      from './views/franchise/LiveRates/SupplierStock'
+import SchemeComparison   from './views/franchise/LiveRates/SchemeComparison'
+import BestDeal           from './views/franchise/LiveRates/BestDeal'
+import PurchaseCart       from './views/franchise/LiveRates/PurchaseCart'
+import PlaceOrder         from './views/franchise/LiveRates/PlaceOrder'
+import OrderTracking      from './views/franchise/LiveRates/OrderTracking'
+import PriceHistory       from './views/franchise/LiveRates/PriceHistory'
+import SupplierRating     from './views/franchise/LiveRates/SupplierRating'
+
 // ── Medicines ─────────────────────────────────────────────────────────────────
 import MedicineList from './views/franchise/Medicines/MedicineList'
-
-// ── Suppliers ─────────────────────────────────────────────────────────────────
 import SupplierList from './views/franchise/Suppliers/SupplierList'
 
 // ── B2B Orders ────────────────────────────────────────────────────────────────
@@ -146,6 +156,18 @@ const routes = [
   { path: '/franchise/inventory/ledger',         element: StockLedger          },
   { path: '/franchise/inventory/verification',   element: PhysicalVerification },
   { path: '/franchise/inventory/audit',          element: InventoryAudit       },
+
+  /* ── Live Wholesale Rates ── */
+  { path: '/franchise/live-rates',                      element: LiveRatesDashboard },
+  { path: '/franchise/live-rates/compare-suppliers',    element: CompareSuppliers   },
+  { path: '/franchise/live-rates/supplier-stock',       element: SupplierStock      },
+  { path: '/franchise/live-rates/scheme-comparison',    element: SchemeComparison   },
+  { path: '/franchise/live-rates/best-deal',            element: BestDeal           },
+  { path: '/franchise/live-rates/purchase-cart',        element: PurchaseCart       },
+  { path: '/franchise/live-rates/place-order',          element: PlaceOrder         },
+  { path: '/franchise/live-rates/order-tracking',       element: OrderTracking      },
+  { path: '/franchise/live-rates/price-history',        element: PriceHistory       },
+  { path: '/franchise/live-rates/supplier-rating',      element: SupplierRating     },
 
   /* ── Medicines ── */
   { path: '/franchise/medicines', element: MedicineList },

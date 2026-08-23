@@ -14,6 +14,7 @@ import {
   CreditCard, Pause, Printer, Search, UploadCloud,
   BookMarked, Scale, LayoutTemplate, Landmark,
   ArrowDownCircle, ArrowUpCircle, CalendarDays,
+  Tag, GitCompare, Send, StarHalf,
 } from 'lucide-react'
 
 const C = '#fabf22'
@@ -110,13 +111,25 @@ const franchiseNav = [
     ],
   },
 
-  /* 6 ── Live Wholesale Rates  LIVE ── */
+  /* 6 ── Live Wholesale Rates (group) ── */
   {
-    component: CNavItem,
+    component: CNavGroup,
     name: 'Live Wholesale Rates',
-    to: '/franchise/purchase/live-rate',
+    to: '/franchise/live-rates',
     icon: ic(TrendingUp),
     badge: { color: 'danger', text: 'LIVE' },
+    items: [
+      { component: CNavItem, name: 'Live Rates',        to: '/franchise/live-rates',                     icon: ic(Zap)            },
+      { component: CNavItem, name: 'Compare Suppliers', to: '/franchise/live-rates/compare-suppliers',   icon: ic(GitCompare)     },
+      { component: CNavItem, name: 'Supplier Stock',    to: '/franchise/live-rates/supplier-stock',      icon: ic(Warehouse)      },
+      { component: CNavItem, name: 'Scheme Comparison', to: '/franchise/live-rates/scheme-comparison',   icon: ic(Tag)            },
+      { component: CNavItem, name: 'Best Deal',         to: '/franchise/live-rates/best-deal',           icon: ic(Star)           },
+      { component: CNavItem, name: 'Purchase Cart',     to: '/franchise/live-rates/purchase-cart',       icon: ic(ShoppingCart)   },
+      { component: CNavItem, name: 'Place Order',       to: '/franchise/live-rates/place-order',         icon: ic(Send)           },
+      { component: CNavItem, name: 'Order Tracking',    to: '/franchise/live-rates/order-tracking',      icon: ic(Truck)          },
+      { component: CNavItem, name: 'Price History',     to: '/franchise/live-rates/price-history',       icon: ic(History)        },
+      { component: CNavItem, name: 'Supplier Rating',   to: '/franchise/live-rates/supplier-rating',     icon: ic(StarHalf)       },
+    ],
   },
 
   /* 7 ── Stock Transfer ── */
