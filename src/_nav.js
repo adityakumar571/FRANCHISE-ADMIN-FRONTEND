@@ -1,241 +1,201 @@
 ﻿/* eslint-disable prettier/prettier */
 /**
  * _nav.js — Franchise Pharmacy Portal Navigation
- * Based on SOW: Pharmacy Franchise ERP & B2B Marketplace
+ * Exact match to DoctorsAdda sidebar image
  */
 import { CNavGroup, CNavItem } from '@coreui/react'
 import {
-  LayoutDashboard, Store, Users, Package, ShoppingCart, Wallet, UserCheck,
-  BarChart2, ClipboardList, Activity, Settings, HelpCircle, Bell,
-  Truck, Layers, FlaskConical, Receipt, BookOpen, Warehouse, ScanLine,
-  FileText, ShieldCheck, UserCog, RotateCcw,
+  LayoutDashboard,
+  ScanLine,
+  TrendingUp,
+  ShoppingCart,
+  Warehouse,
+  ArrowLeftRight,
+  RotateCcw,
+  FileText,
+  Store,
+  Users,
+  Truck,
+  BookOpen,
+  BarChart2,
+  Star,
+  UserCheck,
+  Settings,
 } from 'lucide-react'
 
-const yellow = 'text-[#fabf22]'
-const iconStyle = { fontSize: '18px' }
+const C = '#fabf22'
+const S = { marginRight: 10, flexShrink: 0 }
+
+/* helper — renders icon with consistent size/color/margin */
+const ic = (Icon) => <Icon size={17} color={C} style={S} />
 
 const franchiseNav = [
-  /* ─── Dashboard ─── */
+
+  /* 1 ── Dashboard ── */
   {
     component: CNavItem,
     name: 'Dashboard',
     to: '/franchise/dashboard',
-    icon: <LayoutDashboard className={`me-3 ${yellow}`} style={iconStyle} />,
+    icon: ic(LayoutDashboard),
   },
 
-  /* ─── Sales / POS ─── */
+  /* 2 ── POS Billing  F2 ── */
+  {
+    component: CNavItem,
+    name: 'POS Billing',
+    to: '/franchise/pos/billing',
+    icon: ic(ScanLine),
+    badge: { color: 'secondary', text: 'F2' },
+  },
+
+  /* 3 ── Sales (group) ── */
   {
     component: CNavGroup,
-    name: 'Sales / POS',
+    name: 'Sales',
     to: '/franchise/pos',
-    icon: <ScanLine className={`me-3 ${yellow}`} style={iconStyle} />,
+    icon: ic(TrendingUp),
     items: [
-      {
-        component: CNavItem,
-        name: 'POS Billing',
-        to: '/franchise/pos/billing',
-        icon: <Receipt className={`me-3 ${yellow}`} style={{ fontSize: '16px' }} />,
-      },
-      {
-        component: CNavItem,
-        name: 'Sales Returns',
-        to: '/franchise/pos/returns',
-        icon: <RotateCcw className={`me-3 ${yellow}`} style={{ fontSize: '16px' }} />,
-      },
-      {
-        component: CNavItem,
-        name: 'Day Closing',
-        to: '/franchise/pos/day-closing',
-        icon: <BookOpen className={`me-3 ${yellow}`} style={{ fontSize: '16px' }} />,
-      },
+      { component: CNavItem, name: "Today's Sale",  to: '/franchise/reports/sales',   icon: ic(FileText) },
+      { component: CNavItem, name: 'Sales History', to: '/franchise/reports/sales',   icon: ic(BookOpen) },
+      { component: CNavItem, name: 'Sale Return',   to: '/franchise/pos/returns',     icon: ic(RotateCcw) },
+      { component: CNavItem, name: 'Day Closing',   to: '/franchise/pos/day-closing', icon: ic(FileText) },
     ],
   },
 
-  /* ─── Purchase / Procurement ─── */
+  /* 4 ── Purchase (group) ── */
   {
     component: CNavGroup,
     name: 'Purchase',
     to: '/franchise/purchase',
-    icon: <ShoppingCart className={`me-3 ${yellow}`} style={iconStyle} />,
+    icon: ic(ShoppingCart),
     items: [
-      {
-        component: CNavItem,
-        name: 'Purchase Dashboard',
-        to: '/franchise/purchase/dashboard',
-        icon: <LayoutDashboard className={`me-3 ${yellow}`} style={{ fontSize: '16px' }} />,
-      },
-      {
-        component: CNavItem,
-        name: 'Live Rate Compare',
-        to: '/franchise/purchase/live-rate',
-        icon: <BarChart2 className={`me-3 ${yellow}`} style={{ fontSize: '16px' }} />,
-      },
-      {
-        component: CNavItem,
-        name: 'Purchase Orders',
-        to: '/franchise/purchase/orders',
-        icon: <FileText className={`me-3 ${yellow}`} style={{ fontSize: '16px' }} />,
-      },
-      {
-        component: CNavItem,
-        name: 'GRN / Inward',
-        to: '/franchise/purchase/grn',
-        icon: <Package className={`me-3 ${yellow}`} style={{ fontSize: '16px' }} />,
-      },
-      {
-        component: CNavItem,
-        name: 'Purchase Returns',
-        to: '/franchise/purchase/returns',
-        icon: <RotateCcw className={`me-3 ${yellow}`} style={{ fontSize: '16px' }} />,
-      },
-      {
-        component: CNavItem,
-        name: 'Supplier Ledger',
-        to: '/franchise/purchase/supplier-ledger',
-        icon: <BookOpen className={`me-3 ${yellow}`} style={{ fontSize: '16px' }} />,
-      },
+      { component: CNavItem, name: 'Purchase Dashboard', to: '/franchise/purchase/dashboard',       icon: ic(LayoutDashboard) },
+      { component: CNavItem, name: 'New Purchase',       to: '/franchise/purchase/orders',          icon: ic(ShoppingCart) },
+      { component: CNavItem, name: 'Purchase Orders',    to: '/franchise/purchase/orders',          icon: ic(FileText) },
+      { component: CNavItem, name: 'GRN / Inward',       to: '/franchise/purchase/grn',             icon: ic(Warehouse) },
+      { component: CNavItem, name: 'Purchase Returns',   to: '/franchise/purchase/returns',         icon: ic(RotateCcw) },
+      { component: CNavItem, name: 'Supplier Ledger',    to: '/franchise/purchase/supplier-ledger', icon: ic(BookOpen) },
     ],
   },
 
-  /* ─── Inventory ─── */
+  /* 5 ── Inventory (group) ── */
   {
     component: CNavGroup,
     name: 'Inventory',
     to: '/franchise/inventory',
-    icon: <Warehouse className={`me-3 ${yellow}`} style={iconStyle} />,
+    icon: ic(Warehouse),
     items: [
-      {
-        component: CNavItem,
-        name: 'Stock Overview',
-        to: '/franchise/inventory/stock',
-        icon: <ClipboardList className={`me-3 ${yellow}`} style={{ fontSize: '16px' }} />,
-      },
-      {
-        component: CNavItem,
-        name: 'Rack & Warehouse',
-        to: '/franchise/inventory/rack',
-        icon: <Layers className={`me-3 ${yellow}`} style={{ fontSize: '16px' }} />,
-      },
-      {
-        component: CNavItem,
-        name: 'Batch & Expiry',
-        to: '/franchise/inventory/batch-expiry',
-        icon: <FlaskConical className={`me-3 ${yellow}`} style={{ fontSize: '16px' }} />,
-      },
-      {
-        component: CNavItem,
-        name: 'Stock Adjustments',
-        to: '/franchise/inventory/adjustments',
-        icon: <Activity className={`me-3 ${yellow}`} style={{ fontSize: '16px' }} />,
-      },
+      { component: CNavItem, name: 'Stock Overview',    to: '/franchise/inventory/stock',        icon: ic(FileText) },
+      { component: CNavItem, name: 'Rack & Warehouse',  to: '/franchise/inventory/rack',         icon: ic(Warehouse) },
+      { component: CNavItem, name: 'Batch & Expiry',    to: '/franchise/inventory/batch-expiry', icon: ic(FileText) },
+      { component: CNavItem, name: 'Stock Adjustments', to: '/franchise/inventory/adjustments',  icon: ic(ArrowLeftRight) },
     ],
   },
 
-  /* ─── Medicines ─── */
+  /* 6 ── Live Wholesale Rates  LIVE ── */
   {
     component: CNavItem,
-    name: 'Medicines',
+    name: 'Live Wholesale Rates',
+    to: '/franchise/purchase/live-rate',
+    icon: ic(TrendingUp),
+    badge: { color: 'danger', text: 'LIVE' },
+  },
+
+  /* 7 ── Stock Transfer ── */
+  {
+    component: CNavItem,
+    name: 'Stock Transfer',
+    to: '/franchise/inventory/stock',
+    icon: ic(ArrowLeftRight),
+  },
+
+  /* 8 ── Returns ── */
+  {
+    component: CNavItem,
+    name: 'Returns',
+    to: '/franchise/pos/returns',
+    icon: ic(RotateCcw),
+  },
+
+  /* 9 ── Prescriptions ── */
+  {
+    component: CNavItem,
+    name: 'Prescriptions',
     to: '/franchise/medicines',
-    icon: <FlaskConical className={`me-3 ${yellow}`} style={iconStyle} />,
+    icon: ic(FileText),
   },
 
-  /* ─── Suppliers / Distributors ─── */
+  /* 10 ── Online Orders  13 badge ── */
   {
     component: CNavItem,
-    name: 'Suppliers',
-    to: '/franchise/suppliers',
-    icon: <Truck className={`me-3 ${yellow}`} style={iconStyle} />,
-  },
-
-  /* ─── B2B Orders ─── */
-  {
-    component: CNavItem,
-    name: 'B2B Orders',
+    name: 'Online Orders',
     to: '/franchise/b2b-orders',
-    icon: <Store className={`me-3 ${yellow}`} style={iconStyle} />,
+    icon: ic(Store),
+    badge: { color: 'success', text: '13' },
   },
 
-  /* ─── Customers / Ledger ─── */
+  /* 11 ── Customers ── */
   {
     component: CNavItem,
     name: 'Customers',
     to: '/franchise/customers',
-    icon: <Users className={`me-3 ${yellow}`} style={iconStyle} />,
+    icon: ic(Users),
   },
 
-  /* ─── Staff ─── */
+  /* 12 ── Suppliers ── */
   {
     component: CNavItem,
-    name: 'Staff & Users',
-    to: '/franchise/staff',
-    icon: <UserCheck className={`me-3 ${yellow}`} style={iconStyle} />,
+    name: 'Suppliers',
+    to: '/franchise/suppliers',
+    icon: ic(Truck),
   },
 
-  /* ─── Reports ─── */
+  /* 13 ── Accounts ── */
+  {
+    component: CNavItem,
+    name: 'Accounts',
+    to: '/franchise/reports/sales',
+    icon: ic(BookOpen),
+  },
+
+  /* 14 ── Reports (group) ── */
   {
     component: CNavGroup,
     name: 'Reports',
     to: '/franchise/reports',
-    icon: <BarChart2 className={`me-3 ${yellow}`} style={iconStyle} />,
+    icon: ic(BarChart2),
     items: [
-      {
-        component: CNavItem,
-        name: 'Sales Report',
-        to: '/franchise/reports/sales',
-        icon: <FileText className={`me-3 ${yellow}`} style={{ fontSize: '16px' }} />,
-      },
-      {
-        component: CNavItem,
-        name: 'Purchase Report',
-        to: '/franchise/reports/purchase',
-        icon: <FileText className={`me-3 ${yellow}`} style={{ fontSize: '16px' }} />,
-      },
-      {
-        component: CNavItem,
-        name: 'Stock Report',
-        to: '/franchise/reports/stock',
-        icon: <FileText className={`me-3 ${yellow}`} style={{ fontSize: '16px' }} />,
-      },
-      {
-        component: CNavItem,
-        name: 'Expiry Report',
-        to: '/franchise/reports/expiry',
-        icon: <FileText className={`me-3 ${yellow}`} style={{ fontSize: '16px' }} />,
-      },
+      { component: CNavItem, name: 'Sales Report',    to: '/franchise/reports/sales',    icon: ic(FileText) },
+      { component: CNavItem, name: 'Purchase Report', to: '/franchise/reports/purchase', icon: ic(FileText) },
+      { component: CNavItem, name: 'Stock Report',    to: '/franchise/reports/stock',    icon: ic(FileText) },
+      { component: CNavItem, name: 'Expiry Report',   to: '/franchise/reports/expiry',   icon: ic(FileText) },
     ],
   },
 
-  /* ─── Notifications ─── */
+  /* 15 ── CRM & Loyalty ── */
   {
     component: CNavItem,
-    name: 'Notifications',
-    to: '/franchise/notifications',
-    icon: <Bell className={`me-3 ${yellow}`} style={iconStyle} />,
+    name: 'CRM & Loyalty',
+    to: '/franchise/customers',
+    icon: ic(Star),
   },
 
-  /* ─── Audit Logs ─── */
+  /* 16 ── Staff & Users ── */
   {
     component: CNavItem,
-    name: 'Audit Logs',
-    to: '/franchise/audit',
-    icon: <ShieldCheck className={`me-3 ${yellow}`} style={iconStyle} />,
+    name: 'Staff & Users',
+    to: '/franchise/staff',
+    icon: ic(UserCheck),
   },
 
-  /* ─── Settings ─── */
+  /* 17 ── Settings ── */
   {
     component: CNavItem,
     name: 'Settings',
     to: '/franchise/settings',
-    icon: <Settings className={`me-3 ${yellow}`} style={iconStyle} />,
+    icon: ic(Settings),
   },
 
-  /* ─── Help & Support ─── */
-  {
-    component: CNavItem,
-    name: 'Help & Support',
-    to: '/franchise/support',
-    icon: <HelpCircle className={`me-3 ${yellow}`} style={iconStyle} />,
-  },
 ]
 
 const useNav = () => franchiseNav
