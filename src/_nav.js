@@ -5,37 +5,15 @@
  */
 import { CNavGroup, CNavItem } from '@coreui/react'
 import {
-  LayoutDashboard,
-  ScanLine,
-  TrendingUp,
-  TrendingDown,
-  ShoppingCart,
-  Warehouse,
-  ArrowLeftRight,
-  RotateCcw,
-  FileText,
-  Store,
-  Users,
-  Truck,
-  BookOpen,
-  BarChart2,
-  Star,
-  UserCheck,
-  Settings,
-  ShieldCheck,
-  AlertCircle,
-  AlertTriangle,
-  Trash2,
-  Zap,
-  Layers,
-  Calendar,
-  ClipboardList,
-  List,
-  Wallet,
-  Crown,
-  Bell,
-  Award,
-  History,
+  LayoutDashboard, ScanLine, TrendingUp, TrendingDown,
+  ShoppingCart, Warehouse, ArrowLeftRight, RotateCcw,
+  FileText, Store, Users, Truck, BookOpen, BarChart2,
+  Star, UserCheck, Settings, ShieldCheck, AlertCircle,
+  AlertTriangle, Trash2, Zap, Layers, Calendar, ClipboardList,
+  List, Wallet, Crown, Bell, Award, History,
+  CreditCard, Pause, Printer, Search, UploadCloud,
+  BookMarked, Scale, LayoutTemplate, Landmark,
+  ArrowDownCircle, ArrowUpCircle, CalendarDays,
 } from 'lucide-react'
 
 const C = '#fabf22'
@@ -54,13 +32,28 @@ const franchiseNav = [
     icon: ic(LayoutDashboard),
   },
 
-  /* 2 ── POS Billing  F2 ── */
+  /* 2 ── POS Billing (group) ── */
   {
-    component: CNavItem,
+    component: CNavGroup,
     name: 'POS Billing',
     to: '/franchise/pos/billing',
     icon: ic(ScanLine),
     badge: { color: 'secondary', text: 'F2' },
+    items: [
+      { component: CNavItem, name: 'New Billing',           to: '/franchise/pos/billing',              icon: ic(ScanLine)       },
+      { component: CNavItem, name: 'Barcode Scan',          to: '/franchise/pos/barcode-scan',         icon: ic(Zap)            },
+      { component: CNavItem, name: 'Medicine Search',       to: '/franchise/pos/medicine-search',      icon: ic(Search)         },
+      { component: CNavItem, name: 'Customer Selection',    to: '/franchise/pos/customer-selection',   icon: ic(Users)          },
+      { component: CNavItem, name: 'Prescription Billing',  to: '/franchise/pos/prescription-billing', icon: ic(UploadCloud)    },
+      { component: CNavItem, name: 'Payment',               to: '/franchise/pos/payment',              icon: ic(CreditCard)     },
+      { component: CNavItem, name: 'Split Payment',         to: '/franchise/pos/split-payment',        icon: ic(ArrowLeftRight) },
+      { component: CNavItem, name: 'Hold Bill',             to: '/franchise/pos/hold-bill',            icon: ic(Pause)          },
+      { component: CNavItem, name: 'Print Invoice',         to: '/franchise/pos/print-invoice',        icon: ic(Printer)        },
+      { component: CNavItem, name: 'Return Bill',           to: '/franchise/pos/return-bill',          icon: ic(RotateCcw)      },
+      { component: CNavItem, name: 'Exchange Bill',         to: '/franchise/pos/exchange-bill',        icon: ic(ArrowLeftRight) },
+      { component: CNavItem, name: 'Credit Sale',           to: '/franchise/pos/credit-sale',          icon: ic(FileText)       },
+      { component: CNavItem, name: 'Day Closing',           to: '/franchise/pos/day-closing',          icon: ic(ClipboardList)  },
+    ],
   },
 
   /* 3 ── Sales (group) ── */
@@ -70,10 +63,10 @@ const franchiseNav = [
     to: '/franchise/pos',
     icon: ic(TrendingUp),
     items: [
-      { component: CNavItem, name: "Today's Sale",  to: '/franchise/reports/sales',   icon: ic(FileText) },
-      { component: CNavItem, name: 'Sales History', to: '/franchise/reports/sales',   icon: ic(BookOpen) },
-      { component: CNavItem, name: 'Sale Return',   to: '/franchise/pos/returns',     icon: ic(RotateCcw) },
-      { component: CNavItem, name: 'Day Closing',   to: '/franchise/pos/day-closing', icon: ic(FileText) },
+      { component: CNavItem, name: "Today's Sale",  to: '/franchise/reports/sales',   icon: ic(FileText)  },
+      { component: CNavItem, name: 'Sales History', to: '/franchise/reports/sales',   icon: ic(BookOpen)  },
+      { component: CNavItem, name: 'Sale Return',   to: '/franchise/pos/return-bill', icon: ic(RotateCcw) },
+      { component: CNavItem, name: 'Day Closing',   to: '/franchise/pos/day-closing', icon: ic(FileText)  },
     ],
   },
 
@@ -184,12 +177,26 @@ const franchiseNav = [
     icon: ic(Truck),
   },
 
-  /* 13 ── Accounts ── */
+  /* 13 ── Accounts (group) ── */
   {
-    component: CNavItem,
+    component: CNavGroup,
     name: 'Accounts',
-    to: '/franchise/reports/sales',
+    to: '/franchise/accounts',
     icon: ic(BookOpen),
+    items: [
+      { component: CNavItem, name: 'Cash Book',      to: '/franchise/accounts/cash-book',     icon: ic(BookOpen)       },
+      { component: CNavItem, name: 'Bank Book',      to: '/franchise/accounts/bank-book',     icon: ic(Landmark)       },
+      { component: CNavItem, name: 'Day Book',       to: '/franchise/accounts/day-book',      icon: ic(CalendarDays)   },
+      { component: CNavItem, name: 'Receipts',       to: '/franchise/accounts/receipts',      icon: ic(ArrowDownCircle)},
+      { component: CNavItem, name: 'Payments',       to: '/franchise/accounts/payments',      icon: ic(ArrowUpCircle)  },
+      { component: CNavItem, name: 'Expenses',       to: '/franchise/accounts/expenses',      icon: ic(TrendingDown)   },
+      { component: CNavItem, name: 'Income',         to: '/franchise/accounts/income',        icon: ic(TrendingUp)     },
+      { component: CNavItem, name: 'Journal',        to: '/franchise/accounts/journal',       icon: ic(FileText)       },
+      { component: CNavItem, name: 'Ledger',         to: '/franchise/accounts/ledger',        icon: ic(BookMarked)     },
+      { component: CNavItem, name: 'Trial Balance',  to: '/franchise/accounts/trial-balance', icon: ic(Scale)          },
+      { component: CNavItem, name: 'Profit & Loss',  to: '/franchise/accounts/profit-loss',   icon: ic(BarChart2)      },
+      { component: CNavItem, name: 'Balance Sheet',  to: '/franchise/accounts/balance-sheet', icon: ic(LayoutTemplate) },
+    ],
   },
 
   /* 14 ── Reports (group) ── */

@@ -1,19 +1,22 @@
 /* eslint-disable prettier/prettier */
-/**
- * routes.js — Franchise Portal — Complete Route Map
- *
- * All franchise modules wired up per SOW:
- * Dashboard · POS · Purchase · Inventory · Medicines · Suppliers
- * B2B Orders · Customers · Staff · Reports · Notifications · Audit · Settings · Support
- */
-
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 import FranchiseDashboard from './views/franchise/Dashboard/FranchiseDashboard'
 
 // ── POS / Sales ───────────────────────────────────────────────────────────────
-import POSBilling   from './views/franchise/POS/POSBilling'
-import SalesReturns from './views/franchise/POS/SalesReturns'
-import DayClosing   from './views/franchise/POS/DayClosing'
+import NewBilling          from './views/franchise/POS/NewBilling'
+import BarcodeScan         from './views/franchise/POS/BarcodeScan'
+import MedicineSearch      from './views/franchise/POS/MedicineSearch'
+import CustomerSelection   from './views/franchise/POS/CustomerSelection'
+import PrescriptionBilling from './views/franchise/POS/PrescriptionBilling'
+import Payment             from './views/franchise/POS/Payment'
+import SplitPayment        from './views/franchise/POS/SplitPayment'
+import HoldBill            from './views/franchise/POS/HoldBill'
+import PrintInvoice        from './views/franchise/POS/PrintInvoice'
+import ReturnBill          from './views/franchise/POS/ReturnBill'
+import ExchangeBill        from './views/franchise/POS/ExchangeBill'
+import CreditSale          from './views/franchise/POS/CreditSale'
+import SalesReturns        from './views/franchise/POS/SalesReturns'
+import DayClosing          from './views/franchise/POS/DayClosing'
 
 // ── Purchase / Procurement ────────────────────────────────────────────────────
 import PurchaseDashboard from './views/franchise/Purchase/PurchaseDashboard'
@@ -58,6 +61,20 @@ import Membership        from './views/franchise/Customers/Membership'
 import Loyalty           from './views/franchise/Customers/Loyalty'
 import CareCoin          from './views/franchise/Customers/CareCoin'
 
+// ── Accounts ──────────────────────────────────────────────────────────────────
+import CashBook     from './views/franchise/Accounts/CashBook'
+import BankBook     from './views/franchise/Accounts/BankBook'
+import DayBook      from './views/franchise/Accounts/DayBook'
+import Receipts     from './views/franchise/Accounts/Receipts'
+import Payments     from './views/franchise/Accounts/Payments'
+import Expenses     from './views/franchise/Accounts/Expenses'
+import Income       from './views/franchise/Accounts/Income'
+import Journal      from './views/franchise/Accounts/Journal'
+import Ledger       from './views/franchise/Accounts/Ledger'
+import TrialBalance from './views/franchise/Accounts/TrialBalance'
+import ProfitLoss   from './views/franchise/Accounts/ProfitLoss'
+import BalanceSheet from './views/franchise/Accounts/BalanceSheet'
+
 // ── Staff & Users ─────────────────────────────────────────────────────────────
 import StaffUsers from './views/franchise/Staff/StaffUsers'
 
@@ -88,36 +105,47 @@ const routes = [
   { path: '/dashboard',           element: FranchiseDashboard },
 
   /* ── POS / Sales ── */
-  { path: '/franchise/pos',             element: POSBilling },      // nav group parent → billing
-  { path: '/franchise/pos/billing',     element: POSBilling },
-  { path: '/franchise/pos/returns',     element: SalesReturns },
-  { path: '/franchise/pos/day-closing', element: DayClosing },
+  { path: '/franchise/pos',                      element: NewBilling          },
+  { path: '/franchise/pos/billing',              element: NewBilling          },
+  { path: '/franchise/pos/barcode-scan',         element: BarcodeScan         },
+  { path: '/franchise/pos/medicine-search',      element: MedicineSearch      },
+  { path: '/franchise/pos/customer-selection',   element: CustomerSelection   },
+  { path: '/franchise/pos/prescription-billing', element: PrescriptionBilling },
+  { path: '/franchise/pos/payment',              element: Payment             },
+  { path: '/franchise/pos/split-payment',        element: SplitPayment        },
+  { path: '/franchise/pos/hold-bill',            element: HoldBill            },
+  { path: '/franchise/pos/print-invoice',        element: PrintInvoice        },
+  { path: '/franchise/pos/return-bill',          element: ReturnBill          },
+  { path: '/franchise/pos/exchange-bill',        element: ExchangeBill        },
+  { path: '/franchise/pos/credit-sale',          element: CreditSale          },
+  { path: '/franchise/pos/returns',              element: SalesReturns        },
+  { path: '/franchise/pos/day-closing',          element: DayClosing          },
 
   /* ── Purchase / Procurement ── */
-  { path: '/franchise/purchase',                 element: PurchaseDashboard }, // nav group parent
-  { path: '/franchise/purchase/dashboard',       element: PurchaseDashboard },
-  { path: '/franchise/purchase/live-rate',       element: LiveRateCompare },
-  { path: '/franchise/purchase/orders',          element: PurchaseOrders },
-  { path: '/franchise/purchase/grn',             element: GRNInward },
-  { path: '/franchise/purchase/returns',         element: PurchaseReturns },
-  { path: '/franchise/purchase/supplier-ledger', element: SupplierLedger },
+  { path: '/franchise/purchase',                  element: PurchaseDashboard },
+  { path: '/franchise/purchase/dashboard',        element: PurchaseDashboard },
+  { path: '/franchise/purchase/live-rate',        element: LiveRateCompare   },
+  { path: '/franchise/purchase/orders',           element: PurchaseOrders    },
+  { path: '/franchise/purchase/grn',              element: GRNInward         },
+  { path: '/franchise/purchase/returns',          element: PurchaseReturns   },
+  { path: '/franchise/purchase/supplier-ledger',  element: SupplierLedger    },
 
   /* ── Inventory ── */
-  { path: '/franchise/inventory',                  element: InventoryDashboard },  // nav group parent → dashboard
-  { path: '/franchise/inventory/dashboard',         element: InventoryDashboard },
-  { path: '/franchise/inventory/stock',             element: StockOverview },
-  { path: '/franchise/inventory/rack',              element: RackWarehouse },
-  { path: '/franchise/inventory/batch-expiry',      element: BatchExpiry },
-  { path: '/franchise/inventory/adjustments',       element: StockAdjustments },
-  { path: '/franchise/inventory/near-expiry',       element: NearExpiry },
-  { path: '/franchise/inventory/expired',           element: ExpiredStock },
-  { path: '/franchise/inventory/damage',            element: DamageStock },
-  { path: '/franchise/inventory/dead',              element: DeadStock },
-  { path: '/franchise/inventory/fast-moving',       element: FastMoving },
-  { path: '/franchise/inventory/slow-moving',       element: SlowMoving },
-  { path: '/franchise/inventory/ledger',            element: StockLedger },
-  { path: '/franchise/inventory/verification',      element: PhysicalVerification },
-  { path: '/franchise/inventory/audit',             element: InventoryAudit },
+  { path: '/franchise/inventory',               element: InventoryDashboard   },
+  { path: '/franchise/inventory/dashboard',      element: InventoryDashboard   },
+  { path: '/franchise/inventory/stock',          element: StockOverview        },
+  { path: '/franchise/inventory/rack',           element: RackWarehouse        },
+  { path: '/franchise/inventory/batch-expiry',   element: BatchExpiry          },
+  { path: '/franchise/inventory/adjustments',    element: StockAdjustments     },
+  { path: '/franchise/inventory/near-expiry',    element: NearExpiry           },
+  { path: '/franchise/inventory/expired',        element: ExpiredStock         },
+  { path: '/franchise/inventory/damage',         element: DamageStock          },
+  { path: '/franchise/inventory/dead',           element: DeadStock            },
+  { path: '/franchise/inventory/fast-moving',    element: FastMoving           },
+  { path: '/franchise/inventory/slow-moving',    element: SlowMoving           },
+  { path: '/franchise/inventory/ledger',         element: StockLedger          },
+  { path: '/franchise/inventory/verification',   element: PhysicalVerification },
+  { path: '/franchise/inventory/audit',          element: InventoryAudit       },
 
   /* ── Medicines ── */
   { path: '/franchise/medicines', element: MedicineList },
@@ -129,24 +157,39 @@ const routes = [
   { path: '/franchise/b2b-orders', element: B2BOrders },
 
   /* ── Customers ── */
-  { path: '/franchise/customers',                          element: CustomerList     },
-  { path: '/franchise/customers/:id',                      element: CustomerDetails  },
-  { path: '/franchise/customers/:id/wallet',               element: CustomerWallet   },
-  { path: '/franchise/customers/:id/history',              element: PurchaseHistory  },
-  { path: '/franchise/customers/:id/reminders',            element: MedicineReminder },
-  { path: '/franchise/customers/:id/membership',           element: Membership       },
-  { path: '/franchise/customers/:id/loyalty',              element: Loyalty          },
-  { path: '/franchise/customers/:id/carecoin',             element: CareCoin         },
+  { path: '/franchise/customers',                  element: CustomerList     },
+  { path: '/franchise/customers/:id',              element: CustomerDetails  },
+  { path: '/franchise/customers/:id/wallet',       element: CustomerWallet   },
+  { path: '/franchise/customers/:id/history',      element: PurchaseHistory  },
+  { path: '/franchise/customers/:id/reminders',    element: MedicineReminder },
+  { path: '/franchise/customers/:id/membership',   element: Membership       },
+  { path: '/franchise/customers/:id/loyalty',      element: Loyalty          },
+  { path: '/franchise/customers/:id/carecoin',     element: CareCoin         },
+
+  /* ── Accounts ── */
+  { path: '/franchise/accounts',                element: CashBook     },
+  { path: '/franchise/accounts/cash-book',      element: CashBook     },
+  { path: '/franchise/accounts/bank-book',      element: BankBook     },
+  { path: '/franchise/accounts/day-book',       element: DayBook      },
+  { path: '/franchise/accounts/receipts',       element: Receipts     },
+  { path: '/franchise/accounts/payments',       element: Payments     },
+  { path: '/franchise/accounts/expenses',       element: Expenses     },
+  { path: '/franchise/accounts/income',         element: Income       },
+  { path: '/franchise/accounts/journal',        element: Journal      },
+  { path: '/franchise/accounts/ledger',         element: Ledger       },
+  { path: '/franchise/accounts/trial-balance',  element: TrialBalance },
+  { path: '/franchise/accounts/profit-loss',    element: ProfitLoss   },
+  { path: '/franchise/accounts/balance-sheet',  element: BalanceSheet },
 
   /* ── Staff ── */
   { path: '/franchise/staff', element: StaffUsers },
 
   /* ── Reports ── */
-  { path: '/franchise/reports',          element: SalesReport },        // nav group parent → sales
-  { path: '/franchise/reports/sales',    element: SalesReport },
+  { path: '/franchise/reports',          element: SalesReport    },
+  { path: '/franchise/reports/sales',    element: SalesReport    },
   { path: '/franchise/reports/purchase', element: PurchaseReport },
-  { path: '/franchise/reports/stock',    element: StockReport },
-  { path: '/franchise/reports/expiry',   element: ExpiryReport },
+  { path: '/franchise/reports/stock',    element: StockReport    },
+  { path: '/franchise/reports/expiry',   element: ExpiryReport   },
 
   /* ── Notifications ── */
   { path: '/franchise/notifications', element: Notifications },
@@ -159,7 +202,6 @@ const routes = [
 
   /* ── Help & Support ── */
   { path: '/franchise/support', element: HelpSupport },
-
 ]
 
 export default routes
