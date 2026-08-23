@@ -40,6 +40,9 @@ const KpiCard = ({ icon: Icon, label, value, change, up, color }) => (
         <span style={{ fontSize: 11, color: '#9ca3af' }}>vs Yesterday</span>
       </div>
     )}
+    {!change && label === 'Low Stock Items' && (
+      <button style={{ fontSize: 11, color: '#0c3b73', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}>View Details</button>
+    )}
   </div>
 )
 
@@ -50,6 +53,7 @@ const KPIS = [
   { icon: TrendingUp,   label: 'Gross Profit',       value: '₹16,200', change: '16.8%', up: true,  color: '#16a34a' },
   { icon: Store,        label: 'Total Orders',        value: '56',      change: '8',     up: true,  color: '#d97706' },
   { icon: Package,      label: 'Stock Value',         value: '₹8,52,600', change: null, up: null,  color: '#0891b2' },
+  { icon: AlertTriangle,label: 'Low Stock Items',     value: '32',      change: null,   up: null,  color: '#dc2626' },
 ]
 
 const WHOLESALE = [
@@ -383,14 +387,18 @@ export default function FranchiseDashboard() {
           <CardHeader title="Quick Actions" />
           <div style={{ padding: '10px 12px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
             {[
-              { label: 'New Sale',       to: '/franchise/billing',    color: '#0c3b73', icon: ShoppingCart },
-              { label: 'Purchase Entry', to: '/franchise/orders',     color: '#7c3aed', icon: Store },
-              { label: 'Add Medicine',   to: '/franchise/products',   color: '#16a34a', icon: Package },
-              { label: 'Stock Search',   to: '/franchise/inventory',  color: '#d97706', icon: Search },
-              { label: 'Live Rates',     to: '/franchise/inventory',  color: '#0891b2', icon: TrendingUp },
-              { label: 'View Reports',   to: '/franchise/reports/sales', color: '#6366f1', icon: BarChart2 },
-              { label: 'Customers',      to: '/franchise/customers',  color: '#ec4899', icon: Users },
-              { label: 'More',           to: '/franchise/settings',   color: '#6b7280', icon: ChevronRight },
+              { label: 'New Sale',        to: '/franchise/pos/billing',          color: '#0c3b73', icon: ShoppingCart },
+              { label: 'Purchase Entry',  to: '/franchise/purchase/orders',      color: '#7c3aed', icon: Store },
+              { label: 'Add Medicine',    to: '/franchise/medicines/add',        color: '#16a34a', icon: Package },
+              { label: 'Stock Transfer',  to: '/franchise/inventory/stock',      color: '#d97706', icon: Activity },
+              { label: 'Live Rates',      to: '/franchise/live-rates',           color: '#dc2626', icon: TrendingUp },
+              { label: 'View Reports',    to: '/franchise/reports/sales',        color: '#6366f1', icon: BarChart2 },
+              { label: 'Customers',       to: '/franchise/customers',            color: '#ec4899', icon: Users },
+              { label: 'Suppliers',       to: '/franchise/suppliers',            color: '#0891b2', icon: ClipboardList },
+              { label: 'Online Orders',   to: '/franchise/b2b-orders',           color: '#f97316', icon: Star },
+              { label: 'Prescriptions',   to: '/franchise/medicines',            color: '#16a34a', icon: UserCheck },
+              { label: 'Price Alerts',    to: '/franchise/live-rates',           color: '#dc2626', icon: Bell },
+              { label: 'More',            to: '/franchise/settings',             color: '#6b7280', icon: ChevronRight },
             ].map((a) => (
               <button key={a.label} onClick={() => navigate(a.to)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, padding: '10px 4px', borderRadius: 8, border: '1px solid #f3f4f6', background: '#fff', cursor: 'pointer', transition: 'all 0.12s' }}
                 onMouseEnter={e => { e.currentTarget.style.borderColor = a.color; e.currentTarget.style.background = a.color + '08' }}

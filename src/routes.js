@@ -65,7 +65,14 @@ import BarcodeLabel        from './views/franchise/Medicines/BarcodeLabel'
 import MedicineImages      from './views/franchise/Medicines/MedicineImages'
 import GenericMapping      from './views/franchise/Medicines/GenericMapping'
 import AlternativeMedicines from './views/franchise/Medicines/AlternativeMedicines'
-import SupplierList from './views/franchise/Suppliers/SupplierList'
+
+// ── Suppliers ─────────────────────────────────────────────────────────────────
+import SupplierList       from './views/franchise/Suppliers/SupplierList'
+import SupplierDetails    from './views/franchise/Suppliers/SupplierDetails'
+import AddSupplier        from './views/franchise/Suppliers/AddSupplier'
+import Outstanding        from './views/franchise/Suppliers/Outstanding'
+import SupplierTxnLedger  from './views/franchise/Suppliers/SupplierLedger'
+import PaymentHistory     from './views/franchise/Suppliers/PaymentHistory'
 
 // ── B2B Orders ────────────────────────────────────────────────────────────────
 import B2BOrders from './views/franchise/B2BOrders/B2BOrders'
@@ -191,7 +198,13 @@ const routes = [
   { path: '/franchise/medicines/racks',                    element: RackManagement       },
 
   /* ── Suppliers ── */
-  { path: '/franchise/suppliers', element: SupplierList },
+  { path: '/franchise/suppliers',                element: SupplierList    },
+  { path: '/franchise/suppliers/add',            element: AddSupplier     },
+  { path: '/franchise/suppliers/outstanding',    element: Outstanding     },
+  { path: '/franchise/suppliers/:id',            element: SupplierDetails },
+  { path: '/franchise/suppliers/:id/edit',       element: AddSupplier     },
+  { path: '/franchise/suppliers/:id/ledger',     element: SupplierTxnLedger  },
+  { path: '/franchise/suppliers/:id/payments',   element: PaymentHistory  },
 
   /* ── B2B Orders ── */
   { path: '/franchise/b2b-orders', element: B2BOrders },

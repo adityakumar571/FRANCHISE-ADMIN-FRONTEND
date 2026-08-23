@@ -14,7 +14,7 @@ import {
   CreditCard, Pause, Printer, Search, UploadCloud,
   BookMarked, Scale, LayoutTemplate, Landmark,
   ArrowDownCircle, ArrowUpCircle, CalendarDays,
-  Tag, GitCompare, Send, StarHalf, FlaskConical, Plus,
+  Tag, GitCompare, Send, StarHalf, FlaskConical, Plus, IndianRupee,
 } from 'lucide-react'
 
 const C = '#fabf22'
@@ -187,12 +187,17 @@ const franchiseNav = [
     ],
   },
 
-  /* 12 ── Suppliers ── */
+  /* 12 ── Suppliers (group) ── */
   {
-    component: CNavItem,
+    component: CNavGroup,
     name: 'Suppliers',
     to: '/franchise/suppliers',
     icon: ic(Truck),
+    items: [
+      { component: CNavItem, name: 'Supplier List',    to: '/franchise/suppliers',             icon: ic(List)         },
+      { component: CNavItem, name: 'Add Supplier',     to: '/franchise/suppliers/add',         icon: ic(Plus)         },
+      { component: CNavItem, name: 'Outstanding',      to: '/franchise/suppliers/outstanding', icon: ic(IndianRupee)  },
+    ],
   },
 
   /* 13 ── Accounts (group) ── */
