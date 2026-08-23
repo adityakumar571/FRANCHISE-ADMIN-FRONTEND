@@ -24,10 +24,20 @@ import PurchaseReturns   from './views/franchise/Purchase/PurchaseReturns'
 import SupplierLedger    from './views/franchise/Purchase/SupplierLedger'
 
 // ── Inventory ─────────────────────────────────────────────────────────────────
-import StockOverview     from './views/franchise/Inventory/StockOverview'
-import RackWarehouse     from './views/franchise/Inventory/RackWarehouse'
-import BatchExpiry       from './views/franchise/Inventory/BatchExpiry'
-import StockAdjustments  from './views/franchise/Inventory/StockAdjustments'
+import InventoryDashboard   from './views/franchise/Inventory/InventoryDashboard'
+import StockOverview        from './views/franchise/Inventory/StockOverview'
+import RackWarehouse        from './views/franchise/Inventory/RackWarehouse'
+import BatchExpiry          from './views/franchise/Inventory/BatchExpiry'
+import StockAdjustments     from './views/franchise/Inventory/StockAdjustments'
+import NearExpiry           from './views/franchise/Inventory/NearExpiry'
+import ExpiredStock         from './views/franchise/Inventory/ExpiredStock'
+import DamageStock          from './views/franchise/Inventory/DamageStock'
+import DeadStock            from './views/franchise/Inventory/DeadStock'
+import FastMoving           from './views/franchise/Inventory/FastMoving'
+import SlowMoving           from './views/franchise/Inventory/SlowMoving'
+import StockLedger          from './views/franchise/Inventory/StockLedger'
+import PhysicalVerification from './views/franchise/Inventory/PhysicalVerification'
+import InventoryAudit       from './views/franchise/Inventory/InventoryAudit'
 
 // ── Medicines ─────────────────────────────────────────────────────────────────
 import MedicineList from './views/franchise/Medicines/MedicineList'
@@ -86,11 +96,21 @@ const routes = [
   { path: '/franchise/purchase/supplier-ledger', element: SupplierLedger },
 
   /* ── Inventory ── */
-  { path: '/franchise/inventory',              element: StockOverview },   // nav group parent
-  { path: '/franchise/inventory/stock',        element: StockOverview },
-  { path: '/franchise/inventory/rack',         element: RackWarehouse },
-  { path: '/franchise/inventory/batch-expiry', element: BatchExpiry },
-  { path: '/franchise/inventory/adjustments',  element: StockAdjustments },
+  { path: '/franchise/inventory',                  element: InventoryDashboard },  // nav group parent → dashboard
+  { path: '/franchise/inventory/dashboard',         element: InventoryDashboard },
+  { path: '/franchise/inventory/stock',             element: StockOverview },
+  { path: '/franchise/inventory/rack',              element: RackWarehouse },
+  { path: '/franchise/inventory/batch-expiry',      element: BatchExpiry },
+  { path: '/franchise/inventory/adjustments',       element: StockAdjustments },
+  { path: '/franchise/inventory/near-expiry',       element: NearExpiry },
+  { path: '/franchise/inventory/expired',           element: ExpiredStock },
+  { path: '/franchise/inventory/damage',            element: DamageStock },
+  { path: '/franchise/inventory/dead',              element: DeadStock },
+  { path: '/franchise/inventory/fast-moving',       element: FastMoving },
+  { path: '/franchise/inventory/slow-moving',       element: SlowMoving },
+  { path: '/franchise/inventory/ledger',            element: StockLedger },
+  { path: '/franchise/inventory/verification',      element: PhysicalVerification },
+  { path: '/franchise/inventory/audit',             element: InventoryAudit },
 
   /* ── Medicines ── */
   { path: '/franchise/medicines', element: MedicineList },
