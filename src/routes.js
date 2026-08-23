@@ -55,7 +55,16 @@ import PriceHistory       from './views/franchise/LiveRates/PriceHistory'
 import SupplierRating     from './views/franchise/LiveRates/SupplierRating'
 
 // ── Medicines ─────────────────────────────────────────────────────────────────
-import MedicineList from './views/franchise/Medicines/MedicineList'
+import MedicineList        from './views/franchise/Medicines/MedicineList'
+import AddMedicine         from './views/franchise/Medicines/AddMedicine'
+import EditMedicine        from './views/franchise/Medicines/EditMedicine'
+import MedicineDetails     from './views/franchise/Medicines/MedicineDetails'
+import BatchDetails        from './views/franchise/Medicines/BatchDetails'
+import RackManagement      from './views/franchise/Medicines/RackManagement'
+import BarcodeLabel        from './views/franchise/Medicines/BarcodeLabel'
+import MedicineImages      from './views/franchise/Medicines/MedicineImages'
+import GenericMapping      from './views/franchise/Medicines/GenericMapping'
+import AlternativeMedicines from './views/franchise/Medicines/AlternativeMedicines'
 import SupplierList from './views/franchise/Suppliers/SupplierList'
 
 // ── B2B Orders ────────────────────────────────────────────────────────────────
@@ -170,7 +179,16 @@ const routes = [
   { path: '/franchise/live-rates/supplier-rating',      element: SupplierRating     },
 
   /* ── Medicines ── */
-  { path: '/franchise/medicines', element: MedicineList },
+  { path: '/franchise/medicines',                          element: MedicineList         },
+  { path: '/franchise/medicines/add',                      element: AddMedicine          },
+  { path: '/franchise/medicines/:id',                      element: MedicineDetails      },
+  { path: '/franchise/medicines/:id/edit',                 element: EditMedicine         },
+  { path: '/franchise/medicines/:id/batches',              element: BatchDetails         },
+  { path: '/franchise/medicines/:id/barcode',              element: BarcodeLabel         },
+  { path: '/franchise/medicines/:id/images',               element: MedicineImages       },
+  { path: '/franchise/medicines/:id/generic',              element: GenericMapping       },
+  { path: '/franchise/medicines/:id/alternatives',         element: AlternativeMedicines },
+  { path: '/franchise/medicines/racks',                    element: RackManagement       },
 
   /* ── Suppliers ── */
   { path: '/franchise/suppliers', element: SupplierList },

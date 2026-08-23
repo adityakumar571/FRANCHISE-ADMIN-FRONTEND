@@ -1,178 +1,160 @@
 /* eslint-disable prettier/prettier */
 /**
- * MedicineList — Browse the central medicine master + local franchise medicines
- * SOW §8: Global Medicine Master & Central Catalogue
+ * Screen 13 — Medicine List
  */
-import { useState, useEffect, useCallback } from 'react'
-import { FlaskConical, Search, Plus, Edit, Eye, Filter, Download } from 'lucide-react'
-import { getRequest, putRequest } from '../../../Helpers'
-import toast from 'react-hot-toast'
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { FlaskConical, Search, Plus, Edit2, Eye, Filter, Download, ChevronLeft, ChevronRight, ToggleLeft, ToggleRight } from 'lucide-react'
 import PageHeader from '../components/PageHeader'
-import DataTable from '../components/DataTable'
-import StatusBadge from '../components/StatusBadge'
-import MedicineFormModal from './MedicineFormModal'
-import MedicineDetailModal from './MedicineDetailModal'
+import { MEDICINES, CATEGORIES, FORMULATIONS, COMPANIES } from './medicineMockData'
 
-const MedicineList = () => {
-  const [data, setData]           = useState([])
-  const [total, setTotal]         = useState(0)
-  const [page, setPage]           = useState(1)
-  const [limit, setLimit]         = useState(20)
-  const [search, setSearch]       = useState('')
-  const [loading, setLoading]     = useState(false)
-  const [refresh, setRefresh]     = useState(false)
-  const [formOpen, setFormOpen]   = useState(false)
-  const [detailOpen, setDetailOpen] = useState(false)
-  const [selected, setSelected]   = useState(null)
-  const [isToggling, setIsToggling] = useState(false)
+const Th = ({ c }) => <th style={{ padding: '9px 12px', fontSize: 11, color: '#6b7280', fontWeight: 700, textTransform: 'uppercase', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', textAlign: 'left', whiteSpace: 'nowrap' }}>{c}</th>
+const Td = ({ children, style = {} }) => <td style={{ padding: '10px 12px', fontSize: 13, color: '#374151', borderBottom: '1px solid #f3f4f6', verticalAlign: 'middle', ...style }}>{children}</td>
 
-  const fetchData = useCallback(() => {
-    setLoading(true)
-    const q = new URLSearchParams({ search, page, limit }).toString()
-    getRequest(`franchise/medicines?${q}`)
-      .then((res) => {
-        setData(res?.data?.data?.medicines || res?.data?.data || [])
-        setTotal(res?.data?.data?.total || res?.data?.total || 0)
-      })
-      .catch(() => toast.error('Failed to load medicines'))
-      .finally(() => setLoading(false))
-  }, [search, page, limit, refresh])
+export default function MedicineList() {
+  const navigate = useNavigate()
+  const [data, setData]     = useState(MEDICINES)
+  const [search, setSearch] = useState('')
+  const [cat, setCat]       = useState('All Categories')
+  const [form, setForm]     = useState('All Formulations')
+  const [comp, setComp]     = useState('All Companies')
+  const [status, setStatus] = useState('All Status')
+  const [page, setPage]     = useState(1)
+  const PER = 8
 
-  useEffect(() => { fetchData() }, [fetchData])
+  const filtered = data.filter(m =>
+    (search === '' || m.name.toLowerCase().includes(search.toLowerCase()) || m.salt.toLowerCase().includes(search.toLowerCase())) &&
+    (cat  === 'All Categories'   || m.category === cat) &&
+    (form === 'All Formulations' || m.formulation === form) &&
+    (comp === 'All Companies'    || m.company === comp) &&
+    (status === 'All Status'     || (status === 'Active' ? m.isActive : !m.isActive))
+  )
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PER))
+  const paged = filtered.slice((page - 1) * PER, page * PER)
 
-  const handleToggle = (id) => {
-    if (isToggling) return
-    const item = data.find((d) => d._id === id)
-    if (!item) return
-    setIsToggling(true)
-    putRequest({ url: `franchise/medicines/${id}`, cred: { isActive: !item.isActive } })
-      .then(() => {
-        toast.success(`Medicine ${!item.isActive ? 'activated' : 'deactivated'}`)
-        setRefresh((p) => !p)
-      })
-      .catch(() => toast.error('Status update failed'))
-      .finally(() => setIsToggling(false))
-  }
+  const toggleStatus = id => setData(p => p.map(m => m._id === id ? { ...m, isActive: !m.isActive } : m))
 
-  const columns = [
-    { title: '#',           key: '_idx',        width: 50, align: 'center', render: (_, __, i) => (page - 1) * limit + i + 1 },
-    { title: 'Medicine',    key: 'name',         render: (v, row) => (
-      <div>
-        <div style={{ fontWeight: 600, color: '#111827' }}>{v}</div>
-        {row.genericName && <div style={{ fontSize: 11, color: '#6b7280' }}>{row.genericName}</div>}
-      </div>
-    )},
-    { title: 'Brand',       key: 'brand',        render: (v) => v || '—' },
-    { title: 'Category',    key: 'category',     render: (v) => v || '—' },
-    { title: 'Pack / Unit', key: 'packUnit',     render: (v, row) => `${row.packSize || ''}  ${row.unit || ''}`.trim() || '—' },
-    { title: 'HSN / GST',   key: 'hsn',          render: (v, row) => (
-      <div style={{ fontSize: 12 }}>
-        {v ? <span>HSN: {v}</span> : '—'}
-        {row.gstRate !== undefined && <div style={{ color: '#6b7280' }}>GST: {row.gstRate}%</div>}
-      </div>
-    )},
-    { title: 'Status',      key: 'isActive',     align: 'center', render: (v) => <StatusBadge status={v ? 'active' : 'inactive'} /> },
-    { title: 'Actions',     key: '_actions',     align: 'center', width: 120, render: (_, row) => (
-      <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
-        <button onClick={() => { setSelected(row); setDetailOpen(true) }}
-          style={actionBtn('#0c3b73')} title="View">
-          <Eye size={14} />
-        </button>
-        <button onClick={() => { setSelected(row); setFormOpen(true) }}
-          style={actionBtn('#7c3aed')} title="Edit">
-          <Edit size={14} />
-        </button>
-        <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-          <input type="checkbox" className="sr-only" checked={row.isActive} disabled={isToggling}
-            onChange={() => handleToggle(row._id)} />
-          <div style={{
-            width: 36, height: 20, borderRadius: 10, position: 'relative',
-            background: row.isActive ? '#16a34a' : '#d1d5db', transition: 'background 0.2s',
-          }}>
-            <div style={{
-              position: 'absolute', top: 3, left: row.isActive ? 18 : 3,
-              width: 14, height: 14, borderRadius: '50%', background: '#fff',
-              transition: 'left 0.2s',
-            }} />
-          </div>
-        </label>
-      </div>
-    )},
-  ]
+  const totalMeds    = data.length
+  const activeMeds   = data.filter(m => m.isActive).length
+  const inactiveMeds = data.filter(m => !m.isActive).length
+  const lowStock     = data.filter(m => m.stock <= m.reorderLevel && m.stock > 0).length
 
   return (
-    <div>
-      <PageHeader icon={FlaskConical} title="Medicine Master" subtitle="Browse and manage medicines in your franchise" color="#7c3aed">
-        <button onClick={() => { setSelected(null); setFormOpen(true) }} style={primaryBtn}>
-          <Plus size={14} /> Add Medicine
+    <div style={{ fontFamily: 'Inter, sans-serif', display: 'flex', flexDirection: 'column', gap: 18 }}>
+      <PageHeader icon={FlaskConical} title="Medicine List" subtitle="Manage all your medicine items" color="#7c3aed">
+        <button style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '8px 14px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 12, background: '#fff', cursor: 'pointer' }}>
+          <Download size={13} /> Export
         </button>
-        <button style={secondaryBtn}><Download size={14} /> Export</button>
+        <button onClick={() => navigate('/franchise/medicines/add')}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: '#0c3b73', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, color: '#fff', cursor: 'pointer' }}>
+          <Plus size={14} /> + Add Medicine
+        </button>
       </PageHeader>
 
-      {/* Search + Filter bar */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
-        <div style={{ position: 'relative', flex: '1 1 280px' }}>
-          <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
-          <input
-            type="text"
-            placeholder="Search by name, generic, brand, barcode…"
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1) }}
-            style={{ ...searchInput, paddingLeft: 32 }}
-          />
-        </div>
-        <button style={secondaryBtn}><Filter size={14} /> Filter</button>
+      {/* KPI */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
+        {[
+          { label: 'Total Medicines',    value: totalMeds,    color: '#0c3b73', bg: '#e0e7ff' },
+          { label: 'Active Medicines',   value: activeMeds,   color: '#16a34a', bg: '#dcfce7' },
+          { label: 'Inactive Medicines', value: inactiveMeds, color: '#dc2626', bg: '#fee2e2' },
+          { label: 'Low Stock Items',    value: lowStock,     color: '#d97706', bg: '#fef3c7' },
+        ].map(k => (
+          <div key={k.label} style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: '16px 18px', borderLeft: `4px solid ${k.color}` }}>
+            <p style={{ fontSize: 11, color: '#9ca3af', margin: '0 0 4px' }}>{k.label}</p>
+            <p style={{ fontSize: 26, fontWeight: 800, color: k.color, margin: 0 }}>{k.value}</p>
+          </div>
+        ))}
       </div>
 
-      <DataTable
-        columns={columns}
-        data={data}
-        loading={loading}
-        total={total}
-        page={page}
-        limit={limit}
-        onPageChange={setPage}
-        onLimitChange={(s) => { setLimit(s); setPage(1) }}
-      />
+      {/* Filters */}
+      <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10, padding: '12px 16px', display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ position: 'relative', flex: 1, minWidth: 260 }}>
+          <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
+          <input value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
+            placeholder="Search medicine by name / salt / brand / barcode"
+            style={{ width: '100%', padding: '9px 10px 9px 28px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13, outline: 'none', background: '#f9fafb', boxSizing: 'border-box' }} />
+        </div>
+        {[
+          [CATEGORIES,   cat,    setCat,    'All Categories'],
+          [FORMULATIONS, form,   setForm,   'All Formulations'],
+          [COMPANIES,    comp,   setComp,   'All Companies'],
+          [['All Status','Active','Inactive'], status, setStatus, 'All Status'],
+        ].map(([opts, val, setter, ph]) => (
+          <select key={ph} value={val} onChange={e => { setter(e.target.value); setPage(1) }}
+            style={{ padding: '9px 12px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 12, background: '#f9fafb', cursor: 'pointer', outline: 'none' }}>
+            {opts.map(o => <option key={o}>{o}</option>)}
+          </select>
+        ))}
+        <button style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '9px 12px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 12, background: '#fff', cursor: 'pointer' }}>
+          <Filter size={12} /> Filter
+        </button>
+      </div>
 
-      {formOpen && (
-        <MedicineFormModal
-          open={formOpen}
-          onClose={() => setFormOpen(false)}
-          data={selected}
-          onSaved={() => { setRefresh((p) => !p); setFormOpen(false) }}
-        />
-      )}
-      {detailOpen && (
-        <MedicineDetailModal
-          open={detailOpen}
-          onClose={() => setDetailOpen(false)}
-          data={selected}
-        />
-      )}
+      {/* Table */}
+      <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead><tr>{['Medicine Name','Sub / Strength','Formulation','Company','MRP (₹)','Stock','Status','Action'].map(h => <Th key={h} c={h} />)}</tr></thead>
+            <tbody>
+              {paged.length === 0
+                ? <tr><td colSpan={8} style={{ padding: 40, textAlign: 'center', color: '#9ca3af' }}>No medicines found</td></tr>
+                : paged.map(m => (
+                  <tr key={m._id} onMouseEnter={e=>e.currentTarget.style.background='#fafafa'} onMouseLeave={e=>e.currentTarget.style.background=''}>
+                    <Td>
+                      <p style={{ margin: 0, fontWeight: 600, color: '#111827', fontSize: 13 }}>{m.name}</p>
+                      <p style={{ margin: 0, fontSize: 10, color: '#9ca3af' }}>{m.brand}</p>
+                    </Td>
+                    <Td style={{ fontSize: 12, color: '#6b7280' }}>{m.salt}</Td>
+                    <Td style={{ fontSize: 12 }}>{m.formulation}</Td>
+                    <Td style={{ fontSize: 12 }}>{m.company}</Td>
+                    <Td style={{ fontWeight: 700, color: '#0c3b73' }}>₹{m.mrp.toFixed(2)}</Td>
+                    <Td style={{ fontWeight: 600, color: m.stock === 0 ? '#dc2626' : m.stock <= m.reorderLevel ? '#d97706' : '#16a34a' }}>{m.stock}</Td>
+                    <Td>
+                      <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 20, background: m.isActive ? '#dcfce7' : '#fee2e2', color: m.isActive ? '#16a34a' : '#dc2626' }}>
+                        {m.isActive ? 'Active' : 'Inactive'}
+                      </span>
+                    </Td>
+                    <Td>
+                      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                        <button onClick={() => navigate(`/franchise/medicines/${m._id}`)}
+                          style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '5px 9px', border: 'none', borderRadius: 6, background: '#e0e7ff', color: '#0c3b73', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                          <Eye size={11} /> View
+                        </button>
+                        <button onClick={() => navigate(`/franchise/medicines/${m._id}/edit`)}
+                          style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '5px 9px', border: 'none', borderRadius: 6, background: '#fef3c7', color: '#d97706', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                          <Edit2 size={11} /> Edit
+                        </button>
+                        <button onClick={() => toggleStatus(m._id)}
+                          style={{ padding: '5px 7px', border: 'none', borderRadius: 6, background: m.isActive ? '#fee2e2' : '#dcfce7', cursor: 'pointer' }}>
+                          {m.isActive ? <ToggleRight size={14} color="#16a34a" /> : <ToggleLeft size={14} color="#dc2626" />}
+                        </button>
+                      </div>
+                    </Td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderTop: '1px solid #f3f4f6' }}>
+          <span style={{ fontSize: 12, color: '#6b7280' }}>Showing {Math.min((page-1)*PER+1, filtered.length)}–{Math.min(page*PER, filtered.length)} of {filtered.length} items</span>
+          <div style={{ display: 'flex', gap: 4 }}>
+            <button onClick={() => setPage(p => Math.max(1,p-1))} disabled={page===1}
+              style={{ border: '1px solid #e5e7eb', borderRadius: 6, padding: '5px 10px', cursor: page===1?'default':'pointer', background: 'none', color: page===1?'#d1d5db':'#374151' }}>
+              <ChevronLeft size={14} />
+            </button>
+            {Array.from({length:totalPages},(_,i)=>i+1).map(p => (
+              <button key={p} onClick={() => setPage(p)}
+                style={{ background: page===p?'#0c3b73':'none', border:`1px solid ${page===p?'#0c3b73':'#e5e7eb'}`, borderRadius: 6, padding:'5px 10px', cursor:'pointer', color:page===p?'#fff':'#374151', fontSize:12, fontWeight:page===p?700:400 }}>
+                {p}
+              </button>
+            ))}
+            <button onClick={() => setPage(p => Math.min(totalPages,p+1))} disabled={page===totalPages}
+              style={{ border: '1px solid #e5e7eb', borderRadius: 6, padding: '5px 10px', cursor: page===totalPages?'default':'pointer', background: 'none', color: page===totalPages?'#d1d5db':'#374151' }}>
+              <ChevronRight size={14} />
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
-
-const primaryBtn = {
-  display: 'flex', alignItems: 'center', gap: 6,
-  padding: '8px 16px', borderRadius: 8, border: 'none',
-  background: '#0c3b73', color: '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer',
-}
-const secondaryBtn = {
-  display: 'flex', alignItems: 'center', gap: 6,
-  padding: '8px 14px', borderRadius: 8,
-  border: '1px solid #e5e7eb', background: '#fff', color: '#374151',
-  fontWeight: 500, fontSize: 13, cursor: 'pointer',
-}
-const searchInput = {
-  width: '100%', height: 38, border: '1px solid #e5e7eb', borderRadius: 8,
-  padding: '0 12px', fontSize: 13, outline: 'none', background: '#fff',
-}
-const actionBtn = (color) => ({
-  width: 28, height: 28, borderRadius: 6, border: `1px solid ${color}20`,
-  background: color + '10', color, cursor: 'pointer',
-  display: 'flex', alignItems: 'center', justifyContent: 'center',
-})
-
-export default MedicineList

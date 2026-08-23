@@ -14,7 +14,7 @@ import {
   CreditCard, Pause, Printer, Search, UploadCloud,
   BookMarked, Scale, LayoutTemplate, Landmark,
   ArrowDownCircle, ArrowUpCircle, CalendarDays,
-  Tag, GitCompare, Send, StarHalf,
+  Tag, GitCompare, Send, StarHalf, FlaskConical, Plus,
 } from 'lucide-react'
 
 const C = '#fabf22'
@@ -148,12 +148,17 @@ const franchiseNav = [
     icon: ic(RotateCcw),
   },
 
-  /* 9 ── Prescriptions ── */
+  /* 9 ── Medicine Master (group) ── */
   {
-    component: CNavItem,
-    name: 'Prescriptions',
+    component: CNavGroup,
+    name: 'Medicine Master',
     to: '/franchise/medicines',
-    icon: ic(FileText),
+    icon: ic(FlaskConical),
+    items: [
+      { component: CNavItem, name: 'Medicine List',        to: '/franchise/medicines',              icon: ic(List)          },
+      { component: CNavItem, name: 'Add Medicine',         to: '/franchise/medicines/add',          icon: ic(Plus)          },
+      { component: CNavItem, name: 'Rack Management',      to: '/franchise/medicines/racks',        icon: ic(Layers)        },
+    ],
   },
 
   /* 10 ── Online Orders  13 badge ── */
