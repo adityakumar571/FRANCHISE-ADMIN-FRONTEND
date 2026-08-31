@@ -1,4 +1,7 @@
 /* eslint-disable prettier/prettier */
+// ── 3D Layout ─────────────────────────────────────────────────────────────────
+import PharmacyLayout3D from './views/franchise/Layout3D/PharmacyLayout3D'
+
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 import FranchiseDashboard from './views/franchise/Dashboard/FranchiseDashboard'
 
@@ -127,8 +130,11 @@ import HelpSupport from './views/franchise/Support/HelpSupport'
 const routes = [
 
   /* ── Dashboard ── */
-  { path: '/franchise/dashboard', element: FranchiseDashboard },
-  { path: '/dashboard',           element: FranchiseDashboard },
+  { path: '/franchise/dashboard',           element: FranchiseDashboard },
+  { path: '/dashboard',                     element: FranchiseDashboard },
+
+  /* ── 3D Layout ── */
+  { path: '/franchise/layout-3d',           element: PharmacyLayout3D },
 
   /* ── POS / Sales ── */
   { path: '/franchise/pos',                      element: NewBilling          },

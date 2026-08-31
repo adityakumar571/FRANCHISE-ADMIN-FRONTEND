@@ -5,6 +5,7 @@
 import { useState } from 'react'
 import { BookOpen, Download, Filter, TrendingUp, TrendingDown, Wallet } from 'lucide-react'
 import PageHeader from '../components/PageHeader'
+import TablePagination from '../components/TablePagination'
 import { CASH_BOOK } from './accountsMockData'
 
 const Th = ({ c, align = 'left' }) => (
@@ -29,11 +30,14 @@ const StatCard = ({ label, value, color, icon: Icon, bg }) => (
 export default function CashBook() {
   const [from, setFrom] = useState('2025-05-01')
   const [to, setTo]     = useState('2025-05-20')
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(20)
 
   const openBal   = 25430.00
   const totalIn   = CASH_BOOK.reduce((s, r) => s + (r.cashIn || 0), 0)
   const totalOut  = CASH_BOOK.reduce((s, r) => s + (r.cashOut || 0), 0)
   const closeBal  = openBal + totalIn - totalOut
+  const paged     = CASH_BOOK.slice((page - 1) * limit, page * limit)
 
   return (
     <div style={{ fontFamily: 'Inter, sans-serif', display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -95,7 +99,6 @@ export default function CashBook() {
                   <Td style={{ textAlign: 'right', fontWeight: 700, color: '#0c3b73' }}>₹ {r.balance.toFixed(2)}</Td>
                 </tr>
               ))}
-              {/* Total Row */}
               <tr style={{ background: '#f9fafb', borderTop: '2px solid #e5e7eb' }}>
                 <Td style={{ fontWeight: 800, color: '#111827' }} colSpan={3}>Total</Td>
                 <Td style={{ textAlign: 'right', fontWeight: 800, color: '#16a34a' }}>₹ {totalIn.toFixed(2)}</Td>

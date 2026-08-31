@@ -15,6 +15,7 @@ import {
   BookMarked, Scale, LayoutTemplate, Landmark,
   ArrowDownCircle, ArrowUpCircle, CalendarDays,
   Tag, GitCompare, Send, StarHalf, FlaskConical, Plus, IndianRupee,
+  Map,
 } from 'lucide-react'
 
 const C = '#fabf22'
@@ -31,6 +32,15 @@ const franchiseNav = [
     name: 'Dashboard',
     to: '/franchise/dashboard',
     icon: ic(LayoutDashboard),
+  },
+
+  /* 1b ── Location / Rack Layout ── */
+  {
+    component: CNavItem,
+    name: 'Location / Rack Layout',
+    to: '/franchise/layout-3d',
+    icon: ic(Map),
+    badge: { color: 'info', text: '3D' },
   },
 
   /* 2 ── POS Billing (group) ── */
