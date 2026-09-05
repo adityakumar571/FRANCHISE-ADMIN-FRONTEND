@@ -1,10 +1,12 @@
 /* eslint-disable prettier/prettier */
 /**
  * PharmacyLayout3D — Isometric 3D Pharmacy Floor Plan
- * Pure CSS isometric rendering, no external 3D library
+ * API-integrated medicine location search
  */
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { MapPin, Plus, Package, Layers, AlertTriangle, Search, X, ChevronRight, Grid3X3, BoxSelect } from 'lucide-react'
+import { getRequest } from '../../../Helpers'
+import toast from 'react-hot-toast'
 
 /* ═══════════════════ MOCK DATA ═══════════════════ */
 const COUNTERS = [
@@ -124,15 +126,30 @@ export default function PharmacyLayout3D() {
   const [addType, setAddType]         = useState('counter') // 'counter' | 'rack'
 
   /* Search logic */
-  const handleSearch = (val) => {
+  const handleSearch = async (val) => {
     setSearch(val)
     if (!val.trim()) { setFoundMed(null); return }
+    // First check local mock data for instant feedback
     const med = MEDICINES.find(m => m.name.toLowerCase().includes(val.toLowerCase()))
     if (med) {
       setFoundMed(med)
       const rack = RACKS.find(r => r.id === med.location.rack)
       if (rack) { setSelectedRack(rack); setCounter(rack.counter) }
-    } else {
+      return
+    }
+    // Then try API for real medicines
+    try {
+      const res = await getRequest(`/franchise/layout/medicine-location?q=${encodeURIComponent(val)}`)
+      const apiMeds = res.data?.data || []
+      if (apiMeds.length > 0) {
+        const apiMed = apiMeds[0]
+        setFoundMed({ name: apiMed.name, type: 'Tablet', available: apiMed.stock, location: { counter: 'A', rack: apiMed.rackLabel || 'A1', shelf: 'Top', box: 'Box 01' } })
+        const rack = RACKS.find(r => r.id === apiMed.rackLabel) || RACKS[0]
+        if (rack) { setSelectedRack(rack); setCounter(rack.counter) }
+      } else {
+        setFoundMed(null)
+      }
+    } catch {
       setFoundMed(null)
     }
   }

@@ -1,107 +1,110 @@
 /* eslint-disable prettier/prettier */
-/**
- * Screen 89 — Expenses
- */
-import { useState } from 'react'
-import { TrendingDown, Download, Filter, Plus } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { TrendingDown } from 'lucide-react'
 import PageHeader from '../components/PageHeader'
-import { EXPENSES_LIST, EXPENSE_CATEGORIES } from './accountsMockData'
+import { getRequest } from '../../../Helpers'
+import toast from 'react-hot-toast'
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 
-const Th = ({ c, align = 'left' }) => (
-  <th style={{ padding: '10px 12px', fontSize: 11, color: '#6b7280', fontWeight: 700, textTransform: 'uppercase', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', textAlign: align, whiteSpace: 'nowrap' }}>{c}</th>
-)
-const Td = ({ children, style = {} }) => (
-  <td style={{ padding: '10px 12px', fontSize: 13, color: '#374151', borderBottom: '1px solid #f3f4f6', ...style }}>{children}</td>
-)
+const COLORS = ['#0c3b73', '#7c3aed', '#d97706', '#dc2626', '#0891b2', '#16a34a', '#6b7280']
+const fmt = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
 
 export default function Expenses() {
-  const total = EXPENSES_LIST.reduce((s, e) => s + e.amount, 0)
+  const [expenses, setExpenses] = useState([])
+  const [total, setTotal]       = useState(0)
+  const [loading, setLoading]   = useState(true)
+  const [category, setCategory] = useState('')
+  const [from, setFrom] = useState('')
+  const [to, setTo]     = useState('')
+
+  const fetchData = async () => {
+    setLoading(true)
+    try {
+      const res = await getRequest(`/franchise/accounts/expenses?from=${from}&to=${to}&category=${category}`)
+      const d = res.data?.data
+      setExpenses(d?.expenses || [])
+      setTotal(d?.total || 0)
+    } catch { toast.error('Failed to load expenses') }
+    finally   { setLoading(false) }
+  }
+  useEffect(() => { fetchData() }, [from, to, category])
+
+  const catTotals = expenses.reduce((acc, e) => { acc[e.category] = (acc[e.category] || 0) + e.amount; return acc }, {})
+  const pieData = Object.entries(catTotals).map(([name, value]) => ({ name, value }))
 
   return (
     <div style={{ fontFamily: 'Inter, sans-serif', display: 'flex', flexDirection: 'column', gap: 18 }}>
-      <PageHeader icon={TrendingDown} title="Expenses" subtitle="All expense transactions" color="#dc2626">
-        <button style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: '#0c3b73', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, color: '#fff', cursor: 'pointer' }}>
-          <Plus size={13} /> Add Expense
-        </button>
-        <button style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '8px 12px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 12, background: '#fff', cursor: 'pointer' }}><Filter size={12} /> Filter</button>
-        <button style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '8px 12px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 12, background: '#fff', cursor: 'pointer' }}><Download size={12} /> Export</button>
-      </PageHeader>
+      <PageHeader icon={TrendingDown} title="Expenses" subtitle="All expense entries" color="#dc2626" />
 
-      {/* Total Card */}
-      <div style={{ background: 'linear-gradient(135deg,#dc2626,#ef4444)', borderRadius: 14, padding: '20px 24px', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <p style={{ margin: 0, fontSize: 12, opacity: 0.85, textTransform: 'uppercase', letterSpacing: 1 }}>Total Expenses</p>
-          <p style={{ margin: '6px 0 0', fontSize: 34, fontWeight: 900, letterSpacing: -1 }}>₹ {total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
-        </div>
-        <TrendingDown size={48} style={{ opacity: 0.3 }} />
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: 16, alignItems: 'start' }}>
-        {/* Categories */}
-        <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: '18px' }}>
-          <p style={{ fontSize: 13, fontWeight: 700, color: '#374151', margin: '0 0 14px' }}>Top Expense Categories</p>
-
-          {/* Donut */}
-          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
-            <div style={{ position: 'relative', width: 120, height: 120 }}>
-              <svg viewBox="0 0 36 36" style={{ transform: 'rotate(-90deg)', width: 120, height: 120 }}>
-                {EXPENSE_CATEGORIES.reduce((acc, c) => {
-                  acc.els.push(
-                    <circle key={c.label} cx="18" cy="18" r="15.9155" fill="transparent"
-                      stroke={c.color} strokeWidth="3.5"
-                      strokeDasharray={`${c.value} ${100 - c.value}`}
-                      strokeDashoffset={`-${acc.off}`} />
-                  )
-                  acc.off += c.value
-                  return acc
-                }, { els: [], off: 0 }).els}
-              </svg>
-              <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                <span style={{ fontSize: 14, fontWeight: 800, color: '#111827' }}>100%</span>
-              </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 260px', gap: 16 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <p style={{ fontSize: 11, color: '#9ca3af', margin: '0 0 2px' }}>Total Expenses</p>
+              <p style={{ fontSize: 24, fontWeight: 800, color: '#dc2626', margin: 0 }}>{fmt(total)}</p>
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input type="date" value={from} onChange={e => setFrom(e.target.value)} style={{ padding: '7px 10px', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 12, outline: 'none' }} />
+              <input type="date" value={to} onChange={e => setTo(e.target.value)} style={{ padding: '7px 10px', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 12, outline: 'none' }} />
+              <select value={category} onChange={e => setCategory(e.target.value)}
+                style={{ padding: '7px 10px', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 12, background: '#f9fafb', cursor: 'pointer' }}>
+                <option value="">All Categories</option>
+                {['Rent', 'Salary', 'Utilities', 'Transport', 'Office', 'Other'].map(c => <option key={c}>{c}</option>)}
+              </select>
             </div>
           </div>
 
-          {EXPENSE_CATEGORIES.map(c => (
-            <div key={c.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid #f9fafb', fontSize: 12 }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ width: 10, height: 10, borderRadius: '50%', background: c.color, display: 'inline-block', flexShrink: 0 }} />
-                {c.label}
-              </span>
-              <span style={{ fontWeight: 700, color: c.color }}>{c.value}%</span>
-            </div>
-          ))}
-        </div>
-
-        {/* Expense List */}
-        <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
-          <div style={{ padding: '12px 16px', borderBottom: '1px solid #f3f4f6' }}>
-            <p style={{ margin: 0, fontSize: 13, fontWeight: 700 }}>Expense List</p>
-          </div>
-          <div style={{ overflowX: 'auto' }}>
+          <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead><tr>
-                <Th c="Date" /><Th c="Particulars" /><Th c="Category" /><Th c="Amount (₹)" align="right" />
+                {['Date', 'Particulars', 'Category', 'Amount (₹)'].map(h => (
+                  <th key={h} style={{ padding: '9px 12px', fontSize: 11, color: '#6b7280', fontWeight: 700, textTransform: 'uppercase', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
+                ))}
               </tr></thead>
               <tbody>
-                {EXPENSES_LIST.map((e, i) => (
-                  <tr key={i} onMouseEnter={ev => ev.currentTarget.style.background = '#fafafa'} onMouseLeave={ev => ev.currentTarget.style.background = ''}>
-                    <Td style={{ color: '#6b7280', fontSize: 12 }}>{e.date}</Td>
-                    <Td style={{ fontWeight: 600 }}>{e.particulars}</Td>
-                    <Td>
-                      <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 20, background: '#fee2e2', color: '#dc2626' }}>{e.category}</span>
-                    </Td>
-                    <Td style={{ textAlign: 'right', fontWeight: 700, color: '#dc2626' }}>₹ {e.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</Td>
-                  </tr>
-                ))}
-                <tr style={{ background: '#f9fafb', borderTop: '2px solid #e5e7eb' }}>
-                  <Td style={{ fontWeight: 800 }} colSpan={3}>Total</Td>
-                  <Td style={{ textAlign: 'right', fontWeight: 800, color: '#dc2626', fontSize: 15 }}>₹ {total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</Td>
-                </tr>
+                {loading
+                  ? Array(5).fill(0).map((_, i) => <tr key={i}>{Array(4).fill(0).map((_, j) => <td key={j} style={{ padding: '9px 12px' }}><div style={{ height: 12, background: '#f3f4f6', borderRadius: 4 }} /></td>)}</tr>)
+                  : expenses.map((e, i) => (
+                    <tr key={i}>
+                      <td style={{ padding: '9px 12px', fontSize: 13, color: '#6b7280', borderBottom: '1px solid #f3f4f6' }}>{e.date}</td>
+                      <td style={{ padding: '9px 12px', fontSize: 13, borderBottom: '1px solid #f3f4f6', fontWeight: 500 }}>{e.particulars}</td>
+                      <td style={{ padding: '9px 12px', fontSize: 13, borderBottom: '1px solid #f3f4f6' }}>
+                        <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: '#f3f4f6', color: '#374151' }}>{e.category}</span>
+                      </td>
+                      <td style={{ padding: '9px 12px', fontSize: 13, borderBottom: '1px solid #f3f4f6', textAlign: 'right', fontWeight: 700, color: '#dc2626' }}>{fmt(e.amount)}</td>
+                    </tr>
+                  ))
+                }
               </tbody>
             </table>
           </div>
         </div>
+
+        {/* Category Pie */}
+        {!loading && pieData.length > 0 && (
+          <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: 16 }}>
+            <p style={{ fontSize: 13, fontWeight: 700, margin: '0 0 12px' }}>By Category</p>
+            <ResponsiveContainer width="100%" height={180}>
+              <PieChart>
+                <Pie data={pieData} cx="50%" cy="50%" innerRadius={45} outerRadius={70} dataKey="value" paddingAngle={3} strokeWidth={0}>
+                  {pieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                </Pie>
+                <Tooltip formatter={v => [fmt(v), '']} contentStyle={{ borderRadius: 8, border: 'none', fontSize: 11 }} />
+              </PieChart>
+            </ResponsiveContainer>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
+              {pieData.map((d, i) => (
+                <div key={d.name} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ width: 10, height: 10, borderRadius: '50%', background: COLORS[i % COLORS.length], display: 'inline-block' }} />
+                    <span style={{ color: '#374151' }}>{d.name}</span>
+                  </div>
+                  <span style={{ fontWeight: 600 }}>{fmt(d.value)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
