@@ -1,5 +1,5 @@
 /* eslint-disable prettier/prettier */
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import axios from 'axios'
@@ -12,17 +12,33 @@ import logo from '../../../assets/PharmaNexus.png'
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL
 
+// Extract subdomain from current hostname
+// e.g. "sharma-pharmacy.yourdomain.com" → "sharma-pharmacy"
+const getSubdomainFromURL = () => {
+  const hostname = window.location.hostname // e.g. "sharma-pharmacy.yourdomain.com"
+  const parts = hostname.split('.')
+  // If more than 2 parts, first part is the subdomain
+  if (parts.length > 2) return parts[0]
+  // For localhost / IP fallback — return empty so validation catches it
+  return ''
+}
+
 const FranchiseLogin = () => {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading]           = useState(false)
+  const [subdomain, setSubdomain]       = useState('')
   const navigate = useNavigate()
   const { setFranchiseUser, setFranchiseInfo } = useFranchise()
 
   const [form, setForm] = useState({
-    subdomain: '',
-    userId:    '',
-    password:  '',
+    userId:   '',
+    password: '',
   })
+
+  useEffect(() => {
+    const detected = getSubdomainFromURL()
+    setSubdomain(detected)
+  }, [])
 
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -32,8 +48,8 @@ const FranchiseLogin = () => {
   const handleSubmit = async (e) => {
     e.preventDefault()
 
-    if (!form.subdomain.trim()) {
-      toast.error('Please enter your Franchise ID / Subdomain')
+    if (!subdomain) {
+      toast.error('Could not detect franchise subdomain from URL.')
       return
     }
 
@@ -43,7 +59,7 @@ const FranchiseLogin = () => {
       const res = await axios.post(
         `${BASE_URL}franchise/login`,
         { userId: form.userId, password: form.password },
-        { headers: { 'x-tenant-id': form.subdomain.trim().toLowerCase() } }
+        { headers: { 'x-tenant-id': subdomain.toLowerCase() } }
       )
 
       const { token, user, franchise } = res?.data?.data
@@ -156,26 +172,6 @@ const FranchiseLogin = () => {
           </p>
 
           <form onSubmit={handleSubmit}>
-
-            {/* Subdomain / Franchise ID */}
-            <div style={{ marginBottom: 18 }}>
-              <label style={{ display: 'block', marginBottom: 6, fontWeight: 600, fontSize: 13 }}>
-                Franchise ID / Subdomain <span style={{ color: '#e53e3e' }}>*</span>
-              </label>
-              <input
-                type="text"
-                name="subdomain"
-                value={form.subdomain}
-                onChange={handleChange}
-                placeholder="e.g. sharma-pharmacy"
-                required
-                autoComplete="off"
-                style={inputStyle}
-              />
-              <p style={{ fontSize: 11, color: '#aaa', marginTop: 4 }}>
-                Your unique franchise identifier (provided during registration)
-              </p>
-            </div>
 
             {/* User ID */}
             <div style={{ marginBottom: 18 }}>
