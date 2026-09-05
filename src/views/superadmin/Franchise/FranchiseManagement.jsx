@@ -1,10 +1,11 @@
 /* eslint-disable prettier/prettier */
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   Building2, Search, Filter, Plus, Eye, Edit2, Trash2,
   CheckCircle, XCircle, AlertTriangle, ChevronLeft, ChevronRight,
-  Download, MapPin, Phone, CreditCard,
+  Download, MapPin, Phone, CreditCard, RefreshCw,
 } from 'lucide-react'
+import { getRequest, postRequest, patchRequest } from '../../../Helpers/index'
 
 /* ─────────────────────────────────────────────
    CONSTANTS
@@ -27,22 +28,6 @@ const CITIES_BY_STATE = {
 const PLANS = ['All Plans', 'Basic', 'Professional', 'Enterprise']
 
 /* ─────────────────────────────────────────────
-   MOCK DATA (10 rows)
-───────────────────────────────────────────── */
-const MOCK_FRANCHISES = [
-  { id: 'FRN-001', business: 'MedPlus Pharmacy - Andheri',     city: 'Mumbai',    state: 'Maharashtra',    owner: 'Ramesh Gupta',       phone: '+91 98200 11234', plan: 'Enterprise',   status: 'Active',    expiry: '03 Jul 2025' },
-  { id: 'FRN-002', business: 'HealthCare Plus - Koramangala',  city: 'Bengaluru', state: 'Karnataka',      owner: 'Priya Krishnamurthy', phone: '+91 99805 22345', plan: 'Professional', status: 'Active',    expiry: '18 Sep 2025' },
-  { id: 'FRN-003', business: 'Wellness Pharma - Banjara Hills',city: 'Hyderabad', state: 'Telangana',      owner: 'Suresh Reddy',       phone: '+91 97000 33456', plan: 'Professional', status: 'Active',    expiry: '22 Aug 2025' },
-  { id: 'FRN-004', business: 'Apollo Medicals - Sector 18',   city: 'Noida',     state: 'Uttar Pradesh',  owner: 'Arvind Sharma',      phone: '+91 98110 44567', plan: 'Basic',        status: 'Suspended', expiry: '01 Jul 2025' },
-  { id: 'FRN-005', business: 'Shree Ram Medicals - Kothrud',  city: 'Pune',      state: 'Maharashtra',    owner: 'Ganesh Patil',       phone: '+91 99220 55678', plan: 'Enterprise',   status: 'Active',    expiry: '14 Dec 2025' },
-  { id: 'FRN-006', business: 'Lifeline Pharmacy - Vastrapur', city: 'Ahmedabad', state: 'Gujarat',        owner: 'Nilesh Shah',        phone: '+91 98790 66789', plan: 'Professional', status: 'Inactive',  expiry: '15 Jun 2025' },
-  { id: 'FRN-007', business: 'Jana Aushadhi - Anna Nagar',    city: 'Chennai',   state: 'Tamil Nadu',     owner: 'Muthukumar S.',      phone: '+91 97440 77890', plan: 'Basic',        status: 'Active',    expiry: '30 Oct 2025' },
-  { id: 'FRN-008', business: 'Raj Medicos - Salt Lake',        city: 'Kolkata',   state: 'West Bengal',    owner: 'Debashish Banerjee', phone: '+91 98300 88901', plan: 'Professional', status: 'Active',    expiry: '05 Nov 2025' },
-  { id: 'FRN-009', business: 'Sai Pharma Store - Miyapur',    city: 'Hyderabad', state: 'Telangana',      owner: 'Venkat Rao',         phone: '+91 99501 99012', plan: 'Basic',        status: 'Active',    expiry: '28 Aug 2025' },
-  { id: 'FRN-010', business: 'City Medicals - Vijay Nagar',   city: 'Indore',    state: 'Madhya Pradesh', owner: 'Ravi Agarwal',       phone: '+91 97550 10123', plan: 'Professional', status: 'Active',    expiry: '12 Oct 2025' },
-]
-
-/* ─────────────────────────────────────────────
    REUSABLE COMPONENTS
 ───────────────────────────────────────────── */
 const StatusBadge = ({ status }) => {
@@ -60,15 +45,17 @@ const StatusBadge = ({ status }) => {
 }
 
 const PlanBadge = ({ plan }) => {
+  const p = (plan || 'Basic')
   const map = {
     Enterprise:   { bg: '#eff6ff', color: '#0c3b73', border: '#bfdbfe' },
     Professional: { bg: '#f5f3ff', color: '#7c3aed', border: '#ddd6fe' },
     Basic:        { bg: '#f9fafb', color: '#6b7280', border: '#e5e7eb' },
+    Trial:        { bg: '#fef9c3', color: '#b45309', border: '#fde68a' },
   }
-  const s = map[plan] || map.Basic
+  const s = map[p] || map.Basic
   return (
     <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 6, background: s.bg, color: s.color, border: `1px solid ${s.border}` }}>
-      {plan}
+      {p}
     </span>
   )
 }
@@ -303,63 +290,104 @@ const Pagination = ({ page, total, perPage, onPage }) => {
 const PER_PAGE = 7
 
 export default function FranchiseManagement() {
-  const [search, setSearch]       = useState('')
-  const [statusFilter, setStatus] = useState('All')
-  const [stateFilter, setState]   = useState('All States')
-  const [planFilter, setPlan]     = useState('All Plans')
-  const [page, setPage]           = useState(1)
-  const [showModal, setShowModal] = useState(false)
-  const [franchises, setFranchises] = useState(MOCK_FRANCHISES)
-  const [toast, setToast]         = useState(null)
+  const [search, setSearch]           = useState('')
+  const [draftSearch, setDraftSearch] = useState('')
+  const [statusFilter, setStatus]     = useState('All')
+  const [stateFilter, setState]       = useState('All States')
+  const [planFilter, setPlan]         = useState('All Plans')
+  const [page, setPage]               = useState(1)
+  const [showModal, setShowModal]     = useState(false)
+  const [franchises, setFranchises]   = useState([])
+  const [total, setTotal]             = useState(0)
+  const [loading, setLoading]         = useState(false)
+  const [toast, setToast]             = useState(null)
 
-  /* ── derived data ── */
-  const filtered = franchises.filter(f => {
-    const matchSearch = !search || f.business.toLowerCase().includes(search.toLowerCase()) || f.owner.toLowerCase().includes(search.toLowerCase()) || f.id.toLowerCase().includes(search.toLowerCase())
-    const matchStatus = statusFilter === 'All' || f.status === statusFilter
-    const matchState  = stateFilter  === 'All States' || f.state === stateFilter
-    const matchPlan   = planFilter   === 'All Plans'  || f.plan  === planFilter
-    return matchSearch && matchStatus && matchState && matchPlan
-  })
+  /* ── fetch from backend ── */
+  const fetchFranchises = useCallback(async () => {
+    setLoading(true)
+    try {
+      const params = new URLSearchParams({ page, limit: PER_PAGE })
+      if (search)                        params.append('search', search)
+      if (statusFilter !== 'All')        params.append('isActive', statusFilter === 'Active' ? 'true' : 'false')
 
-  const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE)
+      const res  = await getRequest(`schools?${params.toString()}`)
+      const data = res?.data?.data
+      setFranchises(data?.tenants || [])
+      setTotal(data?.total || 0)
+    } catch (err) {
+      console.error('[FranchiseManagement] fetch error:', err)
+      setFranchises([])
+      setTotal(0)
+    } finally {
+      setLoading(false)
+    }
+  }, [page, search, statusFilter])
 
-  /* ── stats ── */
-  const total     = franchises.length
-  const active    = franchises.filter(f => f.status === 'Active').length
-  const inactive  = franchises.filter(f => f.status === 'Inactive').length
-  const suspended = franchises.filter(f => f.status === 'Suspended').length
+  useEffect(() => { fetchFranchises() }, [fetchFranchises])
 
-  /* ── actions ── */
+  /* ── helpers ── */
   const showToast = (msg, color = '#16a34a') => {
     setToast({ msg, color })
     setTimeout(() => setToast(null), 2500)
   }
 
-  const handleToggleStatus = (id) => {
-    setFranchises(prev => prev.map(f => {
-      if (f.id !== id) return f
-      const next = f.status === 'Active' ? 'Inactive' : 'Active'
-      return { ...f, status: next }
-    }))
-    showToast('Franchise status updated.')
+  /* ── client-side secondary filters (state, plan) ── */
+  const filtered = franchises.filter(f => {
+    const matchState = stateFilter === 'All States' || f.state === stateFilter
+    const matchPlan  = planFilter  === 'All Plans'  || (f.planName || '').toLowerCase() === planFilter.toLowerCase()
+    return matchState && matchPlan
+  })
+
+  /* ── stats derived from current page; re-fetch gives real counts ── */
+  const active    = franchises.filter(f => f.isActive === true).length
+  const inactive  = franchises.filter(f => f.isActive === false && f.planStatus !== 'SUSPENDED').length
+  const suspended = franchises.filter(f => f.planStatus === 'SUSPENDED').length
+
+  /* ── toggle status ── */
+  const handleToggleStatus = async (id) => {
+    try {
+      await patchRequest({ url: `schools/toggle-status/${id}`, cred: {} })
+      showToast('Franchise status updated.')
+      fetchFranchises()
+    } catch (err) {
+      console.error(err)
+      showToast('Failed to update status.', '#dc2626')
+    }
   }
 
-  const handleCreate = (form) => {
-    const newId = `FRN-${String(franchises.length + 1).padStart(3, '0')}`
-    const today = new Date()
-    const expiry = new Date(today.setFullYear(today.getFullYear() + 1))
-      .toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-    setFranchises(prev => [...prev, {
-      id: newId, business: form.business, city: form.city, state: form.state,
-      owner: form.owner, phone: form.phone, plan: form.plan, status: 'Active', expiry,
-    }])
-    setShowModal(false)
-    showToast('Franchise created successfully!', '#16a34a')
+  /* ── create ── */
+  const handleCreate = async (form) => {
+    try {
+      await postRequest({
+        url: 'schools',
+        cred: {
+          schoolName:         form.business,
+          franchiseAdminName: form.owner,
+          schoolEmail:        form.email,
+          franchiseAdminPhone:form.phone,
+          state:              form.state,
+          city:               form.city,
+          addressLine1:       form.address,
+          subdomain:          form.business.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''),
+        },
+      })
+      setShowModal(false)
+      showToast('Franchise created successfully!', '#16a34a')
+      fetchFranchises()
+    } catch (err) {
+      console.error(err)
+      showToast(err?.response?.data?.message || 'Failed to create franchise.', '#dc2626')
+    }
   }
 
   const filterSelectStyle = {
     padding: '8px 12px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 12,
     color: '#374151', background: '#fff', outline: 'none', cursor: 'pointer',
+  }
+
+  /* ── search on Enter / debounce ── */
+  const handleSearchKeyDown = (e) => {
+    if (e.key === 'Enter') { setSearch(draftSearch); setPage(1) }
   }
 
   return (
@@ -387,12 +415,18 @@ export default function FranchiseManagement() {
             </p>
           </div>
         </div>
-        <button
-          onClick={() => setShowModal(true)}
-          style={{ display: 'flex', alignItems: 'center', gap: 7, background: '#0c3b73', border: 'none', borderRadius: 9, padding: '10px 18px', fontSize: 13, fontWeight: 600, color: '#fff', cursor: 'pointer', boxShadow: '0 2px 8px #0c3b7340' }}
-        >
-          <Plus size={15} /> Create Franchise
-        </button>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button onClick={fetchFranchises}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 9, padding: '9px 14px', fontSize: 13, fontWeight: 600, color: '#374151', cursor: 'pointer' }}>
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Refresh
+          </button>
+          <button
+            onClick={() => setShowModal(true)}
+            style={{ display: 'flex', alignItems: 'center', gap: 7, background: '#0c3b73', border: 'none', borderRadius: 9, padding: '10px 18px', fontSize: 13, fontWeight: 600, color: '#fff', cursor: 'pointer', boxShadow: '0 2px 8px #0c3b7340' }}
+          >
+            <Plus size={15} /> Create Franchise
+          </button>
+        </div>
       </div>
 
       {/* ══════════════════════════════════════
@@ -416,9 +450,11 @@ export default function FranchiseManagement() {
           <div style={{ position: 'relative', flex: '1 1 220px', minWidth: 200 }}>
             <Search size={13} color="#9ca3af" style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)' }} />
             <input
-              value={search}
-              onChange={e => { setSearch(e.target.value); setPage(1) }}
-              placeholder="Search by name, owner or ID…"
+              value={draftSearch}
+              onChange={e => setDraftSearch(e.target.value)}
+              onKeyDown={handleSearchKeyDown}
+              onBlur={() => { if (draftSearch !== search) { setSearch(draftSearch); setPage(1) } }}
+              placeholder="Search by name or ID… (Enter to search)"
               style={{ width: '100%', padding: '8px 12px 8px 32px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 12, color: '#111827', background: '#f9fafb', outline: 'none', boxSizing: 'border-box' }}
             />
           </div>
@@ -428,7 +464,6 @@ export default function FranchiseManagement() {
             <option value="All">All Status</option>
             <option value="Active">Active</option>
             <option value="Inactive">Inactive</option>
-            <option value="Suspended">Suspended</option>
           </select>
 
           {/* State filter */}
@@ -455,9 +490,9 @@ export default function FranchiseManagement() {
         {/* Results count */}
         <div style={{ padding: '8px 18px', background: '#f9fafb', borderBottom: '1px solid #f3f4f6' }}>
           <span style={{ fontSize: 11, color: '#6b7280' }}>
-            {filtered.length} franchise{filtered.length !== 1 ? 's' : ''} found
+            {loading ? 'Loading…' : `${total} franchise${total !== 1 ? 's' : ''} found`}
             {(search || statusFilter !== 'All' || stateFilter !== 'All States' || planFilter !== 'All Plans') && (
-              <button onClick={() => { setSearch(''); setStatus('All'); setState('All States'); setPlan('All Plans'); setPage(1) }}
+              <button onClick={() => { setDraftSearch(''); setSearch(''); setStatus('All'); setState('All States'); setPlan('All Plans'); setPage(1) }}
                 style={{ marginLeft: 8, fontSize: 11, color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
                 Clear filters
               </button>
@@ -470,107 +505,134 @@ export default function FranchiseManagement() {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: '#f9fafb' }}>
-                {['Franchise ID', 'Business Name', 'City / State', 'Owner Name', 'Phone', 'Plan', 'Status', 'Subscription Expiry', 'Actions'].map(h => (
+                {['#', 'Business Name', 'City / State', 'Owner Name', 'Phone', 'Plan', 'Status', 'Subdomain', 'Actions'].map(h => (
                   <th key={h} style={{ padding: '10px 16px', fontSize: 10, color: '#6b7280', fontWeight: 700, textTransform: 'uppercase', textAlign: 'left', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {paginated.length === 0 ? (
+              {loading ? (
+                <tr>
+                  <td colSpan={9} style={{ padding: '40px 0', textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>
+                    <RefreshCw size={18} style={{ animation: 'spin 1s linear infinite', display: 'inline-block', marginRight: 8 }} />
+                    Loading franchises…
+                  </td>
+                </tr>
+              ) : filtered.length === 0 ? (
                 <tr>
                   <td colSpan={9} style={{ padding: '40px 0', textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>
                     No franchises match your current filters.
                   </td>
                 </tr>
-              ) : paginated.map((f, i) => (
-                <tr key={f.id} style={{ borderBottom: '1px solid #f3f4f6', transition: 'background 0.1s' }}
-                  onMouseEnter={e => e.currentTarget.style.background = '#fafafa'}
-                  onMouseLeave={e => e.currentTarget.style.background = ''}
-                >
-                  {/* ID */}
-                  <td style={{ padding: '11px 16px' }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: '#0c3b73', fontFamily: 'monospace', background: '#eff6ff', padding: '3px 7px', borderRadius: 5 }}>{f.id}</span>
-                  </td>
+              ) : filtered.map((f, i) => {
+                const statusLabel = f.planStatus === 'SUSPENDED' ? 'Suspended' : f.isActive ? 'Active' : 'Inactive'
+                const expiry = f.planEndDate
+                  ? new Date(f.planEndDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+                  : f.trialEndDate
+                  ? new Date(f.trialEndDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+                  : '—'
 
-                  {/* Business Name */}
-                  <td style={{ padding: '11px 16px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <div style={{ width: 32, height: 32, borderRadius: 8, background: '#0c3b7312', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <Building2 size={14} color="#0c3b73" />
+                return (
+                  <tr key={f._id} style={{ borderBottom: '1px solid #f3f4f6', transition: 'background 0.1s' }}
+                    onMouseEnter={e => e.currentTarget.style.background = '#fafafa'}
+                    onMouseLeave={e => e.currentTarget.style.background = ''}
+                  >
+                    {/* Row number */}
+                    <td style={{ padding: '11px 16px' }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: '#0c3b73', fontFamily: 'monospace', background: '#eff6ff', padding: '3px 7px', borderRadius: 5 }}>
+                        {(page - 1) * PER_PAGE + i + 1}
+                      </span>
+                    </td>
+
+                    {/* Business Name */}
+                    <td style={{ padding: '11px 16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div style={{ width: 32, height: 32, borderRadius: 8, background: '#0c3b7312', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <Building2 size={14} color="#0c3b73" />
+                        </div>
+                        <div>
+                          <span style={{ fontSize: 12, fontWeight: 600, color: '#111827' }}>{f.schoolName || '—'}</span>
+                          {f.isTrial && (
+                            <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: '#fef9c3', color: '#b45309', border: '1px solid #fde68a' }}>TRIAL</span>
+                          )}
+                        </div>
                       </div>
-                      <span style={{ fontSize: 12, fontWeight: 600, color: '#111827' }}>{f.business}</span>
-                    </div>
-                  </td>
+                    </td>
 
-                  {/* City / State */}
-                  <td style={{ padding: '11px 16px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <MapPin size={11} color="#9ca3af" />
-                      <div>
-                        <p style={{ fontSize: 12, color: '#374151', margin: 0, fontWeight: 500 }}>{f.city}</p>
-                        <p style={{ fontSize: 10, color: '#9ca3af', margin: 0 }}>{f.state}</p>
+                    {/* City / State */}
+                    <td style={{ padding: '11px 16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <MapPin size={11} color="#9ca3af" />
+                        <div>
+                          <p style={{ fontSize: 12, color: '#374151', margin: 0, fontWeight: 500 }}>{f.city || '—'}</p>
+                          <p style={{ fontSize: 10, color: '#9ca3af', margin: 0 }}>{f.state || '—'}</p>
+                        </div>
                       </div>
-                    </div>
-                  </td>
+                    </td>
 
-                  {/* Owner */}
-                  <td style={{ padding: '11px 16px', fontSize: 12, color: '#374151', fontWeight: 500 }}>{f.owner}</td>
+                    {/* Owner */}
+                    <td style={{ padding: '11px 16px', fontSize: 12, color: '#374151', fontWeight: 500 }}>
+                      {f.franchiseAdminName || f.managedBy || '—'}
+                    </td>
 
-                  {/* Phone */}
-                  <td style={{ padding: '11px 16px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                      <Phone size={11} color="#9ca3af" />
-                      <span style={{ fontSize: 11, color: '#374151' }}>{f.phone}</span>
-                    </div>
-                  </td>
+                    {/* Phone */}
+                    <td style={{ padding: '11px 16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <Phone size={11} color="#9ca3af" />
+                        <span style={{ fontSize: 11, color: '#374151' }}>{f.franchiseAdminPhone || f.schoolContact || '—'}</span>
+                      </div>
+                    </td>
 
-                  {/* Plan */}
-                  <td style={{ padding: '11px 16px' }}><PlanBadge plan={f.plan} /></td>
+                    {/* Plan */}
+                    <td style={{ padding: '11px 16px' }}>
+                      <PlanBadge plan={f.planName || (f.isTrial ? 'Trial' : 'Basic')} />
+                    </td>
 
-                  {/* Status */}
-                  <td style={{ padding: '11px 16px' }}><StatusBadge status={f.status} /></td>
+                    {/* Status */}
+                    <td style={{ padding: '11px 16px' }}><StatusBadge status={statusLabel} /></td>
 
-                  {/* Expiry */}
-                  <td style={{ padding: '11px 16px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                      <CreditCard size={11} color="#9ca3af" />
-                      <span style={{ fontSize: 11, color: '#374151' }}>{f.expiry}</span>
-                    </div>
-                  </td>
+                    {/* Subdomain */}
+                    <td style={{ padding: '11px 16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <CreditCard size={11} color="#9ca3af" />
+                        <span style={{ fontSize: 11, color: '#374151', fontFamily: 'monospace' }}>{f.subdomain || '—'}</span>
+                      </div>
+                    </td>
 
-                  {/* Actions */}
-                  <td style={{ padding: '11px 16px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      {/* View */}
-                      <button title="View Details" style={{ width: 28, height: 28, border: '1px solid #e5e7eb', borderRadius: 6, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#0c3b73' }}>
-                        <Eye size={13} />
-                      </button>
-                      {/* Edit */}
-                      <button title="Edit Franchise" style={{ width: 28, height: 28, border: '1px solid #e5e7eb', borderRadius: 6, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#d97706' }}>
-                        <Edit2 size={13} />
-                      </button>
-                      {/* Toggle Status */}
-                      <button title={f.status === 'Active' ? 'Deactivate' : 'Activate'}
-                        onClick={() => handleToggleStatus(f.id)}
-                        style={{ width: 28, height: 28, border: `1px solid ${f.status === 'Active' ? '#fecaca' : '#bbf7d0'}`, borderRadius: 6, background: f.status === 'Active' ? '#fef2f2' : '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-                        {f.status === 'Active'
-                          ? <XCircle size={13} color="#dc2626" />
-                          : <CheckCircle size={13} color="#16a34a" />}
-                      </button>
-                      {/* Delete */}
-                      <button title="Delete" style={{ width: 28, height: 28, border: '1px solid #e5e7eb', borderRadius: 6, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#dc2626' }}>
-                        <Trash2 size={13} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    {/* Actions */}
+                    <td style={{ padding: '11px 16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {/* View */}
+                        <button title="View Details" style={{ width: 28, height: 28, border: '1px solid #e5e7eb', borderRadius: 6, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#0c3b73' }}>
+                          <Eye size={13} />
+                        </button>
+                        {/* Edit */}
+                        <button title="Edit Franchise" style={{ width: 28, height: 28, border: '1px solid #e5e7eb', borderRadius: 6, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#d97706' }}>
+                          <Edit2 size={13} />
+                        </button>
+                        {/* Toggle Status */}
+                        <button title={f.isActive ? 'Deactivate' : 'Activate'}
+                          onClick={() => handleToggleStatus(f._id)}
+                          style={{ width: 28, height: 28, border: `1px solid ${f.isActive ? '#fecaca' : '#bbf7d0'}`, borderRadius: 6, background: f.isActive ? '#fef2f2' : '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                          {f.isActive
+                            ? <XCircle size={13} color="#dc2626" />
+                            : <CheckCircle size={13} color="#16a34a" />}
+                        </button>
+                        {/* Delete */}
+                        <button title="Delete" style={{ width: 28, height: 28, border: '1px solid #e5e7eb', borderRadius: 6, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#dc2626' }}>
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
 
         {/* PAGINATION */}
-        <Pagination page={page} total={filtered.length} perPage={PER_PAGE} onPage={setPage} />
+        <Pagination page={page} total={total} perPage={PER_PAGE} onPage={setPage} />
       </div>
 
       {/* MODAL */}

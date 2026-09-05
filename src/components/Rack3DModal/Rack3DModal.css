@@ -1,0 +1,562 @@
+/* ============================================================
+   Rack3DModal — 3D Pharmacy Rack Viewer
+   Pure CSS 3D transforms, no extra library needed
+   ============================================================ */
+
+/* ---------- Overlay & Backdrop ---------- */
+.rack3d__overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: rack3d-fadein 0.2s ease;
+}
+
+.rack3d__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 15, 30, 0.75);
+  backdrop-filter: blur(4px);
+}
+
+@keyframes rack3d-fadein {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ---------- Modal Card ---------- */
+.rack3d__modal {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 860px;
+  background: #ffffff;
+  border-radius: 20px;
+  box-shadow:
+    0 32px 80px rgba(0, 0, 0, 0.3),
+    0 0 0 1px rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+  animation: rack3d-slideup 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes rack3d-slideup {
+  from { transform: translateY(40px) scale(0.95); opacity: 0; }
+  to   { transform: translateY(0)    scale(1);    opacity: 1; }
+}
+
+/* ---------- Header ---------- */
+.rack3d__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
+  color: #fff;
+}
+
+.rack3d__header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.rack3d__icon {
+  font-size: 28px;
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,0.4));
+}
+
+.rack3d__title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.3px;
+}
+
+.rack3d__subtitle {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.rack3d__close {
+  background: rgba(255,255,255,0.12);
+  border: none;
+  color: #fff;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+.rack3d__close:hover { background: rgba(255,255,255,0.25); }
+
+/* ---------- Body ---------- */
+.rack3d__body {
+  display: grid;
+  grid-template-columns: 1fr 260px;
+  gap: 0;
+  min-height: 460px;
+}
+
+/* ---------- 3D View Panel (left) ---------- */
+.rack3d__view-panel {
+  padding: 24px;
+  background: linear-gradient(160deg, #f0f4ff 0%, #e8eef8 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  border-right: 1px solid #e2e8f0;
+}
+
+.rack3d__view-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  align-self: flex-start;
+}
+
+/* ---------- 3D Scene Wrapper ---------- */
+.rack3d__scene-wrapper {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 16px 0;
+  perspective: 900px;
+}
+
+/* ============================================================
+   RACK 3D STRUCTURE
+   ============================================================ */
+.rack3d__viewer {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Outer frame */
+.rack3d__frame {
+  position: relative;
+  width: 300px;
+  padding: 8px 28px;
+  transform: rotateX(6deg) rotateY(-14deg);
+  transform-style: preserve-3d;
+  filter: drop-shadow(0 20px 40px rgba(0,0,0,0.25));
+  transition: transform 0.5s ease;
+}
+.rack3d__frame:hover {
+  transform: rotateX(2deg) rotateY(-8deg);
+}
+
+/* Vertical poles */
+.rack3d__pole {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 14px;
+  background: linear-gradient(90deg, #94a3b8, #cbd5e1, #94a3b8);
+  border-radius: 4px;
+  transform-style: preserve-3d;
+  box-shadow: 2px 4px 12px rgba(0,0,0,0.3);
+}
+.rack3d__pole--left  { left: 4px; }
+.rack3d__pole--right { right: 4px; }
+
+/* Pole 3D side face */
+.rack3d__pole::after {
+  content: '';
+  position: absolute;
+  top: 0; right: -8px; bottom: 0;
+  width: 8px;
+  background: #64748b;
+  transform-origin: left center;
+  transform: rotateY(-90deg);
+  border-radius: 0 4px 4px 0;
+}
+
+/* Floor bar */
+.rack3d__floor-bar {
+  width: 100%;
+  height: 12px;
+  background: linear-gradient(180deg, #94a3b8, #64748b);
+  border-radius: 0 0 6px 6px;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.3);
+  position: relative;
+}
+.rack3d__floor-bar::after {
+  content: '';
+  position: absolute;
+  bottom: -6px; left: 0; right: 0;
+  height: 6px;
+  background: #475569;
+  transform-origin: top center;
+  transform: rotateX(-90deg) translateZ(-3px);
+}
+
+/* Shelves container */
+.rack3d__shelves-container {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* ---------- Individual Shelf Row ---------- */
+.rack3d__shelf-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rack3d__shelf-label {
+  font-size: 10px;
+  color: #64748b;
+  font-weight: 600;
+  width: 34px;
+  text-align: right;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+}
+
+/* The 3D shelf scene */
+.rack3d__shelf-scene {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  padding: 4px 6px 0;
+  transform-style: preserve-3d;
+}
+
+/* Shelf back wall */
+.rack3d__shelf-back {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, #dde4ee, #c8d3e6);
+  border-radius: 4px 4px 0 0;
+  z-index: 0;
+}
+
+/* Shelf floor */
+.rack3d__shelf-floor {
+  position: absolute;
+  bottom: -6px; left: 0; right: 0;
+  height: 6px;
+  background: linear-gradient(90deg, #94a3b8, #b0bec5, #94a3b8);
+  border-radius: 0 0 3px 3px;
+  transform-origin: top center;
+  transform: rotateX(90deg);
+  box-shadow: 0 3px 8px rgba(0,0,0,0.2);
+  z-index: 1;
+}
+
+/* Shelf side panels */
+.rack3d__shelf-side {
+  position: absolute;
+  top: 0;
+  bottom: -6px;
+  width: 6px;
+  background: #7b8fa6;
+  z-index: 2;
+}
+.rack3d__shelf-side--left  { left: 0;  transform-origin: right center; transform: rotateY(90deg);  }
+.rack3d__shelf-side--right { right: 0; transform-origin: left center;  transform: rotateY(-90deg); }
+
+/* Boxes wrapper */
+.rack3d__boxes {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  gap: 3px;
+  flex-wrap: nowrap;
+  align-items: flex-end;
+}
+
+/* ============================================================
+   BOX — each medicine slot
+   ============================================================ */
+.rack3d__box {
+  position: relative;
+  width: 22px;
+  height: 28px;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  transform-style: preserve-3d;
+  transition: transform 0.18s ease, filter 0.18s ease;
+  outline: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rack3d__box:hover {
+  transform: translateY(-4px) scale(1.08);
+  z-index: 10;
+}
+.rack3d__box--active {
+  transform: translateY(-6px) scale(1.12);
+  z-index: 10;
+  filter: brightness(1.15) drop-shadow(0 4px 8px rgba(0,0,0,0.35));
+}
+
+/* Front face colour by status */
+.rack3d__box--available { background: linear-gradient(160deg, #4ade80, #16a34a); }
+.rack3d__box--low       { background: linear-gradient(160deg, #fbbf24, #d97706); }
+.rack3d__box--out       { background: linear-gradient(160deg, #f87171, #dc2626); }
+.rack3d__box--empty     { background: linear-gradient(160deg, #e2e8f0, #cbd5e1); border: 1px dashed #94a3b8; }
+
+/* Top face */
+.rack3d__box-top {
+  position: absolute;
+  top: -5px; left: 0; right: 0;
+  height: 5px;
+  border-radius: 3px 3px 0 0;
+  transform-origin: bottom center;
+  transform: rotateX(-90deg);
+}
+.rack3d__box--available .rack3d__box-top { background: #86efac; }
+.rack3d__box--low       .rack3d__box-top { background: #fde68a; }
+.rack3d__box--out       .rack3d__box-top { background: #fca5a5; }
+.rack3d__box--empty     .rack3d__box-top { background: #f1f5f9; }
+
+/* Right face */
+.rack3d__box-right {
+  position: absolute;
+  top: 0; bottom: 0; right: -4px;
+  width: 4px;
+  border-radius: 0 3px 3px 0;
+  transform-origin: left center;
+  transform: rotateY(-90deg);
+}
+.rack3d__box--available .rack3d__box-right { background: #15803d; }
+.rack3d__box--low       .rack3d__box-right { background: #b45309; }
+.rack3d__box--out       .rack3d__box-right { background: #b91c1c; }
+.rack3d__box--empty     .rack3d__box-right { background: #94a3b8; }
+
+/* Label text on box */
+.rack3d__box-label {
+  font-size: 6px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.9);
+  text-align: center;
+  line-height: 1;
+  z-index: 1;
+  pointer-events: none;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+}
+.rack3d__box--empty .rack3d__box-label { color: #94a3b8; }
+
+/* ---------- Rack name badge ---------- */
+.rack3d__name-badge {
+  background: linear-gradient(135deg, #0f172a, #1e3a5f);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 4px 16px;
+  border-radius: 20px;
+  letter-spacing: 1px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+/* ---------- Box tooltip ---------- */
+.rack3d__box-tooltip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #0f172a;
+  color: #f8fafc;
+  font-size: 12px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+  animation: rack3d-fadein 0.15s ease;
+}
+
+.rack3d__tooltip-status {
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
+/* ---------- Legend ---------- */
+.rack3d__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+}
+.rack3d__legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: #475569;
+  font-weight: 500;
+}
+.rack3d__legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.rack3d__hint {
+  font-size: 11px;
+  color: #94a3b8;
+  margin: 0;
+  font-style: italic;
+}
+
+/* ---------- Details Panel (right) ---------- */
+.rack3d__details-panel {
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: #ffffff;
+}
+
+.rack3d__details-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.rack3d__details-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rack3d__detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.rack3d__detail-label {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.rack3d__detail-value {
+  font-size: 12px;
+  color: #1e293b;
+  font-weight: 600;
+  text-align: right;
+}
+
+.rack3d__status-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 20px;
+}
+
+/* ---------- Stock progress bar ---------- */
+.rack3d__stock-section {
+  background: #f8fafc;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.rack3d__stock-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #475569;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.rack3d__stock-track {
+  height: 8px;
+  background: #e2e8f0;
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.rack3d__stock-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.6s ease;
+}
+
+.rack3d__stock-pct {
+  font-size: 11px;
+  color: #94a3b8;
+  margin-top: 6px;
+  text-align: right;
+}
+
+/* ---------- Action buttons ---------- */
+.rack3d__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.rack3d__btn {
+  width: 100%;
+  padding: 9px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.18s ease;
+}
+
+.rack3d__btn--primary {
+  background: linear-gradient(135deg, #0ea5e9, #0284c7);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(14,165,233,0.35);
+}
+.rack3d__btn--primary:hover {
+  background: linear-gradient(135deg, #38bdf8, #0ea5e9);
+  transform: translateY(-1px);
+}
+
+.rack3d__btn--secondary {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+.rack3d__btn--secondary:hover {
+  background: #e2e8f0;
+  transform: translateY(-1px);
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 640px) {
+  .rack3d__body {
+    grid-template-columns: 1fr;
+  }
+  .rack3d__details-panel {
+    border-top: 1px solid #e2e8f0;
+  }
+  .rack3d__frame {
+    width: 240px;
+    transform: rotateX(4deg) rotateY(-10deg);
+  }
+}

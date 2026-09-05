@@ -1,21 +1,43 @@
-/* eslint-disable react/prop-types */
 /* eslint-disable prettier/prettier */
-import React, { createContext, useState, useContext } from 'react';
+import React, { createContext, useState, useContext, useEffect } from 'react'
 
+const AuthContext = createContext()
 
-const RolesContext = createContext();
+export const AuthProvider = ({ children }) => {
+  const [user, setUser] = useState(null)
 
-// Create a provider component
-export const RolesProvider = ({ children }) => {
-  const [role, setRole] = useState(null);
+  // Hydrate from localStorage on mount (persists across refreshes)
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('franchise_user')
+      if (stored) setUser(JSON.parse(stored))
+    } catch { /* ignore */ }
+  }, [])
+
+  const login = (userData) => {
+    setUser(userData)
+    localStorage.setItem('franchise_user', JSON.stringify(userData))
+  }
+
+  const logout = () => {
+    setUser(null)
+    localStorage.removeItem('franchise_user')
+    localStorage.removeItem('franchise_context')
+    localStorage.removeItem('franchise_subdomain')
+  }
+
   return (
-    <RolesContext.Provider value={{ role, setRole }}>
+    <AuthContext.Provider value={{ user, role: user?.role || null, login, logout, setUser }}>
       {children}
-    </RolesContext.Provider>
-  );
-};
+    </AuthContext.Provider>
+  )
+}
 
-// Create a custom hook for easier usage
-export const useRoles = () => {
-  return useContext(RolesContext);
-};
+export const useAuth = () => useContext(AuthContext)
+
+// Legacy compatibility — RolesContext alias
+const RolesContext = AuthContext
+export const RolesProvider = AuthProvider
+export const useRoles = useAuth
+
+export default AuthContext

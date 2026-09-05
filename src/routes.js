@@ -5,6 +5,12 @@ import PharmacyLayout3D from './views/franchise/Layout3D/PharmacyLayout3D'
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 import FranchiseDashboard from './views/franchise/Dashboard/FranchiseDashboard'
 
+// ── Role-based Dashboards ─────────────────────────────────────────────────────
+import AccountsDashboard from './views/franchise/RoleDashboards/AccountsDashboard'
+import StaffDashboard    from './views/franchise/RoleDashboards/StaffDashboard'
+import CustomerDashboard from './views/franchise/RoleDashboards/CustomerDashboard'
+import VendorDashboard   from './views/franchise/RoleDashboards/VendorDashboard'
+
 // ── POS / Sales ───────────────────────────────────────────────────────────────
 import NewBilling          from './views/franchise/POS/NewBilling'
 import BarcodeScan         from './views/franchise/POS/BarcodeScan'
@@ -106,6 +112,9 @@ import BalanceSheet from './views/franchise/Accounts/BalanceSheet'
 
 // ── Staff & Users ─────────────────────────────────────────────────────────────
 import StaffUsers from './views/franchise/Staff/StaffUsers'
+
+// ── User Management ───────────────────────────────────────────────────────────
+import UserManagement from './views/franchise/UserManagement/UserManagement'
 
 // ── Reports ───────────────────────────────────────────────────────────────────
 import SalesReport    from './views/franchise/Reports/SalesReport'
@@ -242,6 +251,15 @@ const routes = [
 
   /* ── Staff ── */
   { path: '/franchise/staff', element: StaffUsers },
+
+  /* ── User Management ── */
+  { path: '/franchise/user-management', element: UserManagement },
+
+  /* ── Role Dashboards ── */
+  { path: '/franchise/accounts-home',   element: AccountsDashboard },
+  { path: '/franchise/staff-home',      element: StaffDashboard    },
+  { path: '/franchise/customer-home',   element: CustomerDashboard },
+  { path: '/franchise/vendor-home',     element: VendorDashboard   },
 
   /* ── Reports ── */
   { path: '/franchise/reports',          element: SalesReport    },

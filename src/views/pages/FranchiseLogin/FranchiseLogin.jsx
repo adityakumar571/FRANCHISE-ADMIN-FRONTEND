@@ -6,6 +6,7 @@ import axios from 'axios'
 import Cookies from 'js-cookie'
 import { FaEye, FaEyeSlash } from 'react-icons/fa'
 import { Store } from 'lucide-react'
+import { useFranchise } from '../../../Context/FranchiseContext'
 
 import logo from '../../../assets/PharmaNexus.png'
 
@@ -15,6 +16,7 @@ const FranchiseLogin = () => {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading]           = useState(false)
   const navigate = useNavigate()
+  const { setFranchiseUser, setFranchiseInfo } = useFranchise()
 
   const [form, setForm] = useState({
     subdomain: '',
@@ -46,18 +48,26 @@ const FranchiseLogin = () => {
 
       const { token, user, franchise } = res?.data?.data
 
-      // Store token in LMS cookie (same as existing auto-login flow)
+      // Store token in LMS cookie
       Cookies.set('LMS', token, { expires: 30, path: '/' })
 
-      // Store franchise context for the dashboard
-      localStorage.setItem('franchise_user',    JSON.stringify(user))
-      localStorage.setItem('franchise_context', JSON.stringify(franchise))
-      localStorage.setItem('franchise_subdomain', franchise.subdomain)
+      // Store franchise context — via context setters (updates React state + localStorage)
+      setFranchiseUser(user)
+      setFranchiseInfo(franchise)
 
-      toast.success(`Welcome, ${franchise.franchiseName}!`)
+      toast.success(`Welcome, ${user.name || franchise.franchiseName}!`)
 
-      // Navigate to franchise dashboard
-      navigate('/franchise/dashboard', { replace: true })
+      // ── Role-based redirect ────────────────────────────────
+      const roleRedirect = {
+        SuperAdmin: '/franchise/dashboard',
+        Admin:      '/franchise/dashboard',
+        Accounts:   '/franchise/accounts/cash-book',
+        Staff:      '/franchise/dashboard',
+        Customer:   '/franchise/pos/billing',
+        Vendor:     '/franchise/suppliers',
+      }
+      const target = roleRedirect[user.role] || '/franchise/dashboard'
+      navigate(target, { replace: true })
     } catch (err) {
       toast.error(err?.response?.data?.message || 'Login failed. Please check credentials.')
     } finally {
