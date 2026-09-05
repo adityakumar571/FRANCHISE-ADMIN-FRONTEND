@@ -4,9 +4,10 @@
  * Matches the design shown in the screenshot exactly
  */
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   UserCheck, Plus, Eye, Edit2, Search,
-  Shield, UserCog, User, X, Save, ChevronLeft, ChevronRight,
+  Shield, UserCog, User, X, Save, ChevronLeft, ChevronRight, ShieldCheck,
 } from 'lucide-react'
 import PageHeader from '../components/PageHeader'
 
@@ -220,6 +221,7 @@ const ViewModal = ({ staff, onClose, onEdit }) => {
    MAIN COMPONENT
 ══════════════════════════════════════════ */
 export default function StaffUsers() {
+  const navigate = useNavigate()
   const [data, setData]         = useState(INIT_STAFF)
   const [search, setSearch]     = useState('')
   const [roleFilter, setRoleFilter] = useState('All')
@@ -270,6 +272,11 @@ export default function StaffUsers() {
 
       {/* Page Header */}
       <PageHeader icon={UserCheck} title="Staff & Users" subtitle="Manage franchise team members and their access" color="#7c3aed">
+        <button
+          onClick={() => navigate('/franchise/staff/menu-access')}
+          style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 18px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', color: '#0c3b73', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+          <ShieldCheck size={14} /> Menu Access
+        </button>
         <button onClick={() => { setEditItem(null); setShowAdd(true) }}
           style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 18px', borderRadius: 8, border: 'none', background: '#0c3b73', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
           <Plus size={14} /> + Add Staff
@@ -390,6 +397,11 @@ export default function StaffUsers() {
                         <button onClick={() => setEditItem(s)}
                           style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, border: '1px solid #e5e7eb', borderRadius: 7, background: '#f9fafb', cursor: 'pointer', color: '#6b7280' }}>
                           <Edit2 size={13} />
+                        </button>
+                        <button onClick={() => navigate('/franchise/staff/menu-access')}
+                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, border: '1px solid #c7d2fe', borderRadius: 7, background: '#e0e7ff', cursor: 'pointer', color: '#0c3b73' }}
+                          title="Menu Access">
+                          <ShieldCheck size={13} />
                         </button>
                       </div>
                     </td>

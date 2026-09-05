@@ -5,6 +5,7 @@
  * Holds authenticated franchise session data:
  *   - franchiseUser  : { _id, userId, name, role }
  *   - franchiseInfo  : { _id, franchiseName, franchiseCode, subdomain, logo }
+ *   - menuAccess     : { [key]: boolean } — controls sidebar visibility
  *
  * Loaded from localStorage on mount (persisted after FranchiseLogin).
  * Cleared on logout.
@@ -13,6 +14,34 @@ import React, { createContext, useContext, useState, useCallback } from 'react'
 import Cookies from 'js-cookie'
 
 export const FranchiseContext = createContext()
+
+/* ── All menu permission keys ── */
+export const ALL_MENU_KEYS = [
+  'dashboard','dashboard_main','dashboard_layout3d',
+  'pos','pos_billing','pos_barcode','pos_prescription','pos_payment','pos_split',
+  'pos_hold','pos_return','pos_exchange','pos_credit','pos_dayclosing',
+  'purchase','purchase_dashboard','purchase_orders','purchase_grn','purchase_returns','purchase_ledger','purchase_liverates',
+  'inventory','inventory_dashboard','inventory_stock','inventory_adjustment','inventory_nearexpiry',
+  'inventory_expired','inventory_damage','inventory_dead','inventory_fastmoving','inventory_slowmoving',
+  'inventory_ledger','inventory_rack','inventory_audit','inventory_verification',
+  'liverates','liverates_dashboard','liverates_compare','liverates_stock','liverates_scheme',
+  'liverates_bestdeal','liverates_cart','liverates_order','liverates_tracking',
+  'medicines','medicines_list','medicines_add','medicines_edit','medicines_rack','medicines_barcode',
+  'suppliers','suppliers_list','suppliers_add','suppliers_outstanding','suppliers_ledger','suppliers_payments',
+  'customers','customers_list','customers_wallet','customers_history','customers_reminder',
+  'customers_membership','customers_loyalty','customers_carecoin',
+  'b2b','b2b_orders',
+  'accounts','accounts_cashbook','accounts_bankbook','accounts_daybook','accounts_receipts',
+  'accounts_payments','accounts_expenses','accounts_income','accounts_journal',
+  'accounts_ledger','accounts_trial','accounts_pl','accounts_bs',
+  'reports','reports_sales','reports_purchase','reports_stock','reports_expiry',
+  'staff','staff_list','staff_add','staff_access',
+  'settings','settings_business','settings_profile','settings_notif','settings_security','settings_print',
+  'audit','audit_logs','audit_activity',
+]
+
+/* Full access — Franchise Owner default */
+export const FULL_MENU_ACCESS = Object.fromEntries(ALL_MENU_KEYS.map(k => [k, true]))
 
 export const FranchiseProvider = ({ children }) => {
   const [franchiseUser, setFranchiseUserState] = useState(() => {
@@ -29,10 +58,43 @@ export const FranchiseProvider = ({ children }) => {
     } catch { return null }
   })
 
+  /* ── Menu Access — persisted per user ── */
+  const [menuAccess, setMenuAccessState] = useState(() => {
+    try {
+      const userId = (() => { try { return JSON.parse(localStorage.getItem('franchise_user'))?._id || 'default' } catch { return 'default' } })()
+      const saved = localStorage.getItem(`franchise_menu_access_${userId}`)
+      return saved ? JSON.parse(saved) : { ...FULL_MENU_ACCESS }
+    } catch { return { ...FULL_MENU_ACCESS } }
+  })
+
+  const setMenuAccess = useCallback((access, userId) => {
+    const key = userId || 'default'
+    setMenuAccessState(access)
+    localStorage.setItem(`franchise_menu_access_${key}`, JSON.stringify(access))
+  }, [])
+
+  /* Check if a key is allowed */
+  const hasAccess = useCallback((key) => {
+    if (!key) return true
+    // Franchise Owner always has full access
+    const role = franchiseUser?.role
+    if (role === 'Franchise Owner') return true
+    return menuAccess[key] !== false
+  }, [menuAccess, franchiseUser])
+
   const setFranchiseUser = useCallback((user) => {
     setFranchiseUserState(user)
-    if (user) localStorage.setItem('franchise_user', JSON.stringify(user))
-    else localStorage.removeItem('franchise_user')
+    if (user) {
+      localStorage.setItem('franchise_user', JSON.stringify(user))
+      // Load this user's menu access
+      try {
+        const saved = localStorage.getItem(`franchise_menu_access_${user._id || 'default'}`)
+        if (saved) setMenuAccessState(JSON.parse(saved))
+        else setMenuAccessState({ ...FULL_MENU_ACCESS })
+      } catch { setMenuAccessState({ ...FULL_MENU_ACCESS }) }
+    } else {
+      localStorage.removeItem('franchise_user')
+    }
   }, [])
 
   const setFranchiseInfo = useCallback((info) => {
@@ -53,6 +115,7 @@ export const FranchiseProvider = ({ children }) => {
     localStorage.removeItem('franchise_subdomain')
     setFranchiseUserState(null)
     setFranchiseInfoState(null)
+    setMenuAccessState({ ...FULL_MENU_ACCESS })
   }, [])
 
   const isAuthenticated = !!Cookies.get('LMS') && !!franchiseUser
@@ -62,6 +125,9 @@ export const FranchiseProvider = ({ children }) => {
       value={{
         franchiseUser,
         franchiseInfo,
+        menuAccess,
+        setMenuAccess,
+        hasAccess,
         setFranchiseUser,
         setFranchiseInfo,
         logoutFranchise,
