@@ -1,147 +1,148 @@
 /* eslint-disable prettier/prettier */
-/**
- * Staff & Users — Franchise Staff Management
- * Matches the design shown in the screenshot exactly
- */
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  UserCheck, Plus, Eye, Edit2, Search,
-  Shield, UserCog, User, X, Save, ChevronLeft, ChevronRight, ShieldCheck,
+  UserCheck, Plus, Eye, Edit2, Search, Shield, UserCog, User,
+  X, Save, ChevronLeft, ChevronRight, ShieldCheck, Lock,
+  EyeOff, Eye as EyeIcon, Copy, Check, RefreshCw, Download,
+  FileText, Printer, AlertTriangle,
 } from 'lucide-react'
+import axios from 'axios'
+import Cookies from 'js-cookie'
+import { Switch } from 'antd'
+import toast from 'react-hot-toast'
 import PageHeader from '../components/PageHeader'
 
-/* ── Constants ── */
-const ROLES = ['Franchise Owner', 'Branch Manager', 'Pharmacist', 'Cashier']
+/* ─────────────────────────────────────────
+   API Setup
+───────────────────────────────────────── */
+const BASE_URL  = import.meta.env.VITE_API_BASE_URL
+const getSubdomain = () => localStorage.getItem('franchise_subdomain') || ''
+const getToken     = () => Cookies.get('LMS') || ''
+
+const api = axios.create({ baseURL: BASE_URL })
+api.interceptors.request.use(cfg => {
+  cfg.headers['Authorization'] = `Bearer ${getToken()}`
+  cfg.headers['x-tenant-id']   = getSubdomain()
+  return cfg
+})
+
+/* ─────────────────────────────────────────
+   Role Config
+───────────────────────────────────────── */
+const ROLES = ['Franchise Owner', 'Branch Manager', 'Pharmacist', 'Cashier', 'Admin', 'Accounts', 'Staff', 'Vendor']
 
 const ROLE_COLORS = {
   'Franchise Owner': { color: '#7c3aed', bg: '#f5f3ff', border: '#e9d5ff' },
   'Branch Manager':  { color: '#0891b2', bg: '#e0f2fe', border: '#bae6fd' },
   'Pharmacist':      { color: '#0c3b73', bg: '#e0e7ff', border: '#c7d2fe' },
   'Cashier':         { color: '#16a34a', bg: '#dcfce7', border: '#bbf7d0' },
+  'Admin':           { color: '#0c3b73', bg: '#e0e7ff', border: '#c7d2fe' },
+  'Accounts':        { color: '#0891b2', bg: '#e0f2fe', border: '#bae6fd' },
+  'Staff':           { color: '#16a34a', bg: '#dcfce7', border: '#bbf7d0' },
+  'Vendor':          { color: '#dc2626', bg: '#fee2e2', border: '#fecaca' },
+  'SuperAdmin':      { color: '#7c3aed', bg: '#f5f3ff', border: '#e9d5ff' },
 }
 
-const ROLE_ICONS = {
-  'Franchise Owner': Shield,
-  'Branch Manager':  UserCog,
-  'Pharmacist':      User,
-  'Cashier':         User,
-}
-
-const PERMISSIONS = {
-  'Franchise Owner': ['Dashboard', 'Sales/POS', 'Purchase', 'Inventory', 'Medicines', 'Suppliers', 'B2B Orders', 'Customers', 'Staff', 'Reports', 'Settings'],
-  'Branch Manager':  ['Dashboard', 'Purchase', 'Inventory', 'Medicines', 'Suppliers', 'Reports'],
-  'Pharmacist':      ['Dashboard', 'Medicines', 'Inventory', 'Sales/POS'],
-  'Cashier':         ['Dashboard', 'Sales/POS', 'Customers'],
-}
-
-const INIT_STAFF = [
-  { id: 'U-001', name: 'Ajay Sharma',  phone: '9876543201', email: 'ajay@pharma.com',   role: 'Franchise Owner', status: 'Active',   lastLogin: '22 Aug 2026, 9:00 AM',  joined: '01 Jan 2025' },
-  { id: 'U-002', name: 'Sunita Rao',   phone: '9812340001', email: 'sunita@pharma.com', role: 'Branch Manager',  status: 'Active',   lastLogin: '22 Aug 2026, 8:45 AM',  joined: '10 Mar 2025' },
-  { id: 'U-003', name: 'Amit Kumar',   phone: '9988001122', email: 'amit@pharma.com',   role: 'Pharmacist',      status: 'Active',   lastLogin: '22 Aug 2026, 9:15 AM',  joined: '15 Apr 2025' },
-  { id: 'U-004', name: 'Neha Gupta',   phone: '8877001122', email: 'neha@pharma.com',   role: 'Cashier',         status: 'Active',   lastLogin: '22 Aug 2026, 9:30 AM',  joined: '01 Jun 2025' },
-  { id: 'U-005', name: 'Ravi Singh',   phone: '7766001122', email: 'ravi@pharma.com',   role: 'Pharmacist',      status: 'Inactive', lastLogin: '10 Aug 2026, 6:00 PM',  joined: '20 Feb 2025' },
-]
-
-const EMPTY_FORM = { name: '', phone: '', email: '', role: 'Cashier', password: '' }
-
-/* ── Small helpers ── */
+/* ─────────────────────────────────────────
+   Small Helpers
+───────────────────────────────────────── */
 const RoleBadge = ({ role }) => {
   const cfg = ROLE_COLORS[role] || { color: '#6b7280', bg: '#f3f4f6', border: '#e5e7eb' }
   return (
-    <span style={{ fontSize: 12, fontWeight: 600, padding: '4px 12px', borderRadius: 20, background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}`, whiteSpace: 'nowrap' }}>
+    <span style={{ fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 20, background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}`, whiteSpace: 'nowrap' }}>
       {role}
     </span>
   )
 }
 
-const StatusBadge = ({ status }) =>
-  status === 'Active'
-    ? <span style={{ fontSize: 12, fontWeight: 600, padding: '4px 12px', borderRadius: 20, background: '#dcfce7', color: '#16a34a', border: '1px solid #bbf7d0' }}>Active</span>
-    : <span style={{ fontSize: 12, fontWeight: 600, padding: '4px 12px', borderRadius: 20, background: '#f3f4f6', color: '#6b7280', border: '1px solid #e5e7eb' }}>Inactive</span>
-
-const Field = ({ label, children }) => (
-  <div>
-    <label style={{ fontSize: 11, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{label}</label>
-    {children}
-  </div>
+const FL = ({ children }) => (
+  <label style={{ fontSize: 11, fontWeight: 700, color: '#374151', display: 'block', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{children}</label>
 )
-
-const Input = ({ value, onChange, placeholder, type = 'text' }) => (
-  <input type={type} value={value} onChange={onChange} placeholder={placeholder}
-    style={{ width: '100%', padding: '9px 12px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box', color: '#111827' }}
-    onFocus={e => e.target.style.borderColor = '#0c3b73'}
+const FI = ({ value, onChange, placeholder, type = 'text', disabled }) => (
+  <input type={type} value={value} onChange={onChange} placeholder={placeholder} disabled={disabled}
+    style={{ width: '100%', padding: '9px 12px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box', color: '#111827', background: disabled ? '#f9fafb' : '#fff' }}
+    onFocus={e => { if (!disabled) e.target.style.borderColor = '#0c3b73' }}
     onBlur={e => e.target.style.borderColor = '#e5e7eb'}
   />
 )
 
-/* ── Add / Edit Modal ── */
-const StaffModal = ({ staff, onClose, onSave }) => {
-  const [form, setForm] = useState(staff ? { ...staff } : { ...EMPTY_FORM })
+/* ─────────────────────────────────────────
+   Add / Edit Modal
+───────────────────────────────────────── */
+const StaffModal = ({ staff, onClose, onSaved }) => {
+  const isEdit = !!staff
+  const [form, setForm]   = useState({
+    name:     staff?.name     || '',
+    phone:    staff?.phone    || '',
+    email:    staff?.email    || '',
+    role:     staff?.role     || 'Staff',
+    password: '',
+  })
+  const [saving, setSaving] = useState(false)
+  const [showPw, setShowPw] = useState(false)
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }))
 
-  const handleSave = () => {
-    if (!form.name.trim() || !form.phone.trim()) { alert('Name and phone are required'); return }
-    onSave(form)
-    onClose()
+  const handleSave = async () => {
+    if (!form.name.trim() || !form.phone.trim()) { toast.error('Name and phone are required'); return }
+    if (!isEdit && !form.password) { toast.error('Password is required'); return }
+    setSaving(true)
+    try {
+      const payload = { ...form }
+      if (isEdit && !payload.password) delete payload.password
+      if (isEdit) {
+        await api.put(`users/${staff._id}`, payload)
+        toast.success('User updated')
+      } else {
+        await api.post('users', payload)
+        toast.success('User created')
+      }
+      onSaved()
+      onClose()
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Save failed')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
       <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 520, boxShadow: '0 20px 60px rgba(0,0,0,0.18)', display: 'flex', flexDirection: 'column', maxHeight: '92vh' }}>
-
-        {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 22px', borderBottom: '1px solid #f3f4f6' }}>
-          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#111827' }}>{staff ? 'Edit Staff Member' : 'Add New Staff Member'}</h3>
+          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#111827' }}>{isEdit ? 'Edit User' : 'Add New User'}</h3>
           <button onClick={onClose} style={{ background: '#f3f4f6', border: 'none', borderRadius: 8, width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
             <X size={15} color="#6b7280" />
           </button>
         </div>
-
-        {/* Body */}
         <div style={{ padding: '20px 22px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <Field label="Full Name *">
-              <Input value={form.name} onChange={e => set('name', e.target.value)} placeholder="Staff full name" />
-            </Field>
-            <Field label="Phone Number *">
-              <Input value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="10-digit mobile" />
-            </Field>
-            <Field label="Email Address">
-              <Input value={form.email} onChange={e => set('email', e.target.value)} placeholder="email@example.com" type="email" />
-            </Field>
-            <Field label="Role *">
+            <div><FL>Full Name *</FL><FI value={form.name} onChange={e => set('name', e.target.value)} placeholder="Staff full name" /></div>
+            <div><FL>Phone *</FL><FI value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="10-digit mobile" /></div>
+            <div><FL>Email</FL><FI value={form.email} onChange={e => set('email', e.target.value)} placeholder="email@example.com" type="email" /></div>
+            <div>
+              <FL>Role *</FL>
               <select value={form.role} onChange={e => set('role', e.target.value)}
                 style={{ width: '100%', padding: '9px 12px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13, outline: 'none', cursor: 'pointer', color: '#111827' }}>
                 {ROLES.map(r => <option key={r}>{r}</option>)}
               </select>
-            </Field>
+            </div>
           </div>
-
-          {!staff && (
-            <Field label="Password *">
-              <Input value={form.password} onChange={e => set('password', e.target.value)} placeholder="Set login password" type="password" />
-            </Field>
-          )}
-
-          {/* Permissions Preview */}
-          <div style={{ background: '#f8faff', borderRadius: 10, padding: '14px 16px', border: '1px solid #e0e7ff' }}>
-            <p style={{ margin: '0 0 10px', fontSize: 12, fontWeight: 700, color: '#374151', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Shield size={13} color="#0c3b73" /> Access Permissions — {form.role}
-            </p>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {(PERMISSIONS[form.role] || []).map(p => (
-                <span key={p} style={{ padding: '3px 10px', borderRadius: 20, fontSize: 11, background: '#0c3b7318', color: '#0c3b73', fontWeight: 600 }}>{p}</span>
-              ))}
+          <div>
+            <FL>{isEdit ? 'New Password (leave blank to keep)' : 'Password *'}</FL>
+            <div style={{ position: 'relative' }}>
+              <FI value={form.password} onChange={e => set('password', e.target.value)} placeholder="Min 6 characters" type={showPw ? 'text' : 'password'} />
+              <button onClick={() => setShowPw(p => !p)} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af' }}>
+                {showPw ? <EyeOff size={14} /> : <EyeIcon size={14} />}
+              </button>
             </div>
           </div>
         </div>
-
-        {/* Footer */}
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', padding: '14px 22px', borderTop: '1px solid #f3f4f6' }}>
           <button onClick={onClose} style={{ padding: '9px 20px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', color: '#374151' }}>Cancel</button>
-          <button onClick={handleSave} style={{ padding: '9px 20px', borderRadius: 8, border: 'none', background: '#0c3b73', fontSize: 13, fontWeight: 600, cursor: 'pointer', color: '#fff', display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Save size={13} /> {staff ? 'Update Staff' : 'Add Staff'}
+          <button onClick={handleSave} disabled={saving}
+            style={{ padding: '9px 20px', borderRadius: 8, border: 'none', background: saving ? '#94a3b8' : '#0c3b73', fontSize: 13, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', color: '#fff', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Save size={13} /> {saving ? 'Saving…' : isEdit ? 'Update User' : 'Add User'}
           </button>
         </div>
       </div>
@@ -149,67 +150,142 @@ const StaffModal = ({ staff, onClose, onSave }) => {
   )
 }
 
-/* ── View Detail Modal ── */
-const ViewModal = ({ staff, onClose, onEdit }) => {
-  if (!staff) return null
-  const cfg    = ROLE_COLORS[staff.role] || { color: '#6b7280', bg: '#f3f4f6' }
-  const Icon   = ROLE_ICONS[staff.role] || User
-  const perms  = PERMISSIONS[staff.role] || []
+/* ─────────────────────────────────────────
+   Password / Credentials Modal
+───────────────────────────────────────── */
+const CredentialsModal = ({ user, onClose }) => {
+  const [creds, setCreds]           = useState(null)
+  const [credsLoading, setCredsLoading] = useState(true)
+  const [newPassword, setNewPassword]   = useState('')
+  const [showNew, setShowNew]           = useState(false)
+  const [showCurrent, setShowCurrent]   = useState(false)
+  const [saving, setSaving]             = useState(false)
+  const [error, setError]               = useState('')
+  const [success, setSuccess]           = useState('')
+  const [copiedId, setCopiedId]         = useState(false)
+  const [copiedPw, setCopiedPw]         = useState(false)
+
+  const cfg = ROLE_COLORS[user?.role] || { color: '#6b7280', bg: '#f3f4f6' }
+
+  useEffect(() => {
+    if (!user?._id) { setCreds({ userId: user?.userId || '—', password: null }); setCredsLoading(false); return }
+    api.get(`users/${user._id}/credentials`)
+      .then(r => setCreds(r.data?.data || { userId: user.userId, password: null }))
+      .catch(() => setCreds({ userId: user?.userId || '—', password: null }))
+      .finally(() => setCredsLoading(false))
+  }, [user?._id])
+
+  const copyText = (text, type) => {
+    if (!text) return
+    navigator.clipboard.writeText(text).then(() => {
+      if (type === 'id') { setCopiedId(true); setTimeout(() => setCopiedId(false), 1500) }
+      else               { setCopiedPw(true); setTimeout(() => setCopiedPw(false), 1500) }
+    })
+  }
+
+  const handleReset = async () => {
+    if (newPassword.length < 6) { setError('Minimum 6 characters required'); return }
+    setError(''); setSaving(true)
+    try {
+      await api.patch(`users/${user._id}/reset-password`, { newPassword })
+      setCreds(p => ({ ...p, password: newPassword }))
+      setSuccess('Password reset successfully!')
+      setNewPassword('')
+      setTimeout(() => setSuccess(''), 3000)
+    } catch (err) {
+      setError(err?.response?.data?.message || 'Reset failed')
+    } finally { setSaving(false) }
+  }
+
+  const strength = newPassword.length >= 10 && /[A-Z]/.test(newPassword) && /[0-9]/.test(newPassword)
+    ? 'Strong' : newPassword.length >= 6 ? 'Medium' : 'Weak'
+  const SC = { Weak: '#dc2626', Medium: '#d97706', Strong: '#16a34a' }
+  const SW = { Weak: '25%', Medium: '60%', Strong: '100%' }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-      <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 540, boxShadow: '0 20px 60px rgba(0,0,0,0.18)' }}>
-
-        {/* Header */}
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 460, boxShadow: '0 24px 64px rgba(0,0,0,0.18)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 22px', borderBottom: '1px solid #f3f4f6' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <div style={{ width: 50, height: 50, borderRadius: '50%', background: cfg.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <Icon size={22} color={cfg.color} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 38, height: 38, borderRadius: 10, background: '#fff7e6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Lock size={18} color="#d97706" />
             </div>
             <div>
-              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#111827' }}>{staff.name}</h3>
-              <span style={{ fontSize: 12, fontWeight: 600, color: cfg.color }}>{staff.role}</span>
+              <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#111827' }}>Password & Credentials</h3>
+              <p style={{ margin: 0, fontSize: 12, color: '#9ca3af' }}>{user?.name} · <span style={{ color: cfg.color, fontWeight: 600 }}>{user?.role}</span></p>
             </div>
           </div>
-          <button onClick={onClose} style={{ background: '#f3f4f6', border: 'none', borderRadius: 8, width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+          <button onClick={onClose} style={{ background: '#f3f4f6', border: 'none', borderRadius: 8, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
             <X size={15} color="#6b7280" />
           </button>
         </div>
-
-        {/* Details Grid */}
-        <div style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            {[
-              ['Staff ID',   staff.id],
-              ['Phone',      staff.phone],
-              ['Email',      staff.email || '—'],
-              ['Joined',     staff.joined],
-              ['Last Login', staff.lastLogin],
-              ['Status',     staff.status],
-            ].map(([label, val]) => (
-              <div key={label} style={{ background: '#f9fafb', borderRadius: 8, padding: '10px 14px' }}>
-                <p style={{ margin: 0, fontSize: 11, color: '#9ca3af', fontWeight: 500 }}>{label}</p>
-                <p style={{ margin: '3px 0 0', fontSize: 13, color: '#111827', fontWeight: 600 }}>{val}</p>
-              </div>
-            ))}
+        <div style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ background: '#f8faff', borderRadius: 10, border: '1px solid #dbeafe', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: '#0c3b73', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Login Credentials</p>
+            {credsLoading ? <p style={{ margin: 0, fontSize: 12, color: '#9ca3af' }}>Loading…</p> : (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                  <div>
+                    <p style={{ margin: 0, fontSize: 10, color: '#9ca3af', fontWeight: 700, textTransform: 'uppercase' }}>User ID</p>
+                    <p style={{ margin: '3px 0 0', fontSize: 16, fontWeight: 700, color: '#111827', fontFamily: 'monospace' }}>{creds?.userId || '—'}</p>
+                  </div>
+                  <button onClick={() => copyText(creds?.userId, 'id')}
+                    style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 7, border: '1px solid #bfdbfe', background: copiedId ? '#dcfce7' : '#eff6ff', cursor: 'pointer', fontSize: 11, fontWeight: 600, color: copiedId ? '#16a34a' : '#0c3b73', whiteSpace: 'nowrap' }}>
+                    {copiedId ? <Check size={12} /> : <Copy size={12} />} {copiedId ? 'Copied' : 'Copy ID'}
+                  </button>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingTop: 10, borderTop: '1px solid #dbeafe' }}>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ margin: 0, fontSize: 10, color: '#9ca3af', fontWeight: 700, textTransform: 'uppercase' }}>Current Password</p>
+                    <p style={{ margin: '3px 0 0', fontSize: 16, fontWeight: 700, color: '#111827', fontFamily: 'monospace', letterSpacing: showCurrent ? '0.3px' : '4px' }}>
+                      {creds?.password
+                        ? (showCurrent ? creds.password : '••••••••')
+                        : <span style={{ fontSize: 12, color: '#9ca3af', fontStyle: 'italic', fontWeight: 400, letterSpacing: 0 }}>Reset below to set new password</span>}
+                    </p>
+                  </div>
+                  {creds?.password && (
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button onClick={() => setShowCurrent(p => !p)}
+                        style={{ width: 32, height: 32, borderRadius: 7, border: '1px solid #bfdbfe', background: '#eff6ff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0c3b73' }}>
+                        {showCurrent ? <EyeOff size={14} /> : <EyeIcon size={14} />}
+                      </button>
+                      <button onClick={() => copyText(creds?.password, 'pw')}
+                        style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 7, border: '1px solid #bfdbfe', background: copiedPw ? '#dcfce7' : '#eff6ff', cursor: 'pointer', fontSize: 11, fontWeight: 600, color: copiedPw ? '#16a34a' : '#0c3b73', whiteSpace: 'nowrap' }}>
+                        {copiedPw ? <Check size={12} /> : <Copy size={12} />} {copiedPw ? 'Copied' : 'Copy'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
           </div>
-
-          {/* Module Access */}
-          <div style={{ background: '#f8faff', borderRadius: 10, padding: '14px 16px', border: '1px solid #e0e7ff' }}>
-            <p style={{ margin: '0 0 10px', fontSize: 13, fontWeight: 700, color: '#374151' }}>Module Access</p>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {perms.map(p => (
-                <span key={p} style={{ padding: '4px 12px', borderRadius: 20, fontSize: 11, background: '#0c3b7318', color: '#0c3b73', fontWeight: 600 }}>{p}</span>
-              ))}
+          <div>
+            <FL>Set New Password</FL>
+            <div style={{ position: 'relative' }}>
+              <input type={showNew ? 'text' : 'password'} value={newPassword} onChange={e => { setNewPassword(e.target.value); setError('') }}
+                placeholder="Minimum 6 characters"
+                style={{ width: '100%', padding: '9px 38px 9px 12px', border: `1px solid ${error ? '#dc2626' : '#e5e7eb'}`, borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box' }} />
+              <button onClick={() => setShowNew(p => !p)} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', display: 'flex' }}>
+                {showNew ? <EyeOff size={15} /> : <EyeIcon size={15} />}
+              </button>
             </div>
+            {newPassword.length > 0 && (
+              <div style={{ marginTop: 6 }}>
+                <div style={{ height: 4, background: '#f3f4f6', borderRadius: 4, overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: SW[strength], background: SC[strength], borderRadius: 4, transition: 'all .3s' }} />
+                </div>
+                <p style={{ margin: '3px 0 0', fontSize: 11, color: SC[strength], fontWeight: 600 }}>{strength} password</p>
+              </div>
+            )}
           </div>
+          {error   && <p style={{ margin: 0, fontSize: 12, color: '#dc2626', fontWeight: 600, background: '#fee2e2', padding: '8px 12px', borderRadius: 8, border: '1px solid #fecaca' }}>⚠ {error}</p>}
+          {success && <p style={{ margin: 0, fontSize: 12, color: '#16a34a', fontWeight: 600, background: '#dcfce7', padding: '8px 12px', borderRadius: 8, border: '1px solid #bbf7d0' }}>✓ {success}</p>}
         </div>
-
-        {/* Footer */}
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', padding: '14px 22px', borderTop: '1px solid #f3f4f6' }}>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', padding: '14px 22px', borderTop: '1px solid #f3f4f6', background: '#f9fafb', borderRadius: '0 0 14px 14px' }}>
           <button onClick={onClose} style={{ padding: '9px 20px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', color: '#374151' }}>Close</button>
-          <button onClick={() => { onClose(); onEdit(staff) }} style={{ padding: '9px 20px', borderRadius: 8, border: 'none', background: '#0c3b73', fontSize: 13, fontWeight: 600, cursor: 'pointer', color: '#fff', display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Edit2 size={13} /> Edit Staff
+          <button onClick={handleReset} disabled={saving || !newPassword}
+            style={{ padding: '9px 20px', borderRadius: 8, border: 'none', background: saving || !newPassword ? '#94a3b8' : '#d97706', fontSize: 13, fontWeight: 600, cursor: saving || !newPassword ? 'not-allowed' : 'pointer', color: '#fff', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Lock size={13} /> {saving ? 'Saving…' : 'Reset Password'}
           </button>
         </div>
       </div>
@@ -217,191 +293,311 @@ const ViewModal = ({ staff, onClose, onEdit }) => {
   )
 }
 
-/* ══════════════════════════════════════════
+/* ─────────────────────────────────────────
+   Delete Confirm Modal
+───────────────────────────────────────── */
+const DeleteModal = ({ user, onClose, onConfirm, loading }) => (
+  <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+    <div style={{ background: '#fff', borderRadius: 12, width: '100%', maxWidth: 400, padding: '28px 24px', boxShadow: '0 20px 60px rgba(0,0,0,0.18)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+        <div style={{ width: 42, height: 42, borderRadius: 10, background: '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <AlertTriangle size={20} color="#dc2626" />
+        </div>
+        <div>
+          <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#111827' }}>Delete User?</h3>
+          <p style={{ margin: 0, fontSize: 12, color: '#9ca3af' }}>This action cannot be undone.</p>
+        </div>
+      </div>
+      <p style={{ fontSize: 13, color: '#374151', margin: '0 0 20px' }}>
+        Are you sure you want to delete <strong>{user?.name}</strong>?
+      </p>
+      <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+        <button onClick={onClose} style={{ padding: '9px 20px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', color: '#374151' }}>Cancel</button>
+        <button onClick={onConfirm} disabled={loading}
+          style={{ padding: '9px 20px', borderRadius: 8, border: 'none', background: loading ? '#94a3b8' : '#dc2626', fontSize: 13, fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer', color: '#fff' }}>
+          {loading ? 'Deleting…' : 'Delete'}
+        </button>
+      </div>
+    </div>
+  </div>
+)
+
+/* ─────────────────────────────────────────
    MAIN COMPONENT
-══════════════════════════════════════════ */
+───────────────────────────────────────── */
+const PER_PAGE = 10
+
 export default function StaffUsers() {
   const navigate = useNavigate()
-  const [data, setData]         = useState(INIT_STAFF)
-  const [search, setSearch]     = useState('')
-  const [roleFilter, setRoleFilter] = useState('All')
+
+  /* list state */
+  const [users, setUsers]       = useState([])
+  const [total, setTotal]       = useState(0)
+  const [loading, setLoading]   = useState(false)
   const [page, setPage]         = useState(1)
-  const [perPage]               = useState(20)
-  const [showAdd, setShowAdd]   = useState(false)
-  const [editItem, setEditItem] = useState(null)
-  const [viewItem, setViewItem] = useState(null)
 
-  const filtered = data.filter(s =>
-    (roleFilter === 'All' || s.role === roleFilter) &&
-    (search === '' ||
-      s.name.toLowerCase().includes(search.toLowerCase()) ||
-      s.phone.includes(search) ||
-      s.id.toLowerCase().includes(search.toLowerCase()))
-  )
+  /* filters */
+  const [search, setSearch]         = useState('')
+  const [draftSearch, setDraftSearch] = useState('')
+  const [roleFilter, setRoleFilter] = useState('All')
+  const [accessFilter, setAccessFilter] = useState('All')   // All / Active / Inactive (login access = isActive)
+  const [statusFilter, setStatusFilter] = useState('All')
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / perPage))
-  const paged      = filtered.slice((page - 1) * perPage, page * perPage)
+  /* modals */
+  const [addModal, setAddModal]   = useState(false)
+  const [editUser, setEditUser]   = useState(null)
+  const [credsUser, setCredsUser] = useState(null)
+  const [deleteUser, setDeleteUser] = useState(null)
+  const [deleteLoading, setDeleteLoading] = useState(false)
 
-  const handleSave = form => {
-    if (editItem) {
-      setData(p => p.map(s => s.id === form.id ? form : s))
-    } else {
-      const newId = `U-${String(data.length + 1).padStart(3, '0')}`
-      setData(p => [...p, { ...form, id: newId, lastLogin: '—', joined: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) }])
+  /* ── fetch ── */
+  const fetchUsers = useCallback(async () => {
+    setLoading(true)
+    try {
+      const params = new URLSearchParams({ page, limit: PER_PAGE })
+      if (search)                    params.append('search', search)
+      if (roleFilter !== 'All')      params.append('role', roleFilter)
+      if (accessFilter !== 'All')    params.append('isActive', accessFilter === 'Active' ? 'true' : 'false')
+
+      const res  = await api.get(`users?${params}`)
+      const data = res.data?.data
+      setUsers(data?.users || [])
+      setTotal(data?.total || 0)
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Failed to load users')
+    } finally {
+      setLoading(false)
     }
+  }, [page, search, roleFilter, accessFilter])
+
+  useEffect(() => { fetchUsers() }, [fetchUsers])
+
+  /* ── toggle status ── */
+  const handleToggle = async (user) => {
+    try {
+      await api.patch(`users/${user._id}/toggle`)
+      fetchUsers()
+    } catch { toast.error('Status update failed') }
   }
 
+  /* ── delete ── */
+  const confirmDelete = async () => {
+    setDeleteLoading(true)
+    try {
+      await api.delete(`users/${deleteUser._id}`)
+      toast.success('User deleted')
+      setDeleteUser(null)
+      fetchUsers()
+    } catch { toast.error('Delete failed') }
+    finally { setDeleteLoading(false) }
+  }
+
+  /* ── export helpers ── */
+  const exportCSV = () => {
+    const headers = ['SR', 'Full Name', 'User ID', 'Role', 'Contact', 'Email', 'Status', 'Last Login']
+    const rows = users.map((u, i) => [
+      i + 1, u.name, u.userId, u.role, u.phone || '', u.email || '',
+      u.isActive ? 'Active' : 'Inactive',
+      u.lastLogin ? new Date(u.lastLogin).toLocaleDateString('en-IN') : '—',
+    ])
+    const csv = [headers, ...rows].map(r => r.join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a'); a.href = url; a.download = 'users.csv'; a.click()
+  }
+
+  const handlePrint = () => window.print()
+
+  const totalPages = Math.max(1, Math.ceil(total / PER_PAGE))
+
+  /* ── filtered display count ── */
+  const displayedFrom = total === 0 ? 0 : (page - 1) * PER_PAGE + 1
+  const displayedTo   = Math.min(page * PER_PAGE, total)
+
   return (
-    <div style={{ fontFamily: 'Inter, sans-serif', display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <div style={{ fontFamily: 'Inter, sans-serif', display: 'flex', flexDirection: 'column', gap: 16 }}>
 
       {/* Modals */}
-      {(showAdd || editItem) && (
-        <StaffModal
-          staff={editItem}
-          onClose={() => { setShowAdd(false); setEditItem(null) }}
-          onSave={handleSave}
-        />
+      {(addModal || editUser) && (
+        <StaffModal staff={editUser} onClose={() => { setAddModal(false); setEditUser(null) }} onSaved={fetchUsers} />
       )}
-      {viewItem && (
-        <ViewModal
-          staff={viewItem}
-          onClose={() => setViewItem(null)}
-          onEdit={s => { setViewItem(null); setEditItem(s) }}
-        />
-      )}
+      {credsUser  && <CredentialsModal user={credsUser}  onClose={() => setCredsUser(null)} />}
+      {deleteUser && <DeleteModal user={deleteUser} onClose={() => setDeleteUser(null)} onConfirm={confirmDelete} loading={deleteLoading} />}
 
-      {/* Page Header */}
-      <PageHeader icon={UserCheck} title="Staff & Users" subtitle="Manage franchise team members and their access" color="#7c3aed">
-        <button
-          onClick={() => navigate('/franchise/staff/menu-access')}
-          style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 18px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', color: '#0c3b73', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+      {/* ── Page Header ── */}
+      <PageHeader icon={UserCheck} title="Staff & Users" subtitle="Manage franchise team members and their access" color="#0c3b73">
+        <button onClick={() => navigate('/franchise/staff/menu-access')}
+          style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', color: '#0c3b73', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
           <ShieldCheck size={14} /> Menu Access
         </button>
-        <button onClick={() => { setEditItem(null); setShowAdd(true) }}
-          style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 18px', borderRadius: 8, border: 'none', background: '#0c3b73', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-          <Plus size={14} /> + Add Staff
+        <button onClick={() => { setEditUser(null); setAddModal(true) }}
+          style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 8, border: 'none', background: '#0c3b73', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+          <Plus size={14} /> Add User
         </button>
       </PageHeader>
 
-      {/* Role Summary Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px,1fr))', gap: 12 }}>
-        {ROLES.map(role => {
-          const count = data.filter(s => s.role === role).length
-          const cfg   = ROLE_COLORS[role]
-          const Icon  = ROLE_ICONS[role] || User
-          return (
-            <div key={role} style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer' }}
-              onClick={() => setRoleFilter(role === roleFilter ? 'All' : role)}>
-              <div style={{ width: 44, height: 44, borderRadius: 11, background: cfg.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <Icon size={20} color={cfg.color} />
-              </div>
-              <div>
-                <p style={{ margin: 0, fontSize: 12, color: '#6b7280' }}>{role}</p>
-                <p style={{ margin: '2px 0 0', fontSize: 22, fontWeight: 700, color: cfg.color }}>{count}</p>
-              </div>
-            </div>
-          )
-        })}
-      </div>
+      {/* ── Filter bar ── */}
+      <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10, padding: '12px 16px', display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
 
-      {/* Search + Role Filter */}
-      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-        <div style={{ position: 'relative', flex: 1, minWidth: 240 }}>
-          <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
-          <input value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
-            placeholder="Search staff by name..."
-            style={{ width: '100%', padding: '9px 12px 9px 33px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13, outline: 'none', background: '#f9fafb', boxSizing: 'border-box' }} />
+        {/* Search */}
+        <div style={{ position: 'relative', flex: '1 1 200px', minWidth: 180 }}>
+          <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
+          <input value={draftSearch}
+            onChange={e => setDraftSearch(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { setSearch(draftSearch); setPage(1) } }}
+            placeholder="Search users..."
+            style={{ width: '100%', padding: '8px 10px 8px 30px', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 13, outline: 'none', boxSizing: 'border-box', background: '#f9fafb' }} />
         </div>
 
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {['All', ...ROLES].map(r => (
-            <button key={r} onClick={() => { setRoleFilter(r); setPage(1) }}
-              style={{
-                padding: '8px 14px', borderRadius: 8, border: '1px solid', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
-                borderColor: roleFilter === r ? '#0c3b73' : '#e5e7eb',
-                background:  roleFilter === r ? '#0c3b73' : '#fff',
-                color:       roleFilter === r ? '#fff'    : '#374151',
-              }}>
-              {r}
-            </button>
-          ))}
+        {/* Role */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <span style={{ fontSize: 10, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase' }}>Role</span>
+          <select value={roleFilter} onChange={e => { setRoleFilter(e.target.value); setPage(1) }}
+            style={{ padding: '7px 12px', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 12, outline: 'none', cursor: 'pointer', minWidth: 120 }}>
+            <option value="All">All</option>
+            {ROLES.map(r => <option key={r}>{r}</option>)}
+          </select>
+        </div>
+
+        {/* Login Access */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <span style={{ fontSize: 10, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase' }}>Login Access</span>
+          <select value={accessFilter} onChange={e => { setAccessFilter(e.target.value); setPage(1) }}
+            style={{ padding: '7px 12px', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 12, outline: 'none', cursor: 'pointer', minWidth: 110 }}>
+            <option>All</option>
+            <option>Active</option>
+            <option>Inactive</option>
+          </select>
+        </div>
+
+        {/* Status (same as login access for now) */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <span style={{ fontSize: 10, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase' }}>Status</span>
+          <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1) }}
+            style={{ padding: '7px 12px', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 12, outline: 'none', cursor: 'pointer', minWidth: 110 }}>
+            <option>All</option>
+            <option>Active</option>
+            <option>Inactive</option>
+          </select>
+        </div>
+
+        {/* Reset */}
+        <button onClick={() => { setDraftSearch(''); setSearch(''); setRoleFilter('All'); setAccessFilter('All'); setStatusFilter('All'); setPage(1) }}
+          style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '8px 14px', border: '1px solid #e5e7eb', borderRadius: 7, background: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', color: '#374151' }}>
+          <RefreshCw size={12} /> Reset
+        </button>
+
+        {/* Export buttons */}
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+          <button onClick={exportCSV}
+            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '8px 14px', borderRadius: 7, border: 'none', background: '#16a34a', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+            <FileText size={13} /> Excel
+          </button>
+          <button onClick={exportCSV}
+            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '8px 14px', borderRadius: 7, border: 'none', background: '#0891b2', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+            <Download size={13} /> CSV
+          </button>
+          <button onClick={handlePrint}
+            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '8px 14px', borderRadius: 7, border: 'none', background: '#6b7280', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+            <Printer size={13} /> Print
+          </button>
         </div>
       </div>
 
-      {/* Table */}
+      {/* ── Table ── */}
       <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
+
+        {/* Count header */}
+        <div style={{ padding: '12px 16px', borderBottom: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <UserCheck size={16} color="#d97706" />
+          <span style={{ fontSize: 14, fontWeight: 700, color: '#111827' }}>All Users ({total})</span>
+        </div>
+
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-                {['ID', 'Staff', 'Role', 'Last Login', 'Status', 'Actions'].map(h => (
-                  <th key={h} style={{ padding: '11px 16px', fontSize: 12, color: '#6b7280', fontWeight: 700, textAlign: 'left', whiteSpace: 'nowrap', textTransform: 'uppercase' }}>{h}</th>
+                {['SR NO', 'FULL NAME', 'USER ID', 'ROLE', 'CONTACT', 'EMAIL', 'LOGIN ACCESS', 'STATUS', 'LAST LOGIN', 'ACTIONS'].map(h => (
+                  <th key={h} style={{ padding: '10px 14px', fontSize: 11, color: '#6b7280', fontWeight: 700, textAlign: 'left', whiteSpace: 'nowrap', textTransform: 'uppercase', letterSpacing: '0.4px' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {paged.length === 0 ? (
-                <tr>
-                  <td colSpan={6} style={{ padding: 48, textAlign: 'center', color: '#9ca3af', fontSize: 14 }}>
-                    No staff found
-                  </td>
-                </tr>
-              ) : paged.map(s => {
-                const cfg  = ROLE_COLORS[s.role] || { color: '#6b7280', bg: '#f3f4f6' }
-                const Icon = ROLE_ICONS[s.role] || User
+              {loading ? (
+                <tr><td colSpan={10} style={{ padding: 48, textAlign: 'center', color: '#9ca3af' }}>Loading users…</td></tr>
+              ) : users.length === 0 ? (
+                <tr><td colSpan={10} style={{ padding: 48, textAlign: 'center', color: '#9ca3af', fontSize: 14 }}>No users found</td></tr>
+              ) : users.map((u, i) => {
+                const cfg = ROLE_COLORS[u.role] || { color: '#6b7280', bg: '#f3f4f6' }
                 return (
-                  <tr key={s.id}
+                  <tr key={u._id}
                     onMouseEnter={e => e.currentTarget.style.background = '#fafafa'}
                     onMouseLeave={e => e.currentTarget.style.background = ''}>
 
-                    {/* ID */}
-                    <td style={{ padding: '13px 16px', fontSize: 13, color: '#6b7280', fontFamily: 'monospace', borderBottom: '1px solid #f3f4f6' }}>
-                      {s.id}
+                    {/* SR */}
+                    <td style={{ padding: '12px 14px', fontSize: 13, color: '#6b7280', borderBottom: '1px solid #f3f4f6' }}>
+                      {(page - 1) * PER_PAGE + i + 1}
                     </td>
 
-                    {/* Staff Name + Phone */}
-                    <td style={{ padding: '13px 16px', borderBottom: '1px solid #f3f4f6' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <div style={{ width: 38, height: 38, borderRadius: '50%', background: cfg.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                          <Icon size={17} color={cfg.color} />
+                    {/* Full Name */}
+                    <td style={{ padding: '12px 14px', borderBottom: '1px solid #f3f4f6' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{ width: 36, height: 36, borderRadius: '50%', background: cfg.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: cfg.color, flexShrink: 0 }}>
+                          {(u.name || '?').charAt(0).toUpperCase()}
                         </div>
-                        <div>
-                          <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#111827' }}>{s.name}</p>
-                          <p style={{ margin: '2px 0 0', fontSize: 11, color: '#9ca3af' }}>{s.phone}</p>
-                        </div>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>{u.name}</span>
                       </div>
                     </td>
 
+                    {/* User ID */}
+                    <td style={{ padding: '12px 14px', fontSize: 12, color: '#6b7280', fontFamily: 'monospace', borderBottom: '1px solid #f3f4f6', whiteSpace: 'nowrap' }}>
+                      {u.userId}
+                    </td>
+
                     {/* Role */}
-                    <td style={{ padding: '13px 16px', borderBottom: '1px solid #f3f4f6' }}>
-                      <RoleBadge role={s.role} />
+                    <td style={{ padding: '12px 14px', borderBottom: '1px solid #f3f4f6' }}>
+                      <RoleBadge role={u.role} />
+                    </td>
+
+                    {/* Contact */}
+                    <td style={{ padding: '12px 14px', fontSize: 12, color: '#374151', borderBottom: '1px solid #f3f4f6', whiteSpace: 'nowrap' }}>
+                      {u.phone || '—'}
+                    </td>
+
+                    {/* Email */}
+                    <td style={{ padding: '12px 14px', fontSize: 12, color: '#374151', borderBottom: '1px solid #f3f4f6', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {u.email || '—'}
+                    </td>
+
+                    {/* Login Access toggle */}
+                    <td style={{ padding: '12px 14px', borderBottom: '1px solid #f3f4f6' }} onClick={e => e.stopPropagation()}>
+                      <Switch checked={u.isActive !== false} onChange={() => handleToggle(u)} size="default" />
+                    </td>
+
+                    {/* Status badge */}
+                    <td style={{ padding: '12px 14px', borderBottom: '1px solid #f3f4f6' }}>
+                      {u.isActive !== false
+                        ? <span style={{ fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 20, background: '#dcfce7', color: '#16a34a', border: '1px solid #bbf7d0' }}>Active</span>
+                        : <span style={{ fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 20, background: '#f3f4f6', color: '#6b7280', border: '1px solid #e5e7eb' }}>Inactive</span>}
                     </td>
 
                     {/* Last Login */}
-                    <td style={{ padding: '13px 16px', fontSize: 13, color: '#6b7280', borderBottom: '1px solid #f3f4f6', whiteSpace: 'nowrap' }}>
-                      {s.lastLogin}
-                    </td>
-
-                    {/* Status */}
-                    <td style={{ padding: '13px 16px', borderBottom: '1px solid #f3f4f6' }}>
-                      <StatusBadge status={s.status} />
+                    <td style={{ padding: '12px 14px', fontSize: 12, color: '#6b7280', borderBottom: '1px solid #f3f4f6', whiteSpace: 'nowrap' }}>
+                      {u.lastLogin ? new Date(u.lastLogin).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}
                     </td>
 
                     {/* Actions */}
-                    <td style={{ padding: '13px 16px', borderBottom: '1px solid #f3f4f6' }}>
-                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                        <button onClick={() => setViewItem(s)}
-                          style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', border: '1px solid #e5e7eb', borderRadius: 7, background: '#f9fafb', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#374151' }}>
-                          <Eye size={13} /> View
+                    <td style={{ padding: '12px 14px', borderBottom: '1px solid #f3f4f6' }}>
+                      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                        {/* Password/Credentials */}
+                        <button onClick={() => setCredsUser(u)} title="View / Reset Password"
+                          style={{ width: 30, height: 30, borderRadius: 7, border: '1px solid #fde68a', background: '#fef3c7', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#d97706' }}>
+                          <Lock size={13} />
                         </button>
-                        <button onClick={() => setEditItem(s)}
-                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, border: '1px solid #e5e7eb', borderRadius: 7, background: '#f9fafb', cursor: 'pointer', color: '#6b7280' }}>
+                        {/* Edit */}
+                        <button onClick={() => setEditUser(u)} title="Edit User"
+                          style={{ width: 30, height: 30, borderRadius: 7, border: '1px solid #e5e7eb', background: '#f9fafb', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7280' }}>
                           <Edit2 size={13} />
-                        </button>
-                        <button onClick={() => navigate('/franchise/staff/menu-access')}
-                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, border: '1px solid #c7d2fe', borderRadius: 7, background: '#e0e7ff', cursor: 'pointer', color: '#0c3b73' }}
-                          title="Menu Access">
-                          <ShieldCheck size={13} />
                         </button>
                       </div>
                     </td>
@@ -412,27 +608,26 @@ export default function StaffUsers() {
           </table>
         </div>
 
-        {/* Pagination Footer */}
+        {/* Pagination */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderTop: '1px solid #f3f4f6', flexWrap: 'wrap', gap: 8 }}>
           <span style={{ fontSize: 12, color: '#6b7280' }}>
-            Showing {filtered.length === 0 ? 0 : (page - 1) * perPage + 1}–{Math.min(page * perPage, filtered.length)} of {filtered.length}
+            {total === 0 ? 'No users' : `Showing ${displayedFrom}–${displayedTo} of ${total} users`}
           </span>
-          <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 4 }}>
             <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-              style={{ border: '1px solid #e5e7eb', borderRadius: 6, padding: '5px 10px', cursor: page === 1 ? 'default' : 'pointer', background: 'none', color: page === 1 ? '#d1d5db' : '#374151' }}>
-              <ChevronLeft size={14} />
+              style={{ border: '1px solid #e5e7eb', borderRadius: 6, padding: '5px 9px', cursor: page === 1 ? 'default' : 'pointer', background: 'none', color: page === 1 ? '#d1d5db' : '#374151' }}>
+              <ChevronLeft size={13} />
             </button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+            {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => i + 1).map(p => (
               <button key={p} onClick={() => setPage(p)}
-                style={{ background: page === p ? '#0c3b73' : 'none', border: `1px solid ${page === p ? '#0c3b73' : '#e5e7eb'}`, borderRadius: 6, padding: '5px 10px', cursor: 'pointer', color: page === p ? '#fff' : '#374151', fontSize: 12, fontWeight: page === p ? 700 : 400, minWidth: 32 }}>
+                style={{ background: page === p ? '#0c3b73' : 'none', border: `1px solid ${page === p ? '#0c3b73' : '#e5e7eb'}`, borderRadius: 6, padding: '5px 9px', cursor: 'pointer', color: page === p ? '#fff' : '#374151', fontSize: 12, fontWeight: page === p ? 700 : 400, minWidth: 30, textAlign: 'center' }}>
                 {p}
               </button>
             ))}
             <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-              style={{ border: '1px solid #e5e7eb', borderRadius: 6, padding: '5px 10px', cursor: page === totalPages ? 'default' : 'pointer', background: 'none', color: page === totalPages ? '#d1d5db' : '#374151' }}>
-              <ChevronRight size={14} />
+              style={{ border: '1px solid #e5e7eb', borderRadius: 6, padding: '5px 9px', cursor: page === totalPages ? 'default' : 'pointer', background: 'none', color: page === totalPages ? '#d1d5db' : '#374151' }}>
+              <ChevronRight size={13} />
             </button>
-            <span style={{ fontSize: 12, color: '#6b7280', marginLeft: 8 }}>{perPage} / page</span>
           </div>
         </div>
       </div>

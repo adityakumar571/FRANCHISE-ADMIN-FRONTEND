@@ -7,6 +7,10 @@
  *   - franchiseInfo  : { _id, franchiseName, franchiseCode, subdomain, logo }
  *   - menuAccess     : { [key]: boolean } — controls sidebar visibility
  *
+ * On login, menuAccess is initialised from ROLE_DEFAULT_ACCESS for the user's role.
+ * SuperAdmin / Admin get full access; other roles get restricted access.
+ * Admins can override per-user access via User Management → User Access tab.
+ *
  * Loaded from localStorage on mount (persisted after FranchiseLogin).
  * Cleared on logout.
  */
@@ -40,8 +44,53 @@ export const ALL_MENU_KEYS = [
   'audit','audit_logs','audit_activity',
 ]
 
-/* Full access — Franchise Owner default */
+/* ── Full access map (SuperAdmin / Admin / Franchise Owner) ── */
 export const FULL_MENU_ACCESS = Object.fromEntries(ALL_MENU_KEYS.map(k => [k, true]))
+
+/* ── Role-based default allowed keys ── */
+export const ROLE_DEFAULT_ACCESS = {
+  SuperAdmin:       ALL_MENU_KEYS,
+  Admin:            ALL_MENU_KEYS,
+  'Franchise Owner': ALL_MENU_KEYS,
+  Accounts: [
+    'dashboard', 'dashboard_main',
+    'accounts', 'accounts_cashbook', 'accounts_bankbook', 'accounts_daybook',
+    'accounts_receipts', 'accounts_payments', 'accounts_expenses', 'accounts_income',
+    'accounts_journal', 'accounts_ledger', 'accounts_trial', 'accounts_pl', 'accounts_bs',
+    'reports', 'reports_sales', 'reports_purchase', 'reports_stock', 'reports_expiry',
+  ],
+  Staff: [
+    'dashboard', 'dashboard_main',
+    'pos', 'pos_billing', 'pos_barcode', 'pos_prescription', 'pos_payment',
+    'pos_hold', 'pos_return', 'pos_dayclosing',
+    'medicines', 'medicines_list',
+    'inventory', 'inventory_dashboard', 'inventory_stock', 'inventory_nearexpiry',
+    'customers', 'customers_list',
+  ],
+  Customer: [
+    'dashboard', 'dashboard_main',
+    'pos', 'pos_billing',
+    'customers', 'customers_list', 'customers_wallet', 'customers_history', 'customers_loyalty',
+  ],
+  Vendor: [
+    'dashboard', 'dashboard_main',
+    'b2b', 'b2b_orders',
+    'suppliers', 'suppliers_list',
+  ],
+}
+
+/* Build a boolean access map from an allowed-keys array */
+const buildAccessMap = (allowedKeys) => {
+  const map = {}
+  ALL_MENU_KEYS.forEach(k => { map[k] = allowedKeys.includes(k) })
+  return map
+}
+
+/* Get the default access map for a role */
+export const getDefaultAccessForRole = (role) => {
+  const allowed = ROLE_DEFAULT_ACCESS[role] || ROLE_DEFAULT_ACCESS['Staff']
+  return buildAccessMap(allowed)
+}
 
 export const FranchiseProvider = ({ children }) => {
   const [franchiseUser, setFranchiseUserState] = useState(() => {
@@ -58,12 +107,19 @@ export const FranchiseProvider = ({ children }) => {
     } catch { return null }
   })
 
-  /* ── Menu Access — persisted per user ── */
+  /* ── Menu Access — persisted per user, role-aware ── */
   const [menuAccess, setMenuAccessState] = useState(() => {
     try {
-      const userId = (() => { try { return JSON.parse(localStorage.getItem('franchise_user'))?._id || 'default' } catch { return 'default' } })()
-      const saved = localStorage.getItem(`franchise_menu_access_${userId}`)
-      return saved ? JSON.parse(saved) : { ...FULL_MENU_ACCESS }
+      const stored = localStorage.getItem('franchise_user')
+      const user   = stored ? JSON.parse(stored) : null
+      if (!user) return { ...FULL_MENU_ACCESS }
+
+      // Try user-specific saved access first
+      const saved = localStorage.getItem(`franchise_menu_access_${user._id || 'default'}`)
+      if (saved) return JSON.parse(saved)
+
+      // Otherwise fall back to role default
+      return getDefaultAccessForRole(user.role)
     } catch { return { ...FULL_MENU_ACCESS } }
   })
 
@@ -76,22 +132,25 @@ export const FranchiseProvider = ({ children }) => {
   /* Check if a key is allowed */
   const hasAccess = useCallback((key) => {
     if (!key) return true
-    // Franchise Owner always has full access
     const role = franchiseUser?.role
-    if (role === 'Franchise Owner') return true
-    return menuAccess[key] !== false
+    if (role === 'SuperAdmin' || role === 'Admin' || role === 'Franchise Owner') return true
+    return menuAccess[key] === true
   }, [menuAccess, franchiseUser])
 
   const setFranchiseUser = useCallback((user) => {
     setFranchiseUserState(user)
     if (user) {
       localStorage.setItem('franchise_user', JSON.stringify(user))
-      // Load this user's menu access
-      try {
-        const saved = localStorage.getItem(`franchise_menu_access_${user._id || 'default'}`)
-        if (saved) setMenuAccessState(JSON.parse(saved))
-        else setMenuAccessState({ ...FULL_MENU_ACCESS })
-      } catch { setMenuAccessState({ ...FULL_MENU_ACCESS }) }
+
+      // Try user-specific saved access, else use role default
+      const saved = localStorage.getItem(`franchise_menu_access_${user._id || 'default'}`)
+      if (saved) {
+        try { setMenuAccessState(JSON.parse(saved)); return } catch { /* fall through */ }
+      }
+      // Set role-based default access
+      const defaultAccess = getDefaultAccessForRole(user.role)
+      setMenuAccessState(defaultAccess)
+      localStorage.setItem(`franchise_menu_access_${user._id || 'default'}`, JSON.stringify(defaultAccess))
     } else {
       localStorage.removeItem('franchise_user')
     }

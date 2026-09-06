@@ -7,20 +7,17 @@ import 'bootstrap/dist/css/bootstrap.min.css'
 import App from './App'
 import store from './store'
 
-import { AppProvider } from './Context/AppContext'
-import { RolesProvider } from './Context/AuthContext'
-import { SessionProvider } from './Context/Seesion'
+import { AppProvider }      from './Context/AppContext'
+import { RolesProvider }    from './Context/AuthContext'
 import { FranchiseProvider } from './Context/FranchiseContext'
 
 createRoot(document.getElementById('root')).render(
   <Provider store={store}>
     <AppProvider>
       <RolesProvider>
-        <SessionProvider>
-          <FranchiseProvider>
-            <App />
-          </FranchiseProvider>
-        </SessionProvider>
+        <FranchiseProvider>
+          <App />
+        </FranchiseProvider>
       </RolesProvider>
     </AppProvider>
   </Provider>,

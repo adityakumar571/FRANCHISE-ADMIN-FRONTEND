@@ -12,7 +12,7 @@ import {
   X, Save, ChevronLeft, ChevronRight, LayoutDashboard, ShoppingCart,
   PackagePlus, Package, Pill, Truck, FileText, IndianRupee,
   BarChart2, Settings, CheckSquare, Square, Shield, RefreshCw,
-  AlertCircle,
+  AlertCircle, Lock, Eye as EyeIcon, EyeOff,
 } from 'lucide-react'
 import PageHeader from '../components/PageHeader'
 
@@ -224,6 +224,188 @@ const ViewUserModal = ({ user, onClose, onEdit }) => {
 }
 
 /* ══════════════════════════════════════════
+   RESET PASSWORD MODAL
+══════════════════════════════════════════ */
+const ResetPasswordModal = ({ user, onClose, onSave, saving }) => {
+  const [newPassword, setNewPassword]   = useState('')
+  const [showNew, setShowNew]           = useState(false)
+  const [copiedId, setCopiedId]         = useState(false)
+  const [copiedPw, setCopiedPw]         = useState(false)
+  const [error, setError]               = useState('')
+  const [creds, setCreds]               = useState(null)   // { userId, password }
+  const [credsLoading, setCredsLoading] = useState(true)
+
+  const cfg = ROLE_CONFIG[user?.role] || { color: '#6b7280', bg: '#f3f4f6', label: user?.role }
+
+  // Fetch live credentials from backend on open
+  useEffect(() => {
+    if (!user?._id) return
+    setCredsLoading(true)
+    api.get(`users/${user._id}/credentials`)
+      .then(r => {
+        const data = r.data?.data || null
+        setCreds(data)
+      })
+      .catch((err) => {
+        const msg = err?.response?.data?.message || err.message || 'Failed to load'
+        console.error('[ResetPasswordModal] credentials fetch failed:', msg, err?.response?.status)
+        // Fallback: show userId from table row (already available), mark password as unavailable
+        setCreds({ userId: user.userId, password: null, _fetchError: msg })
+      })
+      .finally(() => setCredsLoading(false))
+  }, [user?._id])
+
+  const handleSave = () => {
+    if (newPassword.length < 6) { setError('New password must be at least 6 characters'); return }
+    setError('')
+    onSave({ newPassword })
+  }
+
+  const copyText = (text, type) => {
+    if (!text) return
+    navigator.clipboard.writeText(text).then(() => {
+      if (type === 'id') { setCopiedId(true); setTimeout(() => setCopiedId(false), 1500) }
+      else               { setCopiedPw(true); setTimeout(() => setCopiedPw(false), 1500) }
+    })
+  }
+
+  const strength = newPassword.length >= 10 && /[A-Z]/.test(newPassword) && /[0-9]/.test(newPassword)
+    ? 'Strong' : newPassword.length >= 6 ? 'Medium' : 'Weak'
+  const strengthColor = { Weak: '#dc2626', Medium: '#d97706', Strong: '#16a34a' }
+  const strengthWidth = { Weak: '25%', Medium: '60%', Strong: '100%' }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 460, boxShadow: '0 24px 64px rgba(0,0,0,0.18)' }}>
+
+        {/* ── Header ── */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 22px', borderBottom: '1px solid #f3f4f6' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 38, height: 38, borderRadius: 10, background: '#fff7e6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Lock size={18} color="#d97706" />
+            </div>
+            <div>
+              <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#111827' }}>Reset Password</h3>
+              <p style={{ margin: 0, fontSize: 12, color: '#9ca3af' }}>
+                {user?.name} · <span style={{ color: cfg.color, fontWeight: 600 }}>{cfg.label}</span>
+              </p>
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: '#f3f4f6', border: 'none', borderRadius: 8, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+            <X size={15} color="#6b7280" />
+          </button>
+        </div>
+
+        {/* ── Body ── */}
+        <div style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+          {/* ── Login Credentials card ── */}
+          <div style={{ background: '#f8faff', borderRadius: 10, border: '1px solid #dbeafe', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: '#0c3b73', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              Login Credentials (Admin View)
+            </p>
+
+            {credsLoading ? (
+              <p style={{ margin: 0, fontSize: 12, color: '#9ca3af' }}>Loading credentials…</p>
+            ) : (
+              <>
+                {/* User ID */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                  <div>
+                    <p style={{ margin: 0, fontSize: 10, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase' }}>User ID</p>
+                    <p style={{ margin: '2px 0 0', fontSize: 15, fontWeight: 700, color: '#111827', fontFamily: 'monospace', letterSpacing: '0.5px' }}>
+                      {creds?.userId || user?.userId || '—'}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => copyText(creds?.userId || user?.userId || '', 'id')}
+                    style={{ padding: '5px 12px', borderRadius: 7, border: '1px solid #bfdbfe', background: copiedId ? '#dcfce7' : '#eff6ff', cursor: 'pointer', fontSize: 11, fontWeight: 600, color: copiedId ? '#16a34a' : '#0c3b73', whiteSpace: 'nowrap', transition: 'all .2s' }}>
+                    {copiedId ? '✓ Copied' : 'Copy ID'}
+                  </button>
+                </div>
+
+                {/* Current Password */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, paddingTop: 8, borderTop: '1px solid #dbeafe' }}>
+                  <div>
+                    <p style={{ margin: 0, fontSize: 10, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase' }}>Current Password</p>
+                    <p style={{ margin: '2px 0 0', fontSize: 15, fontWeight: 700, color: '#111827', fontFamily: 'monospace', letterSpacing: '0.5px' }}>
+                      {creds?.password
+                        ? creds.password
+                        : <span style={{ color: '#9ca3af', fontSize: 11, fontStyle: 'italic', fontWeight: 400 }}>
+                            {creds?._fetchError
+                              ? `Error: ${creds._fetchError}`
+                              : 'Not available — reset to set new password'
+                            }
+                          </span>
+                      }
+                    </p>
+                  </div>
+                  {creds?.password && (
+                    <button
+                      onClick={() => copyText(creds.password, 'pw')}
+                      style={{ padding: '5px 12px', borderRadius: 7, border: '1px solid #bfdbfe', background: copiedPw ? '#dcfce7' : '#eff6ff', cursor: 'pointer', fontSize: 11, fontWeight: 600, color: copiedPw ? '#16a34a' : '#0c3b73', whiteSpace: 'nowrap', transition: 'all .2s' }}>
+                      {copiedPw ? '✓ Copied' : 'Copy PW'}
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* ── New Password ── */}
+          <div>
+            <FL>Set New Password *</FL>
+            <div style={{ position: 'relative' }}>
+              <input
+                type={showNew ? 'text' : 'password'}
+                value={newPassword}
+                onChange={e => { setNewPassword(e.target.value); setError('') }}
+                placeholder="Minimum 6 characters"
+                style={{ width: '100%', padding: '9px 38px 9px 12px', border: `1px solid ${error ? '#dc2626' : '#e5e7eb'}`, borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
+              />
+              <button onClick={() => setShowNew(p => !p)}
+                style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', display: 'flex', padding: 2 }}>
+                {showNew ? <EyeOff size={15} /> : <EyeIcon size={15} />}
+              </button>
+            </div>
+            <p style={{ margin: '4px 0 0', fontSize: 11, color: '#9ca3af' }}>Password will be updated immediately. Share new credentials with user.</p>
+          </div>
+
+          {/* ── Strength bar ── */}
+          {newPassword.length > 0 && (
+            <div>
+              <div style={{ height: 4, background: '#f3f4f6', borderRadius: 4, overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: strengthWidth[strength], background: strengthColor[strength], borderRadius: 4, transition: 'all .3s' }} />
+              </div>
+              <p style={{ margin: '4px 0 0', fontSize: 11, color: strengthColor[strength], fontWeight: 600 }}>{strength} password</p>
+            </div>
+          )}
+
+          {/* ── Error ── */}
+          {error && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 12px', background: '#fee2e2', borderRadius: 8, border: '1px solid #fecaca' }}>
+              <AlertCircle size={14} color="#dc2626" />
+              <span style={{ fontSize: 12, color: '#dc2626', fontWeight: 600 }}>{error}</span>
+            </div>
+          )}
+        </div>
+
+        {/* ── Footer ── */}
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', padding: '14px 22px', borderTop: '1px solid #f3f4f6', background: '#f9fafb', borderRadius: '0 0 14px 14px' }}>
+          <button onClick={onClose} style={{ padding: '9px 20px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', color: '#374151' }}>
+            Cancel
+          </button>
+          <button onClick={handleSave} disabled={saving}
+            style={{ padding: '9px 20px', borderRadius: 8, border: 'none', background: saving ? '#94a3b8' : '#d97706', fontSize: 13, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', color: '#fff', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Lock size={13} /> {saving ? 'Saving…' : 'Reset Password'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ══════════════════════════════════════════
    TAB 1 — USER LIST
 ══════════════════════════════════════════ */
 const UserListTab = () => {
@@ -236,6 +418,7 @@ const UserListTab = () => {
   const [showAdd, setShowAdd]     = useState(false)
   const [editUser, setEditUser]   = useState(null)
   const [viewUser, setViewUser]   = useState(null)
+  const [resetUser, setResetUser] = useState(null)
   const [saving, setSaving]       = useState(false)
   const [toast, setToast]         = useState(null)
   const PER_PAGE = 20
@@ -292,12 +475,26 @@ const UserListTab = () => {
     }
   }
 
+  const handleResetPassword = async ({ newPassword }) => {
+    setSaving(true)
+    try {
+      await api.patch(`users/${resetUser._id}/reset-password`, { newPassword })
+      showToast(`Password reset for ${resetUser.name}`)
+      setResetUser(null)
+    } catch (err) {
+      showToast(err?.response?.data?.message || 'Password reset failed', 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const totalPages = Math.max(1, Math.ceil(total / PER_PAGE))
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
       {(showAdd || editUser) && <UserFormModal user={editUser} onClose={() => { setShowAdd(false); setEditUser(null) }} onSave={handleSave} saving={saving} />}
       {viewUser && <ViewUserModal user={viewUser} onClose={() => setViewUser(null)} onEdit={u => { setViewUser(null); setEditUser(u) }} />}
+      {resetUser && <ResetPasswordModal user={resetUser} onClose={() => setResetUser(null)} onSave={handleResetPassword} saving={saving} />}
 
       {/* KPI cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
@@ -391,6 +588,10 @@ const UserListTab = () => {
                         <div style={{ display: 'flex', gap: 6 }}>
                           <button onClick={() => setViewUser(u)} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', border: '1px solid #e5e7eb', borderRadius: 7, background: '#f9fafb', cursor: 'pointer', fontSize: 11, fontWeight: 600, color: '#374151' }}><Eye size={12} /> View</button>
                           <button onClick={() => setEditUser(u)} style={{ width: 30, height: 30, border: '1px solid #e5e7eb', borderRadius: 7, background: '#f9fafb', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7280' }}><Edit2 size={12} /></button>
+                          <button onClick={() => setResetUser(u)} title="Reset Password"
+                            style={{ width: 30, height: 30, border: '1px solid #fde68a', borderRadius: 7, background: '#fef3c7', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#d97706' }}>
+                            <Lock size={12} />
+                          </button>
                           <button onClick={() => toggleStatus(u)} title={u.isActive ? 'Deactivate' : 'Activate'}
                             style={{ width: 30, height: 30, border: 'none', borderRadius: 7, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', background: u.isActive ? '#dcfce7' : '#f3f4f6', color: u.isActive ? '#16a34a' : '#9ca3af' }}>
                             {u.isActive ? '●' : '○'}
