@@ -16,14 +16,14 @@ import {
 } from 'lucide-react'
 import PageHeader from '../components/PageHeader'
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL   // /api/
-const subdomain = localStorage.getItem('franchise_subdomain') || ''
+const BASE_URL = import.meta.env.VITE_API_BASE_URL
+const getSubdomain = () => localStorage.getItem('franchise_subdomain') || import.meta.env.VITE_TENANT_ID || ''
 const token = () => Cookies.get('LMS') || ''
 
 const api = axios.create({ baseURL: BASE_URL })
 api.interceptors.request.use(cfg => {
   cfg.headers['Authorization'] = `Bearer ${token()}`
-  cfg.headers['x-tenant-id']   = subdomain
+  cfg.headers['x-tenant-id']   = getSubdomain()
   return cfg
 })
 
@@ -78,11 +78,28 @@ const MENU_GROUPS = [
 ]
 
 /* ── Shared UI helpers ── */
+const ROLE_PALETTE = [
+  { color: '#7c3aed', bg: '#f5f3ff', border: '#e9d5ff' },
+  { color: '#0c3b73', bg: '#e0e7ff', border: '#c7d2fe' },
+  { color: '#0891b2', bg: '#e0f2fe', border: '#bae6fd' },
+  { color: '#16a34a', bg: '#dcfce7', border: '#bbf7d0' },
+  { color: '#d97706', bg: '#fef3c7', border: '#fde68a' },
+  { color: '#dc2626', bg: '#fee2e2', border: '#fecaca' },
+  { color: '#9333ea', bg: '#fdf4ff', border: '#e9d5ff' },
+  { color: '#0369a1', bg: '#e0f2fe', border: '#7dd3fc' },
+]
+
+const getRoleStyle = (role) => {
+  const idx = [...(role || '')].reduce((acc, c) => acc + c.charCodeAt(0), 0) % ROLE_PALETTE.length
+  return ROLE_PALETTE[idx]
+}
+
 const RoleBadge = ({ role }) => {
-  const cfg = ROLE_CONFIG[role] || { color: '#6b7280', bg: '#f3f4f6', border: '#e5e7eb', label: role }
+  if (!role) return null
+  const cfg = ROLE_CONFIG[role] || getRoleStyle(role)
   return (
-    <span style={{ fontSize: 11, fontWeight: 600, padding: '4px 11px', borderRadius: 20, background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}`, whiteSpace: 'nowrap' }}>
-      {cfg.label}
+    <span style={{ fontSize: 11, fontWeight: 600, padding: '4px 11px', borderRadius: 20, background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border || cfg.border}`, whiteSpace: 'nowrap' }}>
+      {ROLE_CONFIG[role]?.label || role}
     </span>
   )
 }
@@ -111,13 +128,14 @@ const Toast = ({ msg, type = 'success' }) => (
 /* ══════════════════════════════════════════
    USER FORM MODAL
 ══════════════════════════════════════════ */
-const UserFormModal = ({ user, onClose, onSave, saving }) => {
+const UserFormModal = ({ user, onClose, onSave, saving, availableRoles = [] }) => {
   const [form, setForm] = useState(
     user
       ? { name: user.name || '', phone: user.phone || '', email: user.email || '', role: user.role || 'Staff' }
       : { name: '', phone: '', email: '', role: 'Staff', password: '' }
   )
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }))
+  const roleOptions = availableRoles.length > 0 ? availableRoles : ['SuperAdmin','Admin','Accounts','Staff','Customer','Vendor']
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
@@ -138,7 +156,7 @@ const UserFormModal = ({ user, onClose, onSave, saving }) => {
               <FL>Role *</FL>
               <select value={form.role} onChange={e => set('role', e.target.value)}
                 style={{ width: '100%', padding: '9px 12px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13, outline: 'none', cursor: 'pointer', color: '#111827' }}>
-                {ALL_ROLES.map(r => <option key={r} value={r}>{ROLE_CONFIG[r].label}</option>)}
+                {roleOptions.map(r => <option key={r} value={r}>{ROLE_CONFIG[r]?.label || r}</option>)}
               </select>
             </div>
             {!user && (
@@ -415,6 +433,8 @@ const UserListTab = () => {
   const [roleFilter, setRoleFilter] = useState('All')
   const [page, setPage]           = useState(1)
   const [total, setTotal]         = useState(0)
+  const [stats, setStats]         = useState({ total: 0, active: 0, inactive: 0, loginEnabled: 0 })
+  const [availableRoles, setAvailableRoles] = useState([])  // from API
   const [showAdd, setShowAdd]     = useState(false)
   const [editUser, setEditUser]   = useState(null)
   const [viewUser, setViewUser]   = useState(null)
@@ -435,8 +455,9 @@ const UserListTab = () => {
       if (search) params.search = search
       if (roleFilter !== 'All') params.role = roleFilter
       const res = await api.get('users', { params })
-      setUsers(res.data.data.users || [])
-      setTotal(res.data.data.total || 0)
+      const data = res.data.data
+      setUsers(data.users || [])
+      setTotal(data.total || 0)
     } catch (err) {
       showToast(err?.response?.data?.message || 'Failed to fetch users', 'error')
     } finally {
@@ -444,7 +465,25 @@ const UserListTab = () => {
     }
   }, [page, search, roleFilter])
 
+  /* Fetch all-user stats separately (no pagination) */
+  const fetchStats = useCallback(async () => {
+    try {
+      const res = await api.get('users', { params: { limit: 1000, isPagination: false } })
+      const all = res.data.data.users || []
+      // Dynamic roles from actual data
+      const roles = [...new Set(all.map(u => u.role).filter(Boolean))].sort()
+      setAvailableRoles(roles)
+      setStats({
+        total:        res.data.data.total || all.length,
+        active:       all.filter(u => u.isActive !== false).length,
+        inactive:     all.filter(u => u.isActive === false).length,
+        loginEnabled: all.filter(u => u.isActive !== false).length,
+      })
+    } catch { /* silently ignore */ }
+  }, [])
+
   useEffect(() => { fetchUsers() }, [fetchUsers])
+  useEffect(() => { fetchStats() }, [fetchStats])
 
   const handleSave = async (form) => {
     setSaving(true)
@@ -496,44 +535,46 @@ const UserListTab = () => {
       {viewUser && <ViewUserModal user={viewUser} onClose={() => setViewUser(null)} onEdit={u => { setViewUser(null); setEditUser(u) }} />}
       {resetUser && <ResetPasswordModal user={resetUser} onClose={() => setResetUser(null)} onSave={handleResetPassword} saving={saving} />}
 
-      {/* KPI cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
-        {ALL_ROLES.map(role => {
-          const count = users.filter(u => u.role === role).length
-          const cfg = ROLE_CONFIG[role]
-          return (
-            <div key={role} onClick={() => setRoleFilter(role === roleFilter ? 'All' : role)}
-              style={{ background: '#fff', borderRadius: 12, border: `1.5px solid ${roleFilter === role ? cfg.color : '#e5e7eb'}`, padding: '14px 16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, transition: 'all .15s' }}>
-              <div style={{ width: 40, height: 40, borderRadius: 10, background: cfg.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <Users size={17} color={cfg.color} />
-              </div>
-              <div>
-                <p style={{ margin: 0, fontSize: 11, color: '#6b7280' }}>{cfg.label}</p>
-                <p style={{ margin: '2px 0 0', fontSize: 20, fontWeight: 700, color: cfg.color }}>{loading ? '…' : count}</p>
-              </div>
+      {/* Stat Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
+        {[
+          { label: 'Total Users',    value: stats.total,        color: '#0c3b73', bg: '#e0e7ff' },
+          { label: 'Active Users',   value: stats.active,       color: '#16a34a', bg: '#dcfce7' },
+          { label: 'Inactive Users', value: stats.inactive,     color: '#dc2626', bg: '#fee2e2' },
+          { label: 'Login Enabled',  value: stats.loginEnabled, color: '#7c3aed', bg: '#f5f3ff' },
+        ].map(card => (
+          <div key={card.label} style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 40, height: 40, borderRadius: 10, background: card.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <Users size={18} color={card.color} />
             </div>
-          )
-        })}
+            <div>
+              <p style={{ margin: 0, fontSize: 22, fontWeight: 800, color: card.color }}>{card.value}</p>
+              <p style={{ margin: '2px 0 0', fontSize: 11, color: '#6b7280', fontWeight: 500 }}>{card.label}</p>
+            </div>
+          </div>
+        ))}
       </div>
 
-      {/* Controls */}
+      {/* Role filter pills */}
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+        {['All', ...availableRoles].map(r => (
+          <button key={r} onClick={() => { setRoleFilter(r); setPage(1) }}
+            style={{ padding: '6px 14px', borderRadius: 20, border: '1px solid', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
+              borderColor: roleFilter === r ? '#0c3b73' : '#e5e7eb',
+              background:  roleFilter === r ? '#0c3b73' : '#fff',
+              color:       roleFilter === r ? '#fff'    : '#374151',
+            }}>
+            {r === 'All' ? 'All Roles' : r}
+          </button>
+        ))}
+      </div>
+
+      {/* Controls — search + add */}
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
         <div style={{ position: 'relative', flex: 1, minWidth: 220 }}>
           <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
           <input value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} placeholder="Search name, phone, user ID…"
             style={{ width: '100%', padding: '9px 12px 9px 34px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13, outline: 'none', background: '#f9fafb', boxSizing: 'border-box' }} />
-        </div>
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {['All', ...ALL_ROLES].map(r => (
-            <button key={r} onClick={() => { setRoleFilter(r); setPage(1) }}
-              style={{ padding: '7px 13px', borderRadius: 8, border: '1px solid', fontSize: 11, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
-                borderColor: roleFilter === r ? '#0c3b73' : '#e5e7eb',
-                background:  roleFilter === r ? '#0c3b73' : '#fff',
-                color:       roleFilter === r ? '#fff'    : '#374151',
-              }}>
-              {r === 'All' ? 'All' : ROLE_CONFIG[r]?.label || r}
-            </button>
-          ))}
         </div>
         <button onClick={fetchUsers} style={{ padding: '8px 12px', border: '1px solid #e5e7eb', borderRadius: 8, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, color: '#6b7280', fontSize: 12 }}>
           <RefreshCw size={13} /> Refresh
