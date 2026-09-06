@@ -17,7 +17,7 @@ import PageHeader from '../components/PageHeader'
    API Setup
 ───────────────────────────────────────── */
 const BASE_URL  = import.meta.env.VITE_API_BASE_URL
-const getSubdomain = () => localStorage.getItem('franchise_subdomain') || ''
+const getSubdomain = () => localStorage.getItem('franchise_subdomain') || import.meta.env.VITE_TENANT_ID || ''
 const getToken     = () => Cookies.get('LMS') || ''
 
 const api = axios.create({ baseURL: BASE_URL })
@@ -28,33 +28,38 @@ api.interceptors.request.use(cfg => {
 })
 
 /* ─────────────────────────────────────────
-   Role Config
+   Role Config — dynamic colors for any role
 ───────────────────────────────────────── */
-const ROLES = ['Franchise Owner', 'Branch Manager', 'Pharmacist', 'Cashier', 'Admin', 'Accounts', 'Staff', 'Vendor']
+const ROLE_PALETTE = [
+  { color: '#7c3aed', bg: '#f5f3ff', border: '#e9d5ff' },
+  { color: '#0c3b73', bg: '#e0e7ff', border: '#c7d2fe' },
+  { color: '#0891b2', bg: '#e0f2fe', border: '#bae6fd' },
+  { color: '#16a34a', bg: '#dcfce7', border: '#bbf7d0' },
+  { color: '#d97706', bg: '#fef3c7', border: '#fde68a' },
+  { color: '#dc2626', bg: '#fee2e2', border: '#fecaca' },
+  { color: '#0c3b73', bg: '#f0f9ff', border: '#bae6fd' },
+  { color: '#9333ea', bg: '#fdf4ff', border: '#e9d5ff' },
+]
 
-const ROLE_COLORS = {
-  'Franchise Owner': { color: '#7c3aed', bg: '#f5f3ff', border: '#e9d5ff' },
-  'Branch Manager':  { color: '#0891b2', bg: '#e0f2fe', border: '#bae6fd' },
-  'Pharmacist':      { color: '#0c3b73', bg: '#e0e7ff', border: '#c7d2fe' },
-  'Cashier':         { color: '#16a34a', bg: '#dcfce7', border: '#bbf7d0' },
-  'Admin':           { color: '#0c3b73', bg: '#e0e7ff', border: '#c7d2fe' },
-  'Accounts':        { color: '#0891b2', bg: '#e0f2fe', border: '#bae6fd' },
-  'Staff':           { color: '#16a34a', bg: '#dcfce7', border: '#bbf7d0' },
-  'Vendor':          { color: '#dc2626', bg: '#fee2e2', border: '#fecaca' },
-  'SuperAdmin':      { color: '#7c3aed', bg: '#f5f3ff', border: '#e9d5ff' },
+// Returns a consistent color for any role string
+const getRoleStyle = (role) => {
+  const idx = [...(role || '')].reduce((acc, c) => acc + c.charCodeAt(0), 0) % ROLE_PALETTE.length
+  return ROLE_PALETTE[idx]
+}
+
+const RoleBadge = ({ role }) => {
+  if (!role) return null
+  const s = getRoleStyle(role)
+  return (
+    <span style={{ fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 20, background: s.bg, color: s.color, border: `1px solid ${s.border}`, whiteSpace: 'nowrap' }}>
+      {role}
+    </span>
+  )
 }
 
 /* ─────────────────────────────────────────
    Small Helpers
 ───────────────────────────────────────── */
-const RoleBadge = ({ role }) => {
-  const cfg = ROLE_COLORS[role] || { color: '#6b7280', bg: '#f3f4f6', border: '#e5e7eb' }
-  return (
-    <span style={{ fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 20, background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}`, whiteSpace: 'nowrap' }}>
-      {role}
-    </span>
-  )
-}
 
 const FL = ({ children }) => (
   <label style={{ fontSize: 11, fontWeight: 700, color: '#374151', display: 'block', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{children}</label>
@@ -70,13 +75,13 @@ const FI = ({ value, onChange, placeholder, type = 'text', disabled }) => (
 /* ─────────────────────────────────────────
    Add / Edit Modal
 ───────────────────────────────────────── */
-const StaffModal = ({ staff, onClose, onSaved }) => {
+const StaffModal = ({ staff, onClose, onSaved, availableRoles = [] }) => {
   const isEdit = !!staff
   const [form, setForm]   = useState({
     name:     staff?.name     || '',
     phone:    staff?.phone    || '',
     email:    staff?.email    || '',
-    role:     staff?.role     || 'Staff',
+    role:     staff?.role     || 'Admin',
     password: '',
   })
   const [saving, setSaving] = useState(false)
@@ -124,7 +129,9 @@ const StaffModal = ({ staff, onClose, onSaved }) => {
               <FL>Role *</FL>
               <select value={form.role} onChange={e => set('role', e.target.value)}
                 style={{ width: '100%', padding: '9px 12px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13, outline: 'none', cursor: 'pointer', color: '#111827' }}>
-                {ROLES.map(r => <option key={r}>{r}</option>)}
+                {(availableRoles.length > 0 ? availableRoles : ['SuperAdmin','Admin','Accounts','Staff','Customer','Vendor']).map(r => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
               </select>
             </div>
           </div>
@@ -335,29 +342,31 @@ export default function StaffUsers() {
   const [total, setTotal]       = useState(0)
   const [loading, setLoading]   = useState(false)
   const [page, setPage]         = useState(1)
+  const [stats, setStats]       = useState({ total: 0, active: 0, inactive: 0, loginEnabled: 0 })
+  const [availableRoles, setAvailableRoles] = useState([]) // dynamic from API
 
   /* filters */
-  const [search, setSearch]         = useState('')
+  const [search, setSearch]           = useState('')
   const [draftSearch, setDraftSearch] = useState('')
-  const [roleFilter, setRoleFilter] = useState('All')
-  const [accessFilter, setAccessFilter] = useState('All')   // All / Active / Inactive (login access = isActive)
+  const [roleFilter, setRoleFilter]   = useState('All')
+  const [accessFilter, setAccessFilter] = useState('All')
   const [statusFilter, setStatusFilter] = useState('All')
 
   /* modals */
-  const [addModal, setAddModal]   = useState(false)
-  const [editUser, setEditUser]   = useState(null)
-  const [credsUser, setCredsUser] = useState(null)
+  const [addModal, setAddModal]     = useState(false)
+  const [editUser, setEditUser]     = useState(null)
+  const [credsUser, setCredsUser]   = useState(null)
   const [deleteUser, setDeleteUser] = useState(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
 
-  /* ── fetch ── */
+  /* ── fetch paginated list ── */
   const fetchUsers = useCallback(async () => {
     setLoading(true)
     try {
       const params = new URLSearchParams({ page, limit: PER_PAGE })
-      if (search)                    params.append('search', search)
-      if (roleFilter !== 'All')      params.append('role', roleFilter)
-      if (accessFilter !== 'All')    params.append('isActive', accessFilter === 'Active' ? 'true' : 'false')
+      if (search)               params.append('search', search)
+      if (roleFilter !== 'All') params.append('role', roleFilter)
+      if (accessFilter !== 'All') params.append('isActive', accessFilter === 'Active' ? 'true' : 'false')
 
       const res  = await api.get(`users?${params}`)
       const data = res.data?.data
@@ -370,13 +379,36 @@ export default function StaffUsers() {
     }
   }, [page, search, roleFilter, accessFilter])
 
+  /* ── fetch stats (all users, no pagination) ── */
+  const fetchStats = useCallback(async () => {
+    try {
+      const res = await api.get('users?limit=1000')
+      const data = res.data?.data
+      const all  = data?.users || []
+      const realTotal = data?.total || all.length
+      // Extract unique roles dynamically from actual user data
+      const roles = [...new Set(all.map(u => u.role).filter(Boolean))].sort()
+      setAvailableRoles(roles)
+      setStats({
+        total:        realTotal,
+        active:       all.filter(u => u.isActive !== false).length,
+        inactive:     all.filter(u => u.isActive === false).length,
+        loginEnabled: all.filter(u => u.isActive !== false).length,
+      })
+    } catch { /* silently ignore */ }
+  }, [])
+
   useEffect(() => { fetchUsers() }, [fetchUsers])
+  useEffect(() => { fetchStats()  }, [fetchStats])
+
+  /* refresh both after any mutation */
+  const refreshAll = useCallback(() => { fetchUsers(); fetchStats() }, [fetchUsers, fetchStats])
 
   /* ── toggle status ── */
   const handleToggle = async (user) => {
     try {
       await api.patch(`users/${user._id}/toggle`)
-      fetchUsers()
+      refreshAll()
     } catch { toast.error('Status update failed') }
   }
 
@@ -387,7 +419,7 @@ export default function StaffUsers() {
       await api.delete(`users/${deleteUser._id}`)
       toast.success('User deleted')
       setDeleteUser(null)
-      fetchUsers()
+      refreshAll()
     } catch { toast.error('Delete failed') }
     finally { setDeleteLoading(false) }
   }
@@ -419,7 +451,7 @@ export default function StaffUsers() {
 
       {/* Modals */}
       {(addModal || editUser) && (
-        <StaffModal staff={editUser} onClose={() => { setAddModal(false); setEditUser(null) }} onSaved={fetchUsers} />
+        <StaffModal staff={editUser} onClose={() => { setAddModal(false); setEditUser(null) }} onSaved={refreshAll} availableRoles={availableRoles} />
       )}
       {credsUser  && <CredentialsModal user={credsUser}  onClose={() => setCredsUser(null)} />}
       {deleteUser && <DeleteModal user={deleteUser} onClose={() => setDeleteUser(null)} onConfirm={confirmDelete} loading={deleteLoading} />}
@@ -435,6 +467,29 @@ export default function StaffUsers() {
           <Plus size={14} /> Add User
         </button>
       </PageHeader>
+
+      {/* ── Stat Cards ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+        {[
+          { label: 'Total Users',    value: stats.total,        color: '#0c3b73', bg: '#e0e7ff', icon: UserCheck },
+          { label: 'Active Users',   value: stats.active,       color: '#16a34a', bg: '#dcfce7', icon: UserCheck },
+          { label: 'Inactive Users', value: stats.inactive,     color: '#dc2626', bg: '#fee2e2', icon: UserCheck },
+          { label: 'Login Enabled',  value: stats.loginEnabled, color: '#7c3aed', bg: '#f5f3ff', icon: ShieldCheck },
+        ].map(card => {
+          const CardIcon = card.icon
+          return (
+            <div key={card.label} style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
+              <div style={{ width: 42, height: 42, borderRadius: 10, background: card.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <CardIcon size={20} color={card.color} />
+              </div>
+              <div>
+                <p style={{ margin: 0, fontSize: 24, fontWeight: 800, color: card.color, lineHeight: 1 }}>{card.value}</p>
+                <p style={{ margin: '4px 0 0', fontSize: 12, color: '#6b7280', fontWeight: 500 }}>{card.label}</p>
+              </div>
+            </div>
+          )
+        })}
+      </div>
 
       {/* ── Filter bar ── */}
       <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10, padding: '12px 16px', display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
@@ -455,7 +510,7 @@ export default function StaffUsers() {
           <select value={roleFilter} onChange={e => { setRoleFilter(e.target.value); setPage(1) }}
             style={{ padding: '7px 12px', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 12, outline: 'none', cursor: 'pointer', minWidth: 120 }}>
             <option value="All">All</option>
-            {ROLES.map(r => <option key={r}>{r}</option>)}
+            {availableRoles.map(r => <option key={r}>{r}</option>)}
           </select>
         </div>
 
