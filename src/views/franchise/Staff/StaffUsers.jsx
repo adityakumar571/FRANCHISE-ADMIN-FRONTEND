@@ -5,11 +5,13 @@ import toast from 'react-hot-toast'
 import {
   UserCheck, Plus, Edit2, Search,
   X, Save, ShieldCheck, Trash2,
+  EyeOff, Eye as EyeIcon,
 } from 'lucide-react'
 import PageHeader from '../components/PageHeader'
 import { getRequest, postRequest, putRequest, deleteRequest } from '../../../Helpers'
 
-const ROLES  = ['Franchise Owner', 'Branch Manager', 'Pharmacist', 'Cashier']
+/* ── Constants ───────────────────────────────────────────── */
+const ROLES  = ['Franchise Owner', 'Branch Manager', 'Pharmacist', 'Cashier', 'Admin', 'Accounts', 'Staff', 'Vendor']
 const SHIFTS = ['Morning', 'Evening', 'Night']
 
 const ROLE_COLORS = {
@@ -17,6 +19,10 @@ const ROLE_COLORS = {
   'Branch Manager':  '#7c3aed',
   Pharmacist:        '#16a34a',
   Cashier:           '#d97706',
+  Admin:             '#0c3b73',
+  Accounts:          '#0891b2',
+  Staff:             '#16a34a',
+  Vendor:            '#dc2626',
 }
 const ATT_COLORS = {
   Present:   '#16a34a',
@@ -25,6 +31,10 @@ const ATT_COLORS = {
   'Half Day':'#0891b2',
 }
 
+const EMPTY_FORM = { name: '', role: 'Staff', department: 'Operations', phone: '', email: '', shift: 'Morning', salary: '', password: '' }
+const EMPTY_KPI  = { total: 0, present: 0, absent: 0, late: 0 }
+
+/* ── Small reusable components ───────────────────────────── */
 const Th = ({ c }) => (
   <th style={{ padding: '10px 14px', fontSize: 11, color: '#6b7280', fontWeight: 700, textTransform: 'uppercase', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', textAlign: 'left', whiteSpace: 'nowrap' }}>
     {c}
@@ -36,9 +46,7 @@ const Td = ({ children, style = {} }) => (
   </td>
 )
 
-const EMPTY_FORM = { name: '', role: 'Cashier', department: 'Operations', phone: '', email: '', shift: 'Morning', salary: '' }
-const EMPTY_KPI  = { total: 0, present: 0, absent: 0, late: 0 }
-
+/* ── Main Component ──────────────────────────────────────── */
 export default function StaffUsers() {
   const navigate = useNavigate()
 
@@ -52,11 +60,11 @@ export default function StaffUsers() {
   const [totalPages, setTotalPages] = useState(1)
   const [loading, setLoading]       = useState(true)
 
-  // Modal state
   const [modalOpen, setModal]       = useState(false)
   const [editId, setEditId]         = useState(null)
   const [form, setForm]             = useState(EMPTY_FORM)
   const [saving, setSaving]         = useState(false)
+  const [showPw, setShowPw]         = useState(false)
 
   const debounceRef = useRef()
 
@@ -87,29 +95,49 @@ export default function StaffUsers() {
     debounceRef.current = setTimeout(fetchStaff, 400)
   }
 
-  const openAdd = () => { setForm(EMPTY_FORM); setEditId(null); setModal(true) }
-  const openEdit = (s) => {
-    setForm({ name: s.name, role: s.role, department: s.department, phone: s.phone, email: s.email || '', shift: s.shift, salary: s.salary })
-    setEditId(s._id)
+  const openAdd = () => {
+    setForm(EMPTY_FORM)
+    setEditId(null)
+    setShowPw(false)
     setModal(true)
+  }
+
+  const openEdit = (s) => {
+    setForm({ name: s.name, role: s.role, department: s.department || '', phone: s.phone, email: s.email || '', shift: s.shift || 'Morning', salary: s.salary || '', password: '' })
+    setEditId(s._id)
+    setShowPw(false)
+    setModal(true)
+  }
+
+  const closeModal = () => {
+    setModal(false)
+    setEditId(null)
+    setForm(EMPTY_FORM)
+    setShowPw(false)
   }
 
   const handleSave = async (e) => {
     e.preventDefault()
-    if (!form.name || !form.role) { toast.error('Name and role are required'); return }
+    if (!form.name.trim()) { toast.error('Name is required'); return }
+    if (!form.role)        { toast.error('Role is required');  return }
+    if (!editId && !form.password) { toast.error('Password is required for new staff'); return }
+
     setSaving(true)
     try {
+      const payload = { ...form }
+      if (editId && !payload.password) delete payload.password
+
       if (editId) {
-        await putRequest({ url: `/franchise/staff/${editId}`, cred: form })
+        await putRequest({ url: `/franchise/staff/${editId}`, cred: payload })
         toast.success('Staff updated')
       } else {
-        await postRequest({ url: '/franchise/staff', cred: form })
+        await postRequest({ url: '/franchise/staff', cred: payload })
         toast.success('Staff member added')
       }
-      setModal(false)
+      closeModal()
       fetchStaff()
-    } catch {
-      toast.error('Failed to save')
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Failed to save')
     } finally {
       setSaving(false)
     }
@@ -294,11 +322,11 @@ export default function StaffUsers() {
 
       {/* Add / Edit Modal */}
       {modalOpen && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ background: '#fff', borderRadius: 14, padding: 28, width: 480, maxWidth: '95vw', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: '#fff', borderRadius: 14, padding: 28, width: '100%', maxWidth: 500, maxHeight: '92vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
               <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{editId ? 'Edit Staff' : 'Add Staff Member'}</h3>
-              <button onClick={() => setModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}>
+              <button onClick={closeModal} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}>
                 <X size={20} />
               </button>
             </div>
@@ -306,8 +334,8 @@ export default function StaffUsers() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                 {[
                   { label: 'Full Name *',  key: 'name',       placeholder: 'Staff name' },
-                  { label: 'Phone',        key: 'phone',      placeholder: '10-digit mobile' },
-                  { label: 'Email',        key: 'email',      placeholder: 'email@example.com' },
+                  { label: 'Phone *',      key: 'phone',      placeholder: '10-digit mobile' },
+                  { label: 'Email',        key: 'email',      placeholder: 'email@example.com', type: 'email' },
                   { label: 'Department',   key: 'department', placeholder: 'e.g. Pharmacy' },
                   { label: 'Salary (₹)',  key: 'salary',     placeholder: '0', type: 'number' },
                 ].map(f => (
@@ -337,13 +365,34 @@ export default function StaffUsers() {
                   </select>
                 </div>
               </div>
+
+              {/* Password */}
+              <div style={{ marginTop: 14 }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 5 }}>
+                  {editId ? 'New Password (blank = keep current)' : 'Password *'}
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type={showPw ? 'text' : 'password'}
+                    value={form.password}
+                    onChange={e => setForm(p => ({ ...p, password: e.target.value }))}
+                    placeholder="Min 6 characters"
+                    style={{ width: '100%', padding: '9px 40px 9px 12px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
+                  />
+                  <button type="button" onClick={() => setShowPw(v => !v)}
+                    style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', display: 'flex', alignItems: 'center' }}>
+                    {showPw ? <EyeOff size={14} /> : <EyeIcon size={14} />}
+                  </button>
+                </div>
+              </div>
+
               <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 20 }}>
-                <button type="button" onClick={() => setModal(false)}
+                <button type="button" onClick={closeModal}
                   style={{ padding: '9px 20px', border: '1px solid #e5e7eb', borderRadius: 8, background: '#fff', fontSize: 13, cursor: 'pointer', fontWeight: 600 }}>
                   Cancel
                 </button>
                 <button type="submit" disabled={saving}
-                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 22px', border: 'none', borderRadius: 8, background: saving ? '#9ca3af' : '#0c3b73', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 22px', border: 'none', borderRadius: 8, background: saving ? '#9ca3af' : '#0c3b73', color: '#fff', fontSize: 13, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer' }}>
                   <Save size={14} /> {saving ? 'Saving...' : editId ? 'Update' : 'Add Staff'}
                 </button>
               </div>

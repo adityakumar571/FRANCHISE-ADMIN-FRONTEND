@@ -10,16 +10,9 @@ export const ROLES = {
   STAFF:      'Staff',      // Pharmacy staff — POS, dispensing, inventory
   CUSTOMER:   'Customer',   // Registered patient/customer
   VENDOR:     'Vendor',     // Supplier/vendor representative
-
-  // ── Legacy school LMS roles (kept for compatibility) ──
-  TEACHER:    'Teacher',
-  STUDENT:    'Student',
-  ACCOUNTANT: 'Accountant',
-  HR_MANAGER: 'HRManager',
-  HR_STAFF:   'HRStaff',
 }
 
-/** Roles that can access the main franchise portal */
+/** Roles that can access the franchise portal */
 export const FRANCHISE_ROLES = [
   ROLES.SUPERADMIN,
   ROLES.ADMIN,
@@ -38,3 +31,4 @@ export const ROLE_REDIRECT = {
   [ROLES.CUSTOMER]:   '/franchise/dashboard',
   [ROLES.VENDOR]:     '/franchise/b2b-orders',
 }
+
