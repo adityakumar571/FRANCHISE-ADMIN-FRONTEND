@@ -1,5 +1,10 @@
 /* eslint-disable prettier/prettier */
-/* ── Shared Mock Data for all POS screens ── */
+/**
+ * POS Mock Data - LEGACY / FALLBACK only
+ * Real data now comes from API: /api/franchise/pos/*
+ * These are kept as fallback for Payment, ReturnBill, ExchangeBill, PrescriptionBilling, PrintInvoice screens
+ * that still need to be wired
+ */
 
 export const MEDICINES = [
   { id: 'm1', name: 'Crocin 650 Tablet',        salt: 'Paracetamol 650mg',    company: 'GSK',        mrp: 16.00, stock: 125, batch: 'CR08023', exp: '12/2026', pack: '15 Strips', gst: 5  },

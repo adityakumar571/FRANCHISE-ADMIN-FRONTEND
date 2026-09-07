@@ -1,88 +1,124 @@
 /* eslint-disable prettier/prettier */
-/**
- * Screen 87 — Receipts
- */
-import { useState } from 'react'
-import { ArrowDownCircle, Download, Filter, Plus, Banknote, Landmark } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { ArrowDownCircle, Plus, X, Save } from 'lucide-react'
 import PageHeader from '../components/PageHeader'
-import { RECEIPTS } from './accountsMockData'
+import { getRequest, postRequest } from '../../../Helpers'
+import toast from 'react-hot-toast'
 
-const Th = ({ c, align = 'left' }) => (
-  <th style={{ padding: '10px 12px', fontSize: 11, color: '#6b7280', fontWeight: 700, textTransform: 'uppercase', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', textAlign: align, whiteSpace: 'nowrap' }}>{c}</th>
-)
-const Td = ({ children, style = {} }) => (
-  <td style={{ padding: '10px 12px', fontSize: 13, color: '#374151', borderBottom: '1px solid #f3f4f6', ...style }}>{children}</td>
-)
+const Th = ({ c, align = 'left' }) => <th style={{ padding: '9px 12px', fontSize: 11, color: '#6b7280', fontWeight: 700, textTransform: 'uppercase', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', textAlign: align, whiteSpace: 'nowrap' }}>{c}</th>
+const Td = ({ children, style = {} }) => <td style={{ padding: '9px 12px', fontSize: 13, color: '#374151', borderBottom: '1px solid #f3f4f6', ...style }}>{children}</td>
+const fmt = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
 
 export default function Receipts() {
-  const [from, setFrom] = useState('2025-05-17')
-  const [to, setTo]     = useState('2025-05-20')
+  const [receipts, setReceipts] = useState([])
+  const [loading, setLoading]   = useState(true)
+  const [addOpen, setAddOpen]   = useState(false)
+  const [saving, setSaving]     = useState(false)
+  const [from, setFrom] = useState('')
+  const [to, setTo]     = useState('')
+  const [form, setForm] = useState({ date: '', voucher: '', particulars: '', mode: 'Cash', amount: '' })
 
-  const totalPayments = RECEIPTS.reduce((s, r) => s + r.amount, 0)
-  const cashReceipts  = RECEIPTS.filter(r => r.mode === 'Cash').reduce((s, r) => s + r.amount, 0)
-  const bankReceipts  = RECEIPTS.filter(r => r.mode === 'Bank').reduce((s, r) => s + r.amount, 0)
+  const fetchData = async () => {
+    setLoading(true)
+    try {
+      const res = await getRequest(`/franchise/accounts/receipts?from=${from}&to=${to}`)
+      setReceipts(res.data?.data?.receipts || [])
+    } catch { toast.error('Failed to load receipts') }
+    finally   { setLoading(false) }
+  }
+  useEffect(() => { fetchData() }, [from, to])
+
+  const handleAdd = async (e) => {
+    e.preventDefault()
+    if (!form.amount || !form.particulars) { toast.error('Fill required fields'); return }
+    setSaving(true)
+    try {
+      await postRequest({ url: '/franchise/accounts/receipts', cred: form })
+      toast.success('Receipt added')
+      setAddOpen(false)
+      setForm({ date: '', voucher: '', particulars: '', mode: 'Cash', amount: '' })
+      fetchData()
+    } catch { toast.error('Failed to add') }
+    finally   { setSaving(false) }
+  }
 
   return (
     <div style={{ fontFamily: 'Inter, sans-serif', display: 'flex', flexDirection: 'column', gap: 18 }}>
-      <PageHeader icon={ArrowDownCircle} title="Receipts" subtitle="All receipt transactions" color="#16a34a">
-        <button style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: '#0c3b73', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, color: '#fff', cursor: 'pointer' }}>
-          <Plus size={13} /> Add Receipt
+      <PageHeader icon={ArrowDownCircle} title="Receipts" subtitle="All receipt vouchers" color="#16a34a">
+        <button onClick={() => setAddOpen(true)}
+          style={{ padding: '8px 16px', border: 'none', borderRadius: 8, background: '#16a34a', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
+          <Plus size={13} /> New Receipt
         </button>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <input type="date" value={from} onChange={e => setFrom(e.target.value)} style={{ padding: '7px 10px', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 12, outline: 'none' }} />
-          <span style={{ fontSize: 12, color: '#9ca3af' }}>to</span>
-          <input type="date" value={to} onChange={e => setTo(e.target.value)} style={{ padding: '7px 10px', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 12, outline: 'none' }} />
-          <button style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 12, background: '#fff', cursor: 'pointer' }}><Filter size={12} /> Filter</button>
-          <button style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 12, background: '#fff', cursor: 'pointer' }}><Download size={12} /> Export</button>
-        </div>
       </PageHeader>
 
-      {/* Summary Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 12 }}>
-        {[
-          { label: 'Total Payments',  value: totalPayments, color: '#0c3b73', bg: '#e0e7ff', icon: ArrowDownCircle },
-          { label: 'Cash Receipts',   value: cashReceipts,  color: '#16a34a', bg: '#dcfce7', icon: Banknote },
-          { label: 'Bank Payments',   value: bankReceipts,  color: '#0891b2', bg: '#e0f2fe', icon: Landmark },
-        ].map(s => (
-          <div key={s.label} style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
-            <div style={{ width: 44, height: 44, borderRadius: 11, background: s.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><s.icon size={20} color={s.color} /></div>
-            <div>
-              <p style={{ fontSize: 11, color: '#6b7280', margin: 0 }}>{s.label}</p>
-              <p style={{ fontSize: 18, fontWeight: 700, color: s.color, margin: '2px 0 0' }}>₹ {s.value.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
-            </div>
-          </div>
-        ))}
+      <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10, padding: '12px 16px', display: 'flex', gap: 10, alignItems: 'center' }}>
+        <span style={{ fontSize: 13 }}>From:</span>
+        <input type="date" value={from} onChange={e => setFrom(e.target.value)} style={{ padding: '7px 12px', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 13, outline: 'none' }} />
+        <span style={{ fontSize: 13 }}>To:</span>
+        <input type="date" value={to} onChange={e => setTo(e.target.value)} style={{ padding: '7px 12px', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 13, outline: 'none' }} />
+        <button onClick={fetchData} style={{ padding: '7px 16px', border: 'none', borderRadius: 7, background: '#0c3b73', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Apply</button>
       </div>
 
-      {/* Table */}
       <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead><tr>
-              <Th c="Date" /><Th c="Voucher No." /><Th c="Particulars" /><Th c="Mode" /><Th c="Amount (₹)" align="right" />
-            </tr></thead>
-            <tbody>
-              {RECEIPTS.map((r, i) => (
-                <tr key={i} onMouseEnter={e => e.currentTarget.style.background = '#fafafa'} onMouseLeave={e => e.currentTarget.style.background = ''}>
-                  <Td style={{ color: '#6b7280', fontSize: 12 }}>{r.date}</Td>
-                  <Td><span style={{ fontFamily: 'monospace', fontSize: 11, background: '#f3f4f6', padding: '2px 7px', borderRadius: 4 }}>{r.voucher}</span></Td>
-                  <Td style={{ fontWeight: 500 }}>{r.particulars}</Td>
-                  <Td>
-                    <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20, background: r.mode === 'Cash' ? '#dcfce7' : '#e0f2fe', color: r.mode === 'Cash' ? '#16a34a' : '#0891b2', border: `1px solid ${r.mode === 'Cash' ? '#bbf7d0' : '#bae6fd'}` }}>
-                      {r.mode}
-                    </span>
-                  </Td>
-                  <Td style={{ textAlign: 'right', fontWeight: 700, color: '#16a34a' }}>₹ {r.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</Td>
-                </tr>
-              ))}
-              <tr style={{ background: '#f9fafb', borderTop: '2px solid #e5e7eb' }}>
-                <Td style={{ fontWeight: 800 }} colSpan={4}>Total</Td>
-                <Td style={{ textAlign: 'right', fontWeight: 800, color: '#16a34a', fontSize: 15 }}>₹ {totalPayments.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</Td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead><tr><Th c="Date" /><Th c="Voucher" /><Th c="Particulars" /><Th c="Mode" /><Th c="Amount (₹)" align="right" /></tr></thead>
+          <tbody>
+            {loading
+              ? Array(5).fill(0).map((_, i) => <tr key={i}>{Array(5).fill(0).map((_, j) => <td key={j} style={{ padding: '9px 12px' }}><div style={{ height: 12, background: '#f3f4f6', borderRadius: 4 }} /></td>)}</tr>)
+              : receipts.length === 0
+                ? <tr><td colSpan={5} style={{ padding: 28, textAlign: 'center', color: '#9ca3af' }}>No receipts found</td></tr>
+                : receipts.map((r, i) => (
+                  <tr key={i}>
+                    <Td style={{ color: '#6b7280' }}>{r.date}</Td>
+                    <Td><span style={{ fontFamily: 'monospace', fontSize: 11, color: '#0c3b73' }}>{r.voucher}</span></Td>
+                    <Td style={{ fontWeight: 500 }}>{r.particulars}</Td>
+                    <Td style={{ color: '#6b7280' }}>{r.mode}</Td>
+                    <Td style={{ textAlign: 'right', fontWeight: 700, color: '#16a34a' }}>{fmt(r.amount)}</Td>
+                  </tr>
+                ))
+            }
+          </tbody>
+        </table>
       </div>
+
+      {addOpen && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: '#fff', borderRadius: 12, padding: 24, width: 420 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+              <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>New Receipt</h3>
+              <button onClick={() => setAddOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={18} /></button>
+            </div>
+            <form onSubmit={handleAdd}>
+              {[
+                { label: 'Date',         key: 'date',         type: 'date' },
+                { label: 'Voucher No.',  key: 'voucher',      placeholder: 'RC-001' },
+                { label: 'Particulars *',key: 'particulars',  placeholder: 'Description' },
+                { label: 'Amount (₹) *', key: 'amount',       type: 'number', placeholder: '0' },
+              ].map(f => (
+                <div key={f.key} style={{ marginBottom: 12 }}>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>{f.label}</label>
+                  <input type={f.type || 'text'} value={form[f.key]} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder}
+                    style={{ width: '100%', padding: '8px 12px', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 13, outline: 'none', boxSizing: 'border-box' }} />
+                </div>
+              ))}
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>Mode</label>
+                <select value={form.mode} onChange={e => setForm(p => ({ ...p, mode: e.target.value }))}
+                  style={{ width: '100%', padding: '8px 12px', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 13, outline: 'none', background: '#fff' }}>
+                  {['Cash', 'Bank', 'UPI', 'Cheque'].map(m => <option key={m}>{m}</option>)}
+                </select>
+              </div>
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                <button type="button" onClick={() => setAddOpen(false)} style={{ padding: '8px 18px', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 13, cursor: 'pointer' }}>Cancel</button>
+                <button type="submit" disabled={saving}
+                  style={{ padding: '8px 20px', border: 'none', borderRadius: 7, background: saving ? '#9ca3af' : '#16a34a', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <Save size={13} /> {saving ? 'Saving...' : 'Add Receipt'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

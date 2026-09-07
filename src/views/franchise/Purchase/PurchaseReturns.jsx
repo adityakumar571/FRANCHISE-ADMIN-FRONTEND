@@ -1,40 +1,67 @@
 /* eslint-disable prettier/prettier */
 /**
- * PurchaseReturns — Return damaged/incorrect/expired stock to supplier
+ * PurchaseReturns — Real API integration
  */
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { RotateCcw, Plus, Trash2, Save } from 'lucide-react'
 import toast from 'react-hot-toast'
 import PageHeader from '../components/PageHeader'
 import DataTable from '../components/DataTable'
 import StatusBadge from '../components/StatusBadge'
-
-const MOCK = [
-  { _id: 'PR-101', grnRef: 'GRN-1049', supplier: 'Medico Agencies', reason: 'Damaged', items: 2, status: 'pending', date: '2026-08-21' },
-  { _id: 'PR-100', grnRef: 'GRN-1048', supplier: 'PharmaDist', reason: 'Near Expiry', items: 1, status: 'completed', date: '2026-08-18' },
-]
+import { getRequest, postRequest } from '../../../Helpers'
 
 const EMPTY_ITEM = { medicine: '', batchNo: '', qty: 1, reason: 'damaged' }
 
 const PurchaseReturns = () => {
   const [tab, setTab]       = useState('list')
-  const [supplier, setSupp] = useState('')
-  const [grnRef, setGrn]    = useState('')
-  const [items, setItems]   = useState([{ ...EMPTY_ITEM }])
-  const [loading]           = useState(false)
+  const [returns, setReturns] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving]   = useState(false)
+  const [supplier, setSupp]   = useState('')
+  const [grnRef, setGrn]      = useState('')
+  const [items, setItems]     = useState([{ ...EMPTY_ITEM }])
+
+  const fetchReturns = async () => {
+    setLoading(true)
+    try {
+      const res = await getRequest('/franchise/purchase/returns')
+      setReturns(res.data?.data?.returns || [])
+    } catch {
+      toast.error('Failed to load purchase returns')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { fetchReturns() }, [])
 
   const addItem  = () => setItems((p) => [...p, { ...EMPTY_ITEM }])
   const delItem  = (i) => setItems((p) => p.filter((_, idx) => idx !== i))
   const setItem  = (i, f, v) => setItems((p) => p.map((it, idx) => idx === i ? { ...it, [f]: v } : it))
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault()
-    toast.success('Purchase return submitted')
-    setTab('list')
+    if (!supplier) { toast.error('Supplier is required'); return }
+    setSaving(true)
+    try {
+      await postRequest({ url: '/franchise/purchase/returns', cred: {
+        supplier, grnRef,
+        items: items.map(it => ({ medicineName: it.medicine, batchNo: it.batchNo, qty: Number(it.qty), reason: it.reason })),
+      }})
+      toast.success('Purchase return submitted')
+      setTab('list')
+      setSupp(''); setGrn('')
+      setItems([{ ...EMPTY_ITEM }])
+      fetchReturns()
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Failed to submit return')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const columns = [
-    { title: 'Return No.', key: '_id', render: (v) => <span style={{ fontWeight: 700, color: '#d97706' }}>{v}</span> },
+    { title: 'Return No.', key: 'returnNo', render: (v) => <span style={{ fontWeight: 700, color: '#d97706' }}>{v}</span> },
     { title: 'GRN Ref.', key: 'grnRef' },
     { title: 'Supplier', key: 'supplier' },
     { title: 'Reason', key: 'reason' },
@@ -53,7 +80,7 @@ const PurchaseReturns = () => {
       </PageHeader>
 
       {tab === 'list' ? (
-        <DataTable columns={columns} data={MOCK} loading={false} total={MOCK.length} page={1} limit={20} />
+        <DataTable columns={columns} data={returns} loading={loading} total={returns.length} page={1} limit={20} />
       ) : (
         <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', padding: 24 }}>
           <h3 style={{ fontSize: 15, fontWeight: 700, margin: '0 0 20px' }}>New Purchase Return</h3>
@@ -107,8 +134,8 @@ const PurchaseReturns = () => {
 
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button type="button" onClick={() => setTab('list')} style={{ padding: '9px 20px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Cancel</button>
-              <button type="submit" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 22px', borderRadius: 8, border: 'none', background: '#d97706', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
-                <Save size={14} /> Submit Return
+              <button type="submit" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 22px', borderRadius: 8, border: 'none', background: saving ? '#fde68a' : '#d97706', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                <Save size={14} /> {saving ? 'Submitting...' : 'Submit Return'}
               </button>
             </div>
           </form>

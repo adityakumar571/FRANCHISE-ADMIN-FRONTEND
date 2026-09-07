@@ -1,44 +1,70 @@
 /* eslint-disable prettier/prettier */
-/**
- * StockAdjustments — Record stock corrections, damages, adjustments
- * SOW §11.3: Approval for sensitive stock adjustments
- */
-import { useState } from 'react'
-import { Activity, Plus, Trash2, Save, X } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import { Activity, Plus, Save } from 'lucide-react'
 import toast from 'react-hot-toast'
 import PageHeader from '../components/PageHeader'
 import DataTable from '../components/DataTable'
 import StatusBadge from '../components/StatusBadge'
-
-const MOCK = [
-  { _id: 'ADJ-301', date: '2026-08-22', medicine: 'Azithromycin 500mg', type: 'quarantine', qty: -60, reason: 'Expired stock quarantine', status: 'completed', by: 'Rahul Kumar' },
-  { _id: 'ADJ-300', date: '2026-08-20', medicine: 'Paracetamol 650mg', type: 'damaged', qty: -10, reason: 'Packaging damage', status: 'pending', by: 'Amit Singh' },
-  { _id: 'ADJ-299', date: '2026-08-18', medicine: 'Metformin 500mg', type: 'correction', qty: +5, reason: 'Physical count correction', status: 'completed', by: 'Priya Sharma' },
-]
+import { getRequest, postRequest, putRequest } from '../../../Helpers'
 
 const EMPTY = { medicine: '', batch: '', type: 'damaged', qty: '', reason: '' }
 
 const StockAdjustments = () => {
-  const [tab, setTab] = useState('list')
-  const [form, setForm] = useState(EMPTY)
-  const [loading, setLoading] = useState(false)
+  const [tab, setTab]         = useState('list')
+  const [adjustments, setAdjustments] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving]   = useState(false)
+  const [total, setTotal]     = useState(0)
+  const [page, setPage]       = useState(1)
+  const [form, setForm]       = useState(EMPTY)
+
+  const fetchAdjustments = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await getRequest(`/franchise/inventory/adjustments?page=${page}&limit=20`)
+      const d = res.data?.data
+      setAdjustments(d?.adjustments || [])
+      setTotal(d?.total || 0)
+    } catch {
+      toast.error('Failed to load adjustments')
+    } finally {
+      setLoading(false)
+    }
+  }, [page])
+
+  useEffect(() => { fetchAdjustments() }, [fetchAdjustments])
 
   const onChange = (e) => setForm((p) => ({ ...p, [e.target.name]: e.target.value }))
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault()
-    if (!form.medicine || !form.qty) { toast.error('Fill in required fields'); return }
-    setLoading(true)
-    setTimeout(() => {
-      setLoading(false)
+    if (!form.medicine || !form.qty || !form.reason) { toast.error('Fill in required fields'); return }
+    setSaving(true)
+    try {
+      await postRequest({ url: '/franchise/inventory/adjustments', cred: form })
       toast.success('Adjustment submitted for approval')
       setTab('list')
       setForm(EMPTY)
-    }, 600)
+      fetchAdjustments()
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Failed to submit')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleApprove = async (id) => {
+    try {
+      await putRequest({ url: `/franchise/inventory/adjustments/${id}/approve`, cred: {} })
+      toast.success('Adjustment approved')
+      fetchAdjustments()
+    } catch {
+      toast.error('Failed to approve')
+    }
   }
 
   const columns = [
-    { title: 'Adj. No.', key: '_id', render: (v) => <span style={{ fontWeight: 700, color: '#7c3aed' }}>{v}</span> },
+    { title: 'Adj. No.', key: 'adjNo', render: (v) => <span style={{ fontWeight: 700, color: '#7c3aed' }}>{v}</span> },
     { title: 'Medicine', key: 'medicine', render: (v) => <span style={{ fontWeight: 600 }}>{v}</span> },
     { title: 'Type', key: 'type', render: (v) => <span style={{ textTransform: 'capitalize', fontWeight: 500 }}>{v}</span> },
     { title: 'Qty Change', key: 'qty', align: 'center', render: (v) => (
@@ -47,7 +73,17 @@ const StockAdjustments = () => {
     { title: 'Reason', key: 'reason' },
     { title: 'Date', key: 'date' },
     { title: 'By', key: 'by' },
-    { title: 'Status', key: 'status', render: (v) => <StatusBadge status={v} /> },
+    { title: 'Status', key: 'status', render: (v, row) => (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <StatusBadge status={v} />
+        {v === 'pending' && (
+          <button onClick={() => handleApprove(row._id)}
+            style={{ fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 4, border: 'none', background: '#16a34a', color: '#fff', cursor: 'pointer' }}>
+            Approve
+          </button>
+        )}
+      </div>
+    )},
   ]
 
   return (
@@ -60,7 +96,8 @@ const StockAdjustments = () => {
       </PageHeader>
 
       {tab === 'list' ? (
-        <DataTable columns={columns} data={MOCK} loading={false} total={MOCK.length} page={1} limit={20} />
+        <DataTable columns={columns} data={adjustments} loading={loading} total={total} page={page} limit={20}
+          onPageChange={setPage} onLimitChange={() => {}} />
       ) : (
         <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', padding: 24, maxWidth: 600 }}>
           <h3 style={{ margin: '0 0 20px', fontSize: 15, fontWeight: 700 }}>New Stock Adjustment</h3>
@@ -103,8 +140,8 @@ const StockAdjustments = () => {
 
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button type="button" onClick={() => setTab('list')} style={{ padding: '9px 20px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Cancel</button>
-              <button type="submit" disabled={loading} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 22px', borderRadius: 8, border: 'none', background: loading ? '#a78bfa' : '#7c3aed', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
-                <Save size={14} /> {loading ? 'Submitting…' : 'Submit for Approval'}
+              <button type="submit" disabled={saving} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 22px', borderRadius: 8, border: 'none', background: saving ? '#a78bfa' : '#7c3aed', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+              <Save size={14} /> {saving ? 'Submitting…' : 'Submit for Approval'}
               </button>
             </div>
           </form>

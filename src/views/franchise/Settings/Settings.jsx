@@ -1,344 +1,253 @@
 /* eslint-disable prettier/prettier */
-/**
- * Settings — Franchise Settings Page
- * Business profile, security, notifications, display preferences
- */
-import { useState } from 'react'
-import { Settings, Store, Bell, Shield, Printer, Globe, User, Save, ChevronRight } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Settings as SettingsIcon, Store, Bell, Shield, Printer, Globe, User, Save, Check } from 'lucide-react'
 import PageHeader from '../components/PageHeader'
 import { useFranchise } from '../../../Context/FranchiseContext'
+import { getRequest, putRequest } from '../../../Helpers'
+import toast from 'react-hot-toast'
 
-const Section = ({ title, subtitle, icon: Icon, color = '#0c3b73', children }) => (
-  <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
-    <div style={{ padding: '16px 20px', borderBottom: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', gap: 12 }}>
-      <div style={{ width: 36, height: 36, borderRadius: 9, background: color + '18', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Icon size={17} color={color} />
-      </div>
-      <div>
-        <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#111827' }}>{title}</h3>
-        {subtitle && <p style={{ margin: 0, fontSize: 11, color: '#9ca3af' }}>{subtitle}</p>}
-      </div>
-    </div>
-    <div style={{ padding: '20px' }}>{children}</div>
-  </div>
-)
+const TABS = [
+  { id: 'business',  label: 'Business Profile',     icon: Store },
+  { id: 'profile',   label: 'My Profile',            icon: User },
+  { id: 'notif',     label: 'Notifications',         icon: Bell },
+  { id: 'security',  label: 'Security',              icon: Shield },
+  { id: 'printing',  label: 'Printing & Invoice',    icon: Printer },
+  { id: 'prefs',     label: 'Preferences',           icon: Globe },
+]
 
-const Field = ({ label, hint, children }) => (
-  <div style={{ marginBottom: 18 }}>
+const Inp = ({ label, value, onChange, placeholder, type = 'text', readOnly }) => (
+  <div style={{ marginBottom: 16 }}>
     <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 5 }}>{label}</label>
-    {hint && <p style={{ margin: '0 0 6px', fontSize: 11, color: '#9ca3af' }}>{hint}</p>}
-    {children}
+    <input type={type} value={value} onChange={onChange} placeholder={placeholder} readOnly={readOnly}
+      style={{ width: '100%', padding: '9px 12px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13, outline: 'none', background: readOnly ? '#f9fafb' : '#fff', boxSizing: 'border-box', cursor: readOnly ? 'default' : 'text' }} />
   </div>
 )
 
-const Input = ({ value, onChange, placeholder, type = 'text', disabled = false }) => (
-  <input
-    type={type}
-    value={value}
-    onChange={onChange}
-    placeholder={placeholder}
-    disabled={disabled}
-    style={{
-      width: '100%', padding: '9px 12px', borderRadius: 8,
-      border: '1px solid #d1d5db', fontSize: 13, outline: 'none',
-      boxSizing: 'border-box',
-      background: disabled ? '#f9fafb' : '#fff',
-      color: disabled ? '#9ca3af' : '#111827',
-    }}
-  />
-)
-
-const Toggle = ({ checked, onChange, label }) => (
-  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #f3f4f6' }}>
-    <span style={{ fontSize: 13, color: '#374151' }}>{label}</span>
-    <div
-      onClick={() => onChange(!checked)}
-      style={{
-        width: 44, height: 24, borderRadius: 12, cursor: 'pointer',
-        background: checked ? '#0c3b73' : '#d1d5db',
-        position: 'relative', transition: 'background 0.2s',
-      }}
-    >
-      <div style={{
-        width: 18, height: 18, borderRadius: '50%', background: '#fff',
-        position: 'absolute', top: 3,
-        left: checked ? 23 : 3,
-        transition: 'left 0.2s',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-      }} />
+const Toggle = ({ label, desc, checked, onChange }) => (
+  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #f3f4f6' }}>
+    <div>
+      <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#111827' }}>{label}</p>
+      {desc && <p style={{ margin: '2px 0 0', fontSize: 11, color: '#9ca3af' }}>{desc}</p>}
     </div>
-  </div>
-)
-
-const SaveBar = ({ onSave }) => (
-  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-    <button
-      onClick={onSave}
-      style={{ padding: '9px 22px', borderRadius: 8, border: 'none', background: '#0c3b73', fontSize: 13, cursor: 'pointer', color: '#fff', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 7 }}
-    >
-      <Save size={14} /> Save Changes
+    <button onClick={() => onChange(!checked)}
+      style={{ width: 44, height: 24, borderRadius: 12, border: 'none', cursor: 'pointer', background: checked ? '#0c3b73' : '#e5e7eb', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
+      <div style={{ width: 20, height: 20, borderRadius: '50%', background: '#fff', position: 'absolute', top: 2, left: checked ? 22 : 2, transition: 'left 0.2s' }} />
     </button>
   </div>
 )
 
-const TABS = [
-  { id: 'business', label: 'Business Profile', icon: Store },
-  { id: 'profile', label: 'My Profile', icon: User },
-  { id: 'notifications', label: 'Notifications', icon: Bell },
-  { id: 'security', label: 'Security', icon: Shield },
-  { id: 'printing', label: 'Printing & Invoice', icon: Printer },
-  { id: 'preferences', label: 'Preferences', icon: Globe },
-]
+export default function FranchiseSettings() {
+  const { franchiseUser, franchiseInfo } = useFranchise()
+  const [activeTab, setActiveTab] = useState('business')
+  const [saving, setSaving]       = useState(false)
+  const [loading, setLoading]     = useState(true)
 
-const FranchiseSettings = () => {
-  const { franchiseInfo, franchiseUser } = useFranchise()
-  const [tab, setTab] = useState('business')
+  const [business, setBusiness] = useState({ storeName: '', storeCode: '', phone: '', email: '', address: '', gstin: '', drugLicense: '' })
+  const [notif, setNotif]       = useState({ lowStock: true, expiry: true, orderStatus: true, subscription: true, dayClose: false, staffLogin: false })
+  const [printing, setPrinting] = useState({ invoiceHeader: '', invoiceFooter: '', paperSize: 'A4', showLogo: true, showGSTIN: true, showDrugLicense: true, autoPrint: false })
+  const [prefs, setPrefs]       = useState({ currency: 'INR', dateFormat: 'DD/MM/YYYY', timezone: 'Asia/Kolkata', language: 'English', theme: 'Light' })
+  const [passwords, setPasswords] = useState({ currentPwd: '', newPwd: '', confirmPwd: '' })
 
-  // Business Profile state
-  const [biz, setBiz] = useState({
-    name: franchiseInfo?.franchiseName || 'PharmaNexus Store',
-    code: franchiseInfo?.franchiseCode || 'FRN-001',
-    phone: '9876543210',
-    email: 'store@pharmanexus.com',
-    address: '12, Medical Lane, MG Road',
-    city: 'Bengaluru',
-    state: 'Karnataka',
-    pincode: '560001',
-    gstin: '29AABCT1332L1ZP',
-    drug_license: 'KA-BLR-DL-00245',
-  })
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true)
+      try {
+        const res = await getRequest('/franchise/settings')
+        const d = res.data?.data
+        if (d?.businessProfile) setBusiness({ ...business, ...d.businessProfile })
+        if (d?.notifications)   setNotif({ ...notif, ...d.notifications })
+        if (d?.printing)        setPrinting({ ...printing, ...d.printing })
+        if (d?.preferences)     setPrefs({ ...prefs, ...d.preferences })
+      } catch {
+        // fallback to context data
+        setBusiness(p => ({
+          ...p,
+          storeName: franchiseInfo?.franchiseName || p.storeName,
+          storeCode: franchiseInfo?.franchiseCode  || p.storeCode,
+        }))
+      }
+      setLoading(false)
+    }
+    load()
+  }, [])
 
-  // Notification toggles
-  const [notif, setNotif] = useState({
-    low_stock: true, expiry: true, order_status: true,
-    subscription: true, day_close: false, staff_login: true,
-  })
+  const save = async (type, data) => {
+    setSaving(true)
+    try {
+      const URLS = {
+        business: '/franchise/settings/business-profile',
+        notif:    '/franchise/settings/notification-preferences',
+        printing: '/franchise/settings/printing',
+        prefs:    '/franchise/settings/preferences',
+        security: '/franchise/settings/security/password',
+      }
+      await putRequest({ url: URLS[type], cred: data })
+      toast.success('Settings saved successfully')
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Failed to save settings')
+    } finally {
+      setSaving(false)
+    }
+  }
 
-  // Security
-  const [sec, setSec] = useState({ currentPwd: '', newPwd: '', confirmPwd: '' })
-
-  // Printing
-  const [print, setPrint] = useState({
-    header: franchiseInfo?.franchiseName || 'PharmaNexus',
-    footer: 'Thank you for choosing us! Get well soon.',
-    show_gstin: true, show_logo: true, show_dl: true, auto_print: false,
-    paper_size: 'A4',
-  })
-
-  // Preferences
-  const [pref, setPref] = useState({
-    currency: 'INR (₹)',
-    date_format: 'DD/MM/YYYY',
-    time_zone: 'Asia/Kolkata (IST)',
-    language: 'English',
-    theme: 'Light',
-  })
-
-  const saved = () => alert('Settings saved successfully!')
+  const handlePasswordChange = () => {
+    if (!passwords.currentPwd || !passwords.newPwd) { toast.error('Fill all password fields'); return }
+    if (passwords.newPwd !== passwords.confirmPwd)   { toast.error('New passwords do not match'); return }
+    if (passwords.newPwd.length < 6)                 { toast.error('Password must be at least 6 characters'); return }
+    save('security', { currentPwd: passwords.currentPwd, newPwd: passwords.newPwd })
+  }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <PageHeader icon={Settings} title="Settings" subtitle="Manage franchise profile, preferences and security" color="#0c3b73" />
+    <div style={{ fontFamily: 'Inter, sans-serif', display: 'flex', flexDirection: 'column', gap: 18 }}>
+      <PageHeader icon={SettingsIcon} title="Settings" subtitle="Configure your pharmacy portal preferences" color="#0c3b73" />
 
-      <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-        {/* Sidebar Tabs */}
-        <div style={{ width: 220, background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', overflow: 'hidden', flexShrink: 0 }}>
-          {TABS.map(t => {
-            const TIcon = t.icon
-            const active = tab === t.id
-            return (
-              <div
-                key={t.id}
-                onClick={() => setTab(t.id)}
-                style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '13px 16px', cursor: 'pointer',
-                  borderBottom: '1px solid #f3f4f6',
-                  background: active ? '#0c3b7308' : '#fff',
-                  borderLeft: active ? '3px solid #0c3b73' : '3px solid transparent',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <TIcon size={15} color={active ? '#0c3b73' : '#9ca3af'} />
-                  <span style={{ fontSize: 13, fontWeight: active ? 700 : 400, color: active ? '#0c3b73' : '#374151' }}>{t.label}</span>
-                </div>
-                <ChevronRight size={13} color="#d1d5db" />
-              </div>
-            )
-          })}
+      <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', gap: 20, alignItems: 'start' }}>
+        {/* Sidebar */}
+        <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
+          {TABS.map(t => (
+            <button key={t.id} onClick={() => setActiveTab(t.id)}
+              style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '12px 16px', border: 'none', background: activeTab === t.id ? '#0c3b73' : '#fff', color: activeTab === t.id ? '#fff' : '#374151', cursor: 'pointer', fontSize: 13, fontWeight: activeTab === t.id ? 700 : 400, borderBottom: '1px solid #f3f4f6', textAlign: 'left' }}>
+              <t.icon size={15} />
+              {t.label}
+            </button>
+          ))}
         </div>
 
-        {/* Tab Content */}
-        <div style={{ flex: 1, minWidth: 300, display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {/* Content */}
+        <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: 24 }}>
 
-          {/* ── Business Profile ── */}
-          {tab === 'business' && (
-            <Section icon={Store} title="Business Profile" subtitle="Your franchise's business information" color="#0c3b73">
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 0 }}>
-                <Field label="Store / Business Name">
-                  <Input value={biz.name} onChange={e => setBiz(p => ({ ...p, name: e.target.value }))} />
-                </Field>
-                <div style={{ width: 16 }} />
-                <Field label="Franchise Code">
-                  <Input value={biz.code} disabled />
-                </Field>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
-                <Field label="Phone Number">
-                  <Input value={biz.phone} onChange={e => setBiz(p => ({ ...p, phone: e.target.value }))} />
-                </Field>
-                <Field label="Email Address">
-                  <Input value={biz.email} onChange={e => setBiz(p => ({ ...p, email: e.target.value }))} type="email" />
-                </Field>
-              </div>
-              <Field label="Full Address">
-                <textarea
-                  value={biz.address}
-                  onChange={e => setBiz(p => ({ ...p, address: e.target.value }))}
-                  rows={2}
-                  style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid #d1d5db', fontSize: 13, outline: 'none', resize: 'vertical', boxSizing: 'border-box' }}
-                />
-              </Field>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 16 }}>
-                <Field label="City"><Input value={biz.city} onChange={e => setBiz(p => ({ ...p, city: e.target.value }))} /></Field>
-                <Field label="State"><Input value={biz.state} onChange={e => setBiz(p => ({ ...p, state: e.target.value }))} /></Field>
-                <Field label="Pincode"><Input value={biz.pincode} onChange={e => setBiz(p => ({ ...p, pincode: e.target.value }))} /></Field>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
-                <Field label="GSTIN" hint="15-character GST identification number">
-                  <Input value={biz.gstin} onChange={e => setBiz(p => ({ ...p, gstin: e.target.value }))} />
-                </Field>
-                <Field label="Drug License Number">
-                  <Input value={biz.drug_license} onChange={e => setBiz(p => ({ ...p, drug_license: e.target.value }))} />
-                </Field>
-              </div>
-              <SaveBar onSave={saved} />
-            </Section>
-          )}
-
-          {/* ── My Profile ── */}
-          {tab === 'profile' && (
-            <Section icon={User} title="My Profile" subtitle="Update your personal account details" color="#7c3aed">
-              <Field label="Full Name">
-                <Input value={franchiseUser?.name || ''} />
-              </Field>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                <Field label="User ID / Login">
-                  <Input value={franchiseUser?.userId || ''} disabled />
-                </Field>
-                <Field label="Role">
-                  <Input value={franchiseUser?.role || ''} disabled />
-                </Field>
-              </div>
-              <Field label="Phone Number">
-                <Input value="" placeholder="Your phone number" />
-              </Field>
-              <Field label="Profile Photo">
-                <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                  <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#0c3b7318', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 700, color: '#0c3b73' }}>
-                    {(franchiseUser?.name || 'U')[0]}
+          {/* Business Profile */}
+          {activeTab === 'business' && (
+            <div>
+              <h3 style={{ margin: '0 0 20px', fontSize: 15, fontWeight: 700 }}>Business Profile</h3>
+              {loading ? <p style={{ color: '#9ca3af' }}>Loading...</p> : (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 20px' }}>
+                  <Inp label="Store Name *"      value={business.storeName}    onChange={e => setBusiness(p => ({ ...p, storeName: e.target.value }))}    placeholder="Pharmacy name" />
+                  <Inp label="Store Code"        value={business.storeCode}    onChange={e => setBusiness(p => ({ ...p, storeCode: e.target.value }))}    placeholder="Store code" readOnly />
+                  <Inp label="Phone"             value={business.phone}        onChange={e => setBusiness(p => ({ ...p, phone: e.target.value }))}        placeholder="Contact number" />
+                  <Inp label="Email"             value={business.email}        onChange={e => setBusiness(p => ({ ...p, email: e.target.value }))}        placeholder="Store email" type="email" />
+                  <Inp label="GSTIN"             value={business.gstin}        onChange={e => setBusiness(p => ({ ...p, gstin: e.target.value }))}        placeholder="GST number" />
+                  <Inp label="Drug License No."  value={business.drugLicense}  onChange={e => setBusiness(p => ({ ...p, drugLicense: e.target.value }))} placeholder="DL number" />
+                  <div style={{ gridColumn: '1/-1' }}>
+                    <Inp label="Address" value={business.address} onChange={e => setBusiness(p => ({ ...p, address: e.target.value }))} placeholder="Full store address" />
                   </div>
-                  <button style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', fontSize: 12, cursor: 'pointer' }}>Upload Photo</button>
-                </div>
-              </Field>
-              <SaveBar onSave={saved} />
-            </Section>
-          )}
-
-          {/* ── Notifications ── */}
-          {tab === 'notifications' && (
-            <Section icon={Bell} title="Notifications" subtitle="Choose what alerts you want to receive" color="#d97706">
-              <Toggle checked={notif.low_stock} onChange={v => setNotif(p => ({ ...p, low_stock: v }))} label="Low stock alerts" />
-              <Toggle checked={notif.expiry} onChange={v => setNotif(p => ({ ...p, expiry: v }))} label="Expiry / near-expiry alerts" />
-              <Toggle checked={notif.order_status} onChange={v => setNotif(p => ({ ...p, order_status: v }))} label="B2B order status updates" />
-              <Toggle checked={notif.subscription} onChange={v => setNotif(p => ({ ...p, subscription: v }))} label="Subscription renewal reminders" />
-              <Toggle checked={notif.day_close} onChange={v => setNotif(p => ({ ...p, day_close: v }))} label="Day closing reminder" />
-              <Toggle checked={notif.staff_login} onChange={v => setNotif(p => ({ ...p, staff_login: v }))} label="Staff login notifications" />
-              <div style={{ marginTop: 16 }}>
-                <SaveBar onSave={saved} />
-              </div>
-            </Section>
-          )}
-
-          {/* ── Security ── */}
-          {tab === 'security' && (
-            <Section icon={Shield} title="Security" subtitle="Change your password and manage account security" color="#dc2626">
-              <Field label="Current Password">
-                <Input type="password" value={sec.currentPwd} onChange={e => setSec(p => ({ ...p, currentPwd: e.target.value }))} placeholder="Enter current password" />
-              </Field>
-              <Field label="New Password">
-                <Input type="password" value={sec.newPwd} onChange={e => setSec(p => ({ ...p, newPwd: e.target.value }))} placeholder="Minimum 8 characters" />
-              </Field>
-              <Field label="Confirm New Password">
-                <Input type="password" value={sec.confirmPwd} onChange={e => setSec(p => ({ ...p, confirmPwd: e.target.value }))} placeholder="Repeat new password" />
-              </Field>
-
-              {sec.newPwd && sec.confirmPwd && sec.newPwd !== sec.confirmPwd && (
-                <div style={{ marginBottom: 14, padding: '10px 14px', borderRadius: 8, background: '#fee2e2', border: '1px solid #fecdd3' }}>
-                  <p style={{ margin: 0, fontSize: 12, color: '#dc2626', fontWeight: 600 }}>Passwords do not match</p>
                 </div>
               )}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+                <button onClick={() => save('business', business)} disabled={saving}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 22px', border: 'none', borderRadius: 8, background: saving ? '#9ca3af' : '#0c3b73', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                  <Save size={14} /> {saving ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </div>
+          )}
 
-              <div style={{ background: '#f9fafb', borderRadius: 8, padding: '14px 16px', marginBottom: 18 }}>
-                <p style={{ margin: '0 0 6px', fontSize: 12, fontWeight: 700, color: '#374151' }}>Password Requirements</p>
-                {['At least 8 characters', 'Include uppercase and lowercase letters', 'Include at least one number', 'Include at least one special character'].map(r => (
-                  <p key={r} style={{ margin: '3px 0', fontSize: 12, color: '#6b7280', display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ color: '#16a34a' }}>✓</span> {r}
-                  </p>
+          {/* My Profile */}
+          {activeTab === 'profile' && (
+            <div>
+              <h3 style={{ margin: '0 0 20px', fontSize: 15, fontWeight: 700 }}>My Profile</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 20px' }}>
+                <Inp label="Full Name" value={franchiseUser?.name || ''} readOnly />
+                <Inp label="User ID"   value={franchiseUser?.userId || ''} readOnly />
+                <Inp label="Role"      value={franchiseUser?.role || ''} readOnly />
+              </div>
+              <div style={{ background: '#f0f4ff', border: '1px solid #c7d2fe', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: '#0c3b73' }}>
+                Profile details are managed by your system administrator.
+              </div>
+            </div>
+          )}
+
+          {/* Notifications */}
+          {activeTab === 'notif' && (
+            <div>
+              <h3 style={{ margin: '0 0 20px', fontSize: 15, fontWeight: 700 }}>Notification Preferences</h3>
+              <Toggle label="Low Stock Alerts"       desc="Notify when medicines reach reorder level" checked={notif.lowStock}     onChange={v => setNotif(p => ({ ...p, lowStock: v }))}     />
+              <Toggle label="Expiry Alerts"          desc="Notify for near-expiry medicines"          checked={notif.expiry}       onChange={v => setNotif(p => ({ ...p, expiry: v }))}       />
+              <Toggle label="Order Status Updates"   desc="B2B order status notifications"           checked={notif.orderStatus}  onChange={v => setNotif(p => ({ ...p, orderStatus: v }))}  />
+              <Toggle label="Subscription Alerts"    desc="Billing and subscription reminders"       checked={notif.subscription} onChange={v => setNotif(p => ({ ...p, subscription: v }))} />
+              <Toggle label="Day Closing Reminder"   desc="Remind at day end to close books"         checked={notif.dayClose}    onChange={v => setNotif(p => ({ ...p, dayClose: v }))}     />
+              <Toggle label="Staff Login Alerts"     desc="Notify when staff logs in"                checked={notif.staffLogin}  onChange={v => setNotif(p => ({ ...p, staffLogin: v }))}   />
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
+                <button onClick={() => save('notif', notif)} disabled={saving}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 22px', border: 'none', borderRadius: 8, background: saving ? '#9ca3af' : '#0c3b73', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                  <Save size={14} /> {saving ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Security */}
+          {activeTab === 'security' && (
+            <div>
+              <h3 style={{ margin: '0 0 20px', fontSize: 15, fontWeight: 700 }}>Change Password</h3>
+              <div style={{ maxWidth: 400 }}>
+                <Inp label="Current Password" value={passwords.currentPwd} onChange={e => setPasswords(p => ({ ...p, currentPwd: e.target.value }))} placeholder="••••••••" type="password" />
+                <Inp label="New Password"     value={passwords.newPwd}     onChange={e => setPasswords(p => ({ ...p, newPwd: e.target.value }))}     placeholder="••••••••" type="password" />
+                <Inp label="Confirm Password" value={passwords.confirmPwd} onChange={e => setPasswords(p => ({ ...p, confirmPwd: e.target.value }))} placeholder="••••••••" type="password" />
+              </div>
+              <button onClick={handlePasswordChange} disabled={saving}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 22px', border: 'none', borderRadius: 8, background: saving ? '#9ca3af' : '#0c3b73', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                <Shield size={14} /> {saving ? 'Updating...' : 'Update Password'}
+              </button>
+            </div>
+          )}
+
+          {/* Printing */}
+          {activeTab === 'printing' && (
+            <div>
+              <h3 style={{ margin: '0 0 20px', fontSize: 15, fontWeight: 700 }}>Printing & Invoice Settings</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 20px' }}>
+                <Inp label="Invoice Header" value={printing.invoiceHeader} onChange={e => setPrinting(p => ({ ...p, invoiceHeader: e.target.value }))} placeholder="e.g. Tax Invoice" />
+                <Inp label="Invoice Footer" value={printing.invoiceFooter} onChange={e => setPrinting(p => ({ ...p, invoiceFooter: e.target.value }))} placeholder="e.g. Thank you!" />
+              </div>
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 5 }}>Paper Size</label>
+                <select value={printing.paperSize} onChange={e => setPrinting(p => ({ ...p, paperSize: e.target.value }))}
+                  style={{ padding: '9px 12px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13, outline: 'none', background: '#fff', width: 200 }}>
+                  {['A4', 'A5', 'Thermal 80mm'].map(s => <option key={s}>{s}</option>)}
+                </select>
+              </div>
+              <Toggle label="Show Logo on Invoice"          checked={printing.showLogo}         onChange={v => setPrinting(p => ({ ...p, showLogo: v }))} />
+              <Toggle label="Show GSTIN on Invoice"         checked={printing.showGSTIN}        onChange={v => setPrinting(p => ({ ...p, showGSTIN: v }))} />
+              <Toggle label="Show Drug License on Invoice"  checked={printing.showDrugLicense}  onChange={v => setPrinting(p => ({ ...p, showDrugLicense: v }))} />
+              <Toggle label="Auto Print after Billing"      checked={printing.autoPrint}        onChange={v => setPrinting(p => ({ ...p, autoPrint: v }))} />
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
+                <button onClick={() => save('printing', printing)} disabled={saving}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 22px', border: 'none', borderRadius: 8, background: saving ? '#9ca3af' : '#0c3b73', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                  <Save size={14} /> {saving ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Preferences */}
+          {activeTab === 'prefs' && (
+            <div>
+              <h3 style={{ margin: '0 0 20px', fontSize: 15, fontWeight: 700 }}>Display Preferences</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                {[
+                  { label: 'Currency',    key: 'currency',   opts: ['INR', 'USD', 'EUR'] },
+                  { label: 'Date Format', key: 'dateFormat', opts: ['DD/MM/YYYY', 'MM/DD/YYYY', 'YYYY-MM-DD'] },
+                  { label: 'Timezone',    key: 'timezone',   opts: ['Asia/Kolkata', 'UTC', 'Asia/Dubai'] },
+                  { label: 'Language',    key: 'language',   opts: ['English', 'Hindi', 'Marathi', 'Tamil', 'Telugu'] },
+                  { label: 'Theme',       key: 'theme',      opts: ['Light', 'Dark', 'Auto'] },
+                ].map(f => (
+                  <div key={f.key}>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 5 }}>{f.label}</label>
+                    <select value={prefs[f.key]} onChange={e => setPrefs(p => ({ ...p, [f.key]: e.target.value }))}
+                      style={{ width: '100%', padding: '9px 12px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13, outline: 'none', background: '#fff' }}>
+                      {f.opts.map(o => <option key={o}>{o}</option>)}
+                    </select>
+                  </div>
                 ))}
               </div>
-
-              <SaveBar onSave={saved} />
-            </Section>
-          )}
-
-          {/* ── Printing & Invoice ── */}
-          {tab === 'printing' && (
-            <Section icon={Printer} title="Printing & Invoice" subtitle="Configure invoice header, footer and printing settings" color="#0891b2">
-              <Field label="Invoice Header Text">
-                <Input value={print.header} onChange={e => setPrint(p => ({ ...p, header: e.target.value }))} />
-              </Field>
-              <Field label="Invoice Footer Text">
-                <Input value={print.footer} onChange={e => setPrint(p => ({ ...p, footer: e.target.value }))} />
-              </Field>
-              <Field label="Paper Size">
-                <select value={print.paper_size} onChange={e => setPrint(p => ({ ...p, paper_size: e.target.value }))}
-                  style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid #d1d5db', fontSize: 13, outline: 'none' }}>
-                  <option>A4</option><option>A5</option><option>Thermal (58mm)</option><option>Thermal (80mm)</option>
-                </select>
-              </Field>
-              <Toggle checked={print.show_logo} onChange={v => setPrint(p => ({ ...p, show_logo: v }))} label="Show store logo on invoice" />
-              <Toggle checked={print.show_gstin} onChange={v => setPrint(p => ({ ...p, show_gstin: v }))} label="Show GSTIN on invoice" />
-              <Toggle checked={print.show_dl} onChange={v => setPrint(p => ({ ...p, show_dl: v }))} label="Show Drug License on invoice" />
-              <Toggle checked={print.auto_print} onChange={v => setPrint(p => ({ ...p, auto_print: v }))} label="Auto-print after sale" />
-              <div style={{ marginTop: 16 }}>
-                <SaveBar onSave={saved} />
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 20 }}>
+                <button onClick={() => save('prefs', prefs)} disabled={saving}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 22px', border: 'none', borderRadius: 8, background: saving ? '#9ca3af' : '#0c3b73', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                  <Save size={14} /> {saving ? 'Saving...' : 'Save Changes'}
+                </button>
               </div>
-            </Section>
-          )}
-
-          {/* ── Preferences ── */}
-          {tab === 'preferences' && (
-            <Section icon={Globe} title="Preferences" subtitle="Display and regional settings" color="#16a34a">
-              {[
-                { label: 'Currency', key: 'currency', options: ['INR (₹)', 'USD ($)', 'EUR (€)'] },
-                { label: 'Date Format', key: 'date_format', options: ['DD/MM/YYYY', 'MM/DD/YYYY', 'YYYY-MM-DD'] },
-                { label: 'Time Zone', key: 'time_zone', options: ['Asia/Kolkata (IST)', 'UTC', 'Asia/Dubai'] },
-                { label: 'Language', key: 'language', options: ['English', 'Hindi', 'Gujarati', 'Tamil', 'Telugu'] },
-                { label: 'Theme', key: 'theme', options: ['Light', 'Dark', 'System'] },
-              ].map(({ label, key, options }) => (
-                <Field key={key} label={label}>
-                  <select
-                    value={pref[key]}
-                    onChange={e => setPref(p => ({ ...p, [key]: e.target.value }))}
-                    style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid #d1d5db', fontSize: 13, outline: 'none' }}
-                  >
-                    {options.map(o => <option key={o}>{o}</option>)}
-                  </select>
-                </Field>
-              ))}
-              <SaveBar onSave={saved} />
-            </Section>
+            </div>
           )}
 
         </div>
@@ -346,5 +255,3 @@ const FranchiseSettings = () => {
     </div>
   )
 }
-
-export default FranchiseSettings

@@ -1,159 +1,165 @@
 /* eslint-disable prettier/prettier */
-/**
- * AuditLogs — Franchise Audit Log Viewer
- * Track all sensitive actions: user, role, action, record, timestamp
- */
-import { useState } from 'react'
-import { ShieldCheck, Search, Download, User, Package, ShoppingCart, Settings, Users, FileText } from 'lucide-react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { ShieldCheck, Search, Download } from 'lucide-react'
 import PageHeader from '../components/PageHeader'
-import DataTable from '../components/DataTable'
+import { getRequest } from '../../../Helpers'
+import toast from 'react-hot-toast'
 
-const MOCK_LOGS = [
-  { id: 1, user: 'Ajay Sharma', role: 'Franchise Owner', action: 'LOGIN', module: 'Auth', record: 'Session started', ip: '192.168.1.1', time: '22 Aug 2026, 9:00 AM', result: 'Success' },
-  { id: 2, user: 'Neha Gupta', role: 'Cashier', action: 'CREATE', module: 'POS', record: 'Invoice SI-0048 — ₹1,200', ip: '192.168.1.5', time: '22 Aug 2026, 10:30 AM', result: 'Success' },
-  { id: 3, user: 'Ajay Sharma', role: 'Franchise Owner', action: 'UPDATE', module: 'Staff', record: 'User Ravi Singh — Status changed to Inactive', ip: '192.168.1.1', time: '22 Aug 2026, 10:45 AM', result: 'Success' },
-  { id: 4, user: 'Sunita Rao', role: 'Branch Manager', action: 'CREATE', module: 'Purchase', record: 'PO-0031 created — Medico Agency', ip: '192.168.1.3', time: '22 Aug 2026, 11:00 AM', result: 'Success' },
-  { id: 5, user: 'Amit Kumar', role: 'Pharmacist', action: 'UPDATE', module: 'Inventory', record: 'Stock adjustment — Paracetamol 650mg +100 units', ip: '192.168.1.4', time: '22 Aug 2026, 11:15 AM', result: 'Success' },
-  { id: 6, user: 'Neha Gupta', role: 'Cashier', action: 'CREATE', module: 'POS', record: 'Return SR-0004 — Invoice SI-0041 returned ₹400', ip: '192.168.1.5', time: '22 Aug 2026, 11:30 AM', result: 'Success' },
-  { id: 7, user: 'Ajay Sharma', role: 'Franchise Owner', action: 'UPDATE', module: 'Settings', record: 'Business profile updated', ip: '192.168.1.1', time: '22 Aug 2026, 12:00 PM', result: 'Success' },
-  { id: 8, user: 'Unknown', role: '—', action: 'LOGIN', module: 'Auth', record: 'Failed login attempt — user ajay@pharma.com', ip: '103.45.67.89', time: '22 Aug 2026, 12:15 PM', result: 'Failed' },
-  { id: 9, user: 'Sunita Rao', role: 'Branch Manager', action: 'CREATE', module: 'GRN', record: 'GRN-0024 created — PO-0031 received', ip: '192.168.1.3', time: '22 Aug 2026, 2:00 PM', result: 'Success' },
-  { id: 10, user: 'Ajay Sharma', role: 'Franchise Owner', action: 'DELETE', module: 'Inventory', record: 'Batch B-2023-12-01 quarantined (expired)', ip: '192.168.1.1', time: '22 Aug 2026, 3:00 PM', result: 'Success' },
-]
-
-const actionColors = {
-  LOGIN: '#0891b2',
-  CREATE: '#16a34a',
-  UPDATE: '#7c3aed',
-  DELETE: '#dc2626',
-  EXPORT: '#d97706',
+const ACTION_COLORS = {
+  LOGIN:  { bg: '#e0e7ff', color: '#0c3b73' },
+  LOGOUT: { bg: '#f3f4f6', color: '#6b7280' },
+  CREATE: { bg: '#dcfce7', color: '#16a34a' },
+  UPDATE: { bg: '#fef3c7', color: '#d97706' },
+  DELETE: { bg: '#fee2e2', color: '#dc2626' },
+  VIEW:   { bg: '#f0fdf4', color: '#0891b2' },
+  EXPORT: { bg: '#f5f3ff', color: '#7c3aed' },
+}
+const RESULT_COLORS = {
+  Success: { bg: '#dcfce7', color: '#16a34a' },
+  Failed:  { bg: '#fee2e2', color: '#dc2626' },
 }
 
-const moduleIcons = {
-  Auth: User,
-  POS: ShoppingCart,
-  Purchase: ShoppingCart,
-  GRN: Package,
-  Inventory: Package,
-  Staff: Users,
-  Settings: Settings,
-}
+const Th = ({ c }) => <th style={{ padding: '9px 12px', fontSize: 11, color: '#6b7280', fontWeight: 700, textTransform: 'uppercase', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', textAlign: 'left', whiteSpace: 'nowrap' }}>{c}</th>
+const Td = ({ children, style = {} }) => <td style={{ padding: '10px 12px', fontSize: 12, color: '#374151', borderBottom: '1px solid #f3f4f6', ...style }}>{children}</td>
 
-const roleColors = {
-  'Franchise Owner': '#0c3b73',
-  'Branch Manager': '#7c3aed',
-  'Pharmacist': '#0891b2',
-  'Cashier': '#16a34a',
-}
+export default function AuditLogs() {
+  const [logs, setLogs]         = useState([])
+  const [countMap, setCountMap] = useState({})
+  const [search, setSearch]     = useState('')
+  const [actionFilter, setAction] = useState('')
+  const [moduleFilter, setModule] = useState('')
+  const [dateFrom, setFrom]     = useState('')
+  const [dateTo, setTo]         = useState('')
+  const [page, setPage]         = useState(1)
+  const [total, setTotal]       = useState(0)
+  const [totalPages, setTotalPages] = useState(1)
+  const [loading, setLoading]   = useState(true)
+  const debounceRef = useRef()
 
-const AuditLogs = () => {
-  const [search, setSearch] = useState('')
-  const [action, setAction] = useState('All')
-  const [module, setModule] = useState('All')
-  const [from, setFrom] = useState('2026-08-22')
-  const [to, setTo] = useState('2026-08-22')
-
-  const modules = ['All', 'Auth', 'POS', 'Purchase', 'GRN', 'Inventory', 'Staff', 'Settings']
-  const actions = ['All', 'LOGIN', 'CREATE', 'UPDATE', 'DELETE', 'EXPORT']
-
-  const filtered = MOCK_LOGS.filter(l =>
-    (action === 'All' || l.action === action) &&
-    (module === 'All' || l.module === module) &&
-    (l.user.toLowerCase().includes(search.toLowerCase()) || l.record.toLowerCase().includes(search.toLowerCase()))
-  )
-
-  const columns = [
-    { title: '#', key: 'id', width: 45, render: v => <span style={{ color: '#9ca3af', fontSize: 11 }}>{v}</span> },
-    {
-      title: 'Action', key: 'action', render: (v) => {
-        const color = actionColors[v] || '#6b7280'
-        return <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: color + '18', color, letterSpacing: '0.5px' }}>{v}</span>
-      }
-    },
-    {
-      title: 'Module', key: 'module', render: (v) => {
-        const MIcon = moduleIcons[v] || FileText
-        return (
-          <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 500, color: '#374151' }}>
-            <MIcon size={12} color="#9ca3af" /> {v}
-          </span>
-        )
-      }
-    },
-    { title: 'Description', key: 'record', render: v => <span style={{ fontSize: 12, color: '#374151' }}>{v}</span> },
-    {
-      title: 'User', key: 'user', render: (v, row) => (
-        <div>
-          <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: '#111827' }}>{v}</p>
-          {row.role !== '—' && (
-            <span style={{ fontSize: 10, padding: '1px 7px', borderRadius: 20, background: (roleColors[row.role] || '#9ca3af') + '18', color: roleColors[row.role] || '#9ca3af', fontWeight: 600 }}>
-              {row.role}
-            </span>
-          )}
-        </div>
+  const fetchLogs = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await getRequest(
+        `/franchise/audit-logs?action=${actionFilter}&module=${encodeURIComponent(moduleFilter)}&from=${dateFrom}&to=${dateTo}&search=${encodeURIComponent(search)}&page=${page}&limit=20`
       )
-    },
-    { title: 'IP Address', key: 'ip', render: v => <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#9ca3af' }}>{v}</span> },
-    { title: 'Timestamp', key: 'time', render: v => <span style={{ fontSize: 11, color: '#6b7280' }}>{v}</span> },
-    {
-      title: 'Result', key: 'result', render: v => (
-        <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600, background: v === 'Success' ? '#dcfce7' : '#fee2e2', color: v === 'Success' ? '#16a34a' : '#dc2626' }}>{v}</span>
-      )
-    },
-  ]
+      const d = res.data?.data
+      setLogs(d?.logs || [])
+      setTotal(d?.total || 0)
+      setTotalPages(d?.totalPages || 1)
+      if (d?.countMap) setCountMap(d.countMap)
+    } catch { toast.error('Failed to load audit logs') }
+    finally   { setLoading(false) }
+  }, [search, actionFilter, moduleFilter, dateFrom, dateTo, page])
+
+  useEffect(() => { fetchLogs() }, [fetchLogs])
+
+  const handleSearchChange = (val) => {
+    setSearch(val); setPage(1)
+    clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(fetchLogs, 400)
+  }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <PageHeader icon={ShieldCheck} title="Audit Logs" subtitle="Track all user actions and system events with timestamp" color="#0c3b73">
-        <button style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
-          <Download size={14} /> Export
+    <div style={{ fontFamily: 'Inter, sans-serif', display: 'flex', flexDirection: 'column', gap: 18 }}>
+      <PageHeader icon={ShieldCheck} title="Audit Logs" subtitle="Track all user actions and system events" color="#0c3b73">
+        <button style={{ padding: '7px 14px', border: '1px solid #e5e7eb', borderRadius: 8, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, fontSize: 12 }}>
+          <Download size={12} /> Export
         </button>
       </PageHeader>
 
-      {/* Summary */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-        {Object.entries(actionColors).map(([act, color]) => (
-          <div key={act} style={{ background: '#fff', borderRadius: 8, border: '1px solid #e5e7eb', padding: '10px 16px', display: 'flex', gap: 10, alignItems: 'center' }}>
-            <span style={{ padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: color + '18', color }}>{act}</span>
-            <span style={{ fontSize: 15, fontWeight: 700, color: '#111827' }}>{MOCK_LOGS.filter(l => l.action === act).length}</span>
-          </div>
-        ))}
+      {/* Action Count Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 10 }}>
+        {['LOGIN', 'CREATE', 'UPDATE', 'DELETE'].map(a => {
+          const cfg = ACTION_COLORS[a] || ACTION_COLORS.VIEW
+          return (
+            <button key={a} onClick={() => { setAction(actionFilter === a ? '' : a); setPage(1) }}
+              style={{ background: actionFilter === a ? cfg.color : '#fff', border: `2px solid ${actionFilter === a ? cfg.color : '#e5e7eb'}`, borderRadius: 10, padding: '12px 10px', textAlign: 'center', cursor: 'pointer', transition: 'all 0.15s' }}>
+              <p style={{ fontSize: 20, fontWeight: 800, color: actionFilter === a ? '#fff' : cfg.color, margin: '0 0 2px' }}>{countMap[a] || 0}</p>
+              <p style={{ fontSize: 11, fontWeight: 700, color: actionFilter === a ? 'rgba(255,255,255,0.8)' : '#6b7280', margin: 0 }}>{a}</p>
+            </button>
+          )
+        })}
       </div>
 
       {/* Filters */}
-      <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', padding: '16px 20px', display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-        <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
+      <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10, padding: '12px 16px', display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ position: 'relative', flex: 1, minWidth: 220 }}>
           <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search user or description…"
-            style={{ width: '100%', padding: '9px 12px 9px 30px', borderRadius: 8, border: '1px solid #d1d5db', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
-          />
+          <input value={search} onChange={e => handleSearchChange(e.target.value)} placeholder="Search description or user..."
+            style={{ width: '100%', padding: '8px 10px 8px 28px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13, outline: 'none', background: '#f9fafb', boxSizing: 'border-box' }} />
         </div>
-        <div>
-          <label style={{ fontSize: 11, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>Action</label>
-          <select value={action} onChange={e => setAction(e.target.value)} style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #d1d5db', fontSize: 13, outline: 'none' }}>
-            {actions.map(a => <option key={a}>{a}</option>)}
-          </select>
-        </div>
-        <div>
-          <label style={{ fontSize: 11, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>Module</label>
-          <select value={module} onChange={e => setModule(e.target.value)} style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #d1d5db', fontSize: 13, outline: 'none' }}>
-            {modules.map(m => <option key={m}>{m}</option>)}
-          </select>
-        </div>
-        {[{ label: 'From', val: from, set: setFrom }, { label: 'To', val: to, set: setTo }].map(({ label, val, set }) => (
-          <div key={label}>
-            <label style={{ fontSize: 11, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>{label}</label>
-            <input type="date" value={val} onChange={e => set(e.target.value)} style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #d1d5db', fontSize: 13, outline: 'none' }} />
-          </div>
-        ))}
+        <select value={actionFilter} onChange={e => { setAction(e.target.value); setPage(1) }}
+          style={{ padding: '8px 12px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13, background: '#f9fafb', cursor: 'pointer' }}>
+          <option value="">All Actions</option>
+          {['LOGIN', 'LOGOUT', 'CREATE', 'UPDATE', 'DELETE', 'VIEW', 'EXPORT'].map(a => <option key={a}>{a}</option>)}
+        </select>
+        <select value={moduleFilter} onChange={e => { setModule(e.target.value); setPage(1) }}
+          style={{ padding: '8px 12px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13, background: '#f9fafb', cursor: 'pointer' }}>
+          <option value="">All Modules</option>
+          {['Auth', 'POS', 'Purchase', 'Inventory', 'Medicine', 'Supplier', 'Customer', 'Staff', 'Reports', 'Settings'].map(m => <option key={m}>{m}</option>)}
+        </select>
+        <input type="date" value={dateFrom} onChange={e => { setFrom(e.target.value); setPage(1) }}
+          style={{ padding: '8px 12px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13, outline: 'none', cursor: 'pointer' }} />
+        <input type="date" value={dateTo} onChange={e => { setTo(e.target.value); setPage(1) }}
+          style={{ padding: '8px 12px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13, outline: 'none', cursor: 'pointer' }} />
+        {(search || actionFilter || moduleFilter || dateFrom || dateTo) && (
+          <button onClick={() => { setSearch(''); setAction(''); setModule(''); setFrom(''); setTo(''); setPage(1) }}
+            style={{ padding: '8px 14px', border: 'none', borderRadius: 8, background: '#fee2e2', color: '#dc2626', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+            Clear
+          </button>
+        )}
       </div>
 
-      <DataTable columns={columns} data={filtered} total={filtered.length} page={1} limit={20} />
+      {/* Table */}
+      <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead><tr>
+              {['#', 'Action', 'Module', 'Description', 'User · Role', 'IP Address', 'Timestamp', 'Result'].map(h => <Th key={h} c={h} />)}
+            </tr></thead>
+            <tbody>
+              {loading
+                ? Array(8).fill(0).map((_, i) => <tr key={i}>{Array(8).fill(0).map((_, j) => <td key={j} style={{ padding: '10px 12px' }}><div style={{ height: 12, background: '#f3f4f6', borderRadius: 4 }} /></td>)}</tr>)
+                : logs.length === 0
+                  ? <tr><td colSpan={8} style={{ padding: 40, textAlign: 'center', color: '#9ca3af' }}>No audit logs found</td></tr>
+                  : logs.map((l, i) => {
+                    const aCfg = ACTION_COLORS[l.action] || ACTION_COLORS.VIEW
+                    const rCfg = RESULT_COLORS[l.result] || RESULT_COLORS.Success
+                    return (
+                      <tr key={l._id || i}
+                        onMouseEnter={e => e.currentTarget.style.background = '#fafafa'}
+                        onMouseLeave={e => e.currentTarget.style.background = ''}>
+                        <Td style={{ color: '#9ca3af' }}>{(page - 1) * 20 + i + 1}</Td>
+                        <Td>
+                          <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: aCfg.bg, color: aCfg.color }}>{l.action}</span>
+                        </Td>
+                        <Td style={{ fontWeight: 500 }}>{l.module}</Td>
+                        <Td style={{ color: '#374151', maxWidth: 250, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.description}</Td>
+                        <Td>
+                          <p style={{ margin: 0, fontWeight: 600 }}>{l.userName}</p>
+                          <p style={{ margin: 0, fontSize: 10, color: '#9ca3af' }}>{l.userRole}</p>
+                        </Td>
+                        <Td style={{ fontFamily: 'monospace', fontSize: 11, color: '#6b7280' }}>{l.ipAddress}</Td>
+                        <Td style={{ fontSize: 11, color: '#6b7280' }}>{l.timestamp}</Td>
+                        <Td>
+                          <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: rCfg.bg, color: rCfg.color }}>{l.result}</span>
+                        </Td>
+                      </tr>
+                    )
+                  })
+              }
+            </tbody>
+          </table>
+        </div>
+        <div style={{ padding: '10px 16px', borderTop: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: 12, color: '#6b7280' }}>Showing {logs.length} of {total} entries</span>
+          <div style={{ display: 'flex', gap: 4 }}>
+            <button onClick={() => setPage(p => Math.max(1, p-1))} disabled={page <= 1} style={{ border: '1px solid #e5e7eb', borderRadius: 6, padding: '5px 10px', cursor: 'pointer', background: 'none' }}>← Prev</button>
+            <span style={{ padding: '5px 10px', fontSize: 12 }}>Page {page} of {totalPages}</span>
+            <button onClick={() => setPage(p => Math.min(totalPages, p+1))} disabled={page >= totalPages} style={{ border: '1px solid #e5e7eb', borderRadius: 6, padding: '5px 10px', cursor: 'pointer', background: 'none' }}>Next →</button>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
-
-export default AuditLogs

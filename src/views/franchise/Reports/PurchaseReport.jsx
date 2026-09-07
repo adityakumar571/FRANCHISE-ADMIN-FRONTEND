@@ -1,93 +1,77 @@
 /* eslint-disable prettier/prettier */
-/**
- * PurchaseReport — Franchise Purchase & Procurement Report
- */
-import { useState } from 'react'
-import { FileText, Download, ShoppingCart, Package, Truck, RotateCcw } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { FileText, Download } from 'lucide-react'
 import PageHeader from '../components/PageHeader'
 import DataTable from '../components/DataTable'
+import StatusBadge from '../components/StatusBadge'
+import { getRequest } from '../../../Helpers'
+import toast from 'react-hot-toast'
 
-const MOCK_PURCHASES = [
-  { grn: 'GRN-0024', po: 'PO-0031', date: '22 Aug 2026', supplier: 'Medico Agency', items: 8, qty: 350, gross: '₹24,500', disc: '₹1,200', tax: '₹2,030', net: '₹25,330', status: 'Completed' },
-  { grn: 'GRN-0023', po: 'PO-0029', date: '21 Aug 2026', supplier: 'PharmaNexus', items: 5, qty: 120, gross: '₹12,800', disc: '₹640', tax: '₹1,056', net: '₹13,216', status: 'Completed' },
-  { grn: 'GRN-0022', po: 'PO-0028', date: '20 Aug 2026', supplier: 'Sun Pharma Wholesale', items: 12, qty: 600, gross: '₹41,200', disc: '₹2,060', tax: '₹3,404', net: '₹42,544', status: 'Partial' },
-  { grn: 'GRN-0021', po: 'PO-0026', date: '18 Aug 2026', supplier: 'Cipla Distributors', items: 3, qty: 90, gross: '₹8,650', disc: '₹433', tax: '₹715', net: '₹8,932', status: 'Completed' },
-]
+export default function PurchaseReport() {
+  const [report, setReport]   = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [from, setFrom] = useState('')
+  const [to, setTo]     = useState('')
+  const [page, setPage] = useState(1)
 
-const statusColor = { Completed: '#16a34a', Partial: '#d97706', Pending: '#9ca3af' }
+  const fetchReport = async () => {
+    setLoading(true)
+    try {
+      const res = await getRequest(`/franchise/reports/purchase?from=${from}&to=${to}&page=${page}&limit=20`)
+      setReport(res.data?.data)
+    } catch { toast.error('Failed to load purchase report') }
+    finally   { setLoading(false) }
+  }
+  useEffect(() => { fetchReport() }, [from, to, page])
 
-const PurchaseReport = () => {
-  const [from, setFrom] = useState('2026-08-01')
-  const [to, setTo] = useState('2026-08-22')
-
-  const kpis = [
-    { label: 'Total Purchases', value: '₹89,022', sub: '28 GRNs this month', icon: ShoppingCart, color: '#0c3b73' },
-    { label: 'Total Items', value: '4 suppliers', sub: '28 POs raised', icon: Truck, color: '#7c3aed' },
-    { label: 'Avg Per GRN', value: '₹3,179', sub: 'Average GRN value', icon: Package, color: '#0891b2' },
-    { label: 'Purchase Returns', value: '₹1,850', sub: '3 returns this month', icon: RotateCcw, color: '#dc2626' },
-  ]
+  const fmt = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+  const kpi = report?.kpi || {}
 
   const columns = [
-    { title: 'GRN #', key: 'grn', render: v => <span style={{ fontFamily: 'monospace', fontSize: 12, color: '#0c3b73', fontWeight: 600 }}>{v}</span> },
-    { title: 'PO #', key: 'po', render: v => <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#6b7280' }}>{v}</span> },
-    { title: 'Date', key: 'date', render: v => <span style={{ fontSize: 12, color: '#6b7280' }}>{v}</span> },
-    { title: 'Supplier', key: 'supplier', render: v => <span style={{ fontWeight: 500 }}>{v}</span> },
-    { title: 'Items', key: 'items', align: 'center' },
-    { title: 'Qty', key: 'qty', align: 'center' },
-    { title: 'Gross', key: 'gross', align: 'right' },
-    { title: 'Discount', key: 'disc', align: 'right', render: v => <span style={{ color: '#16a34a' }}>{v}</span> },
-    { title: 'Tax', key: 'tax', align: 'right', render: v => <span style={{ color: '#d97706' }}>{v}</span> },
-    { title: 'Net Amount', key: 'net', align: 'right', render: v => <strong>{v}</strong> },
-    {
-      title: 'Status', key: 'status', render: v => (
-        <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600, background: (statusColor[v] || '#9ca3af') + '18', color: statusColor[v] || '#9ca3af' }}>{v}</span>
-      )
-    },
+    { title: 'Bill No.',    key: 'billNo',    render: (v) => <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#0c3b73', fontWeight: 700 }}>{v}</span> },
+    { title: 'PO Ref.',     key: 'poRef',     render: (v) => <span style={{ color: '#6b7280', fontSize: 12 }}>{v}</span> },
+    { title: 'Date',        key: 'date' },
+    { title: 'Supplier',    key: 'supplier' },
+    { title: 'Items',       key: 'items',     align: 'center' },
+    { title: 'Qty',         key: 'qty',       align: 'center' },
+    { title: 'Gross (₹)',   key: 'gross',     render: (v) => fmt(v) },
+    { title: 'Discount (₹)',key: 'discount',  render: (v) => <span style={{ color: '#16a34a' }}>{fmt(v)}</span> },
+    { title: 'Tax (₹)',     key: 'tax',       render: (v) => fmt(v) },
+    { title: 'Net (₹)',     key: 'net',       render: (v) => <span style={{ fontWeight: 700, color: '#0c3b73' }}>{fmt(v)}</span> },
+    { title: 'Status',      key: 'status',    render: (v) => <StatusBadge status={v} /> },
   ]
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <PageHeader icon={FileText} title="Purchase Report" subtitle="GRN-wise purchase and supplier summary" color="#7c3aed">
-        <button style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
-          <Download size={14} /> Export
+    <div style={{ fontFamily: 'Inter, sans-serif', display: 'flex', flexDirection: 'column', gap: 18 }}>
+      <PageHeader icon={FileText} title="Purchase Report" subtitle="Detailed purchase analysis" color="#7c3aed">
+        <button style={{ padding: '7px 14px', border: '1px solid #e5e7eb', borderRadius: 8, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, fontSize: 12 }}>
+          <Download size={12} /> Export
         </button>
       </PageHeader>
 
-      {/* Date Filter */}
-      <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', padding: '16px 20px', display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-        {[{ label: 'From Date', val: from, set: setFrom }, { label: 'To Date', val: to, set: setTo }].map(({ label, val, set }) => (
-          <div key={label}>
-            <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 5 }}>{label}</label>
-            <input type="date" value={val} onChange={e => set(e.target.value)} style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #d1d5db', fontSize: 13, outline: 'none' }} />
-          </div>
-        ))}
-        <div style={{ display: 'flex', gap: 6 }}>
-          {['This Month', 'Last Month', 'Last 3 Months'].map(q => (
-            <button key={q} style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#f9fafb', fontSize: 12, cursor: 'pointer', color: '#374151' }}>{q}</button>
-          ))}
-        </div>
-        <button style={{ padding: '9px 20px', borderRadius: 8, border: 'none', background: '#0c3b73', fontSize: 13, cursor: 'pointer', color: '#fff', fontWeight: 600 }}>Apply</button>
+      <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10, padding: '12px 16px', display: 'flex', gap: 10, alignItems: 'center' }}>
+        <span style={{ fontSize: 13 }}>From:</span>
+        <input type="date" value={from} onChange={e => setFrom(e.target.value)} style={{ padding: '7px 12px', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 13, outline: 'none' }} />
+        <span style={{ fontSize: 13 }}>To:</span>
+        <input type="date" value={to} onChange={e => setTo(e.target.value)} style={{ padding: '7px 12px', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 13, outline: 'none' }} />
+        <button onClick={fetchReport} style={{ padding: '7px 16px', border: 'none', borderRadius: 7, background: '#0c3b73', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Apply</button>
       </div>
 
-      {/* KPIs */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-        {kpis.map(k => (
-          <div key={k.label} style={{ flex: '1 1 160px', background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 38, height: 38, borderRadius: 9, background: k.color + '18', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <k.icon size={18} color={k.color} />
-            </div>
-            <div>
-              <p style={{ margin: 0, fontSize: 11, color: '#9ca3af', fontWeight: 500 }}>{k.label}</p>
-              <p style={{ margin: '2px 0 0', fontSize: 18, fontWeight: 700, color: k.color }}>{k.value}</p>
-              <p style={{ margin: '1px 0 0', fontSize: 11, color: '#9ca3af' }}>{k.sub}</p>
-            </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+        {[
+          { label: 'Total Purchase', value: loading ? '...' : fmt(kpi.totalPurchase), color: '#0c3b73' },
+          { label: 'Total Discount', value: loading ? '...' : fmt(kpi.totalDiscount), color: '#16a34a' },
+          { label: 'Total GST',      value: loading ? '...' : fmt(kpi.totalGST),      color: '#d97706' },
+          { label: 'Invoices',       value: loading ? '...' : kpi.invoiceCount || 0,  color: '#374151' },
+        ].map(k => (
+          <div key={k.label} style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: '14px 18px' }}>
+            <p style={{ fontSize: 11, color: '#9ca3af', margin: '0 0 4px' }}>{k.label}</p>
+            <p style={{ fontSize: 18, fontWeight: 800, color: k.color, margin: 0 }}>{k.value}</p>
           </div>
         ))}
       </div>
 
-      <DataTable columns={columns} data={MOCK_PURCHASES} total={MOCK_PURCHASES.length} page={1} limit={20} />
+      <DataTable columns={columns} data={report?.invoices || []} loading={loading} total={report?.total || 0} page={page} limit={20} onPageChange={setPage} onLimitChange={() => {}} />
     </div>
   )
 }
-
-export default PurchaseReport

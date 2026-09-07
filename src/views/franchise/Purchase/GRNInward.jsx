@@ -1,49 +1,78 @@
 /* eslint-disable prettier/prettier */
 /**
- * GRNInward — Goods Receipt Note / Inward entry
- * SOW §12: Receive goods, capture batch/expiry, post to rack
+ * GRNInward — Real API integration
  */
-import { useState } from 'react'
-import { Package, Plus, Trash2, Save, Search } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Package, Plus, Trash2, Save } from 'lucide-react'
 import toast from 'react-hot-toast'
 import PageHeader from '../components/PageHeader'
 import DataTable from '../components/DataTable'
 import StatusBadge from '../components/StatusBadge'
-
-const MOCK_GRNS = [
-  { _id: 'GRN-1050', poRef: 'PO-2399', supplier: 'SunPharma Dist', items: 5, status: 'completed', date: '2026-08-22' },
-  { _id: 'GRN-1049', poRef: 'PO-2398', supplier: 'Medico Agencies', items: 20, status: 'completed', date: '2026-08-20' },
-]
+import { getRequest, postRequest } from '../../../Helpers'
 
 const EMPTY_ITEM = { medicine: '', batchNo: '', expiry: '', qty: 1, freeQty: 0, ptr: '', rack: '' }
 
 const GRNInward = () => {
-  const [tab, setTab]         = useState('list') // list | new
-  const [grns]                = useState(MOCK_GRNS)
-  const [poRef, setPoRef]     = useState('')
-  const [supplier, setSupplier] = useState('')
-  const [invoiceNo, setInvoice] = useState('')
+  const [tab, setTab]             = useState('list')
+  const [grns, setGrns]           = useState([])
+  const [loading, setLoading]     = useState(true)
+  const [saving, setSaving]       = useState(false)
+  const [poRef, setPoRef]         = useState('')
+  const [supplier, setSupplier]   = useState('')
+  const [invoiceNo, setInvoice]   = useState('')
   const [invoiceDate, setInvoiceDate] = useState('')
-  const [items, setItems]     = useState([{ ...EMPTY_ITEM }])
-  const [loading, setLoading] = useState(false)
+  const [items, setItems]         = useState([{ ...EMPTY_ITEM }])
+
+  const fetchGRNs = async () => {
+    setLoading(true)
+    try {
+      const res = await getRequest('/franchise/purchase/grn')
+      setGrns(res.data?.data?.grns || [])
+    } catch {
+      toast.error('Failed to load GRNs')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { fetchGRNs() }, [])
 
   const addItem  = () => setItems((p) => [...p, { ...EMPTY_ITEM }])
   const delItem  = (i) => setItems((p) => p.filter((_, idx) => idx !== i))
   const setItem  = (i, field, val) => setItems((p) => p.map((it, idx) => idx === i ? { ...it, [field]: val } : it))
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault()
     if (!supplier) { toast.error('Supplier is required'); return }
-    setLoading(true)
-    setTimeout(() => {
-      setLoading(false)
+    if (!items.some(it => it.medicine)) { toast.error('Add at least one medicine'); return }
+    setSaving(true)
+    try {
+      await postRequest({ url: '/franchise/purchase/grn', cred: {
+        supplier, poRef, invoiceNo, invoiceDate,
+        items: items.map(it => ({
+          medicineName: it.medicine,
+          batchNo: it.batchNo,
+          expiry: it.expiry,
+          qty: Number(it.qty),
+          freeQty: Number(it.freeQty),
+          ptr: Number(it.ptr),
+          rack: it.rack,
+        })),
+      }})
       toast.success('GRN created and stock updated')
       setTab('list')
-    }, 700)
+      setPoRef(''); setSupplier(''); setInvoice(''); setInvoiceDate('')
+      setItems([{ ...EMPTY_ITEM }])
+      fetchGRNs()
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Failed to create GRN')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const columns = [
-    { title: 'GRN No.',  key: '_id',    render: (v) => <span style={{ fontWeight: 700, color: '#0c3b73' }}>{v}</span> },
+    { title: 'GRN No.',  key: 'grnNo',    render: (v) => <span style={{ fontWeight: 700, color: '#0c3b73' }}>{v}</span> },
     { title: 'PO Ref.',  key: 'poRef' },
     { title: 'Supplier', key: 'supplier' },
     { title: 'Items',    key: 'items', align: 'center' },
@@ -115,8 +144,8 @@ const GRNInward = () => {
 
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button type="button" onClick={() => setTab('list')} style={{ padding: '9px 20px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Cancel</button>
-              <button type="submit" disabled={loading} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 22px', borderRadius: 8, border: 'none', background: loading ? '#86efac' : '#16a34a', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
-                <Save size={14} /> {loading ? 'Saving…' : 'Create GRN & Update Stock'}
+              <button type="submit" disabled={saving} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 22px', borderRadius: 8, border: 'none', background: saving ? '#86efac' : '#16a34a', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+              <Save size={14} /> {saving ? 'Saving…' : 'Create GRN & Update Stock'}
               </button>
             </div>
           </form>
