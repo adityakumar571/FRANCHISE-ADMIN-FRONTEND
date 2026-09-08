@@ -1,12 +1,13 @@
 /* eslint-disable prettier/prettier */
 /**
- * Screen 14 — Add New Medicine
+ * Screen 14 — Add New Medicine (API-connected)
  */
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { FlaskConical, ArrowLeft, Save, Upload } from 'lucide-react'
+import toast from 'react-hot-toast'
 import PageHeader from '../components/PageHeader'
-import { CATEGORIES, FORMULATIONS, COMPANIES } from './medicineMockData'
+import { postRequest, getRequest } from '../../../Helpers'
 
 const FL = ({ label, required, children, hint }) => (
   <div>
@@ -44,24 +45,61 @@ const Section = ({ title, children }) => (
   </div>
 )
 
-const UNITS = ['Tablet','Capsule','Syrup','Injection','Ointment','Drops','Strip','Bottle']
+const UNITS     = ['Tablet','Capsule','Syrup','Injection','Ointment','Drops','Strip','Bottle','Sachet','Cream','Gel','Powder']
 const GST_RATES = ['0%','5%','12%','18%']
+const CATEGORIES_DEFAULT = ['Analgesic','Antibiotic','Antifungal','Antiviral','Antacid','Vitamin','Supplement','Cardiac','Diabetic','Other']
+const FORMULATIONS_DEFAULT = ['Tablet','Capsule','Syrup','Injection','Ointment','Cream','Gel','Drops','Powder','Sachet']
+const COMPANIES_DEFAULT = ['Sun Pharma','Cipla','Lupin','Dr. Reddy\'s','Alkem','Mankind','Torrent','Abbott','GSK','Pfizer','Other']
 
 export default function AddMedicine() {
   const navigate = useNavigate()
   const [form, setForm] = useState({
     name: '', salt: '', brand: '', category: 'Analgesic', formulation: 'Tablet',
-    company: 'GSK', strength: '', unit: 'Tablet', packSize: '', hsn: '3004',
+    company: 'Sun Pharma', strength: '', unit: 'Tablet', packSize: '', hsn: '3004',
     gst: '12%', mrp: '', purchasePrice: '', reorderLevel: '100',
     openingStock: '0', description: '', prescription: false,
   })
+  const [saving, setSaving]     = useState(false)
+  const [categories, setCategories]     = useState(CATEGORIES_DEFAULT)
+  const [formulations, setFormulations] = useState(FORMULATIONS_DEFAULT)
+  const [companies, setCompanies]       = useState(COMPANIES_DEFAULT)
+
+  // Load dynamic categories/companies from API if available
+  useEffect(() => {
+    getRequest('/franchise/medicines/meta').then(res => {
+      const d = res.data?.data
+      if (d?.categories?.length)   setCategories(d.categories)
+      if (d?.formulations?.length) setFormulations(d.formulations)
+      if (d?.companies?.length)    setCompanies(d.companies)
+    }).catch(() => { /* use defaults */ })
+  }, [])
 
   const set = k => e => setForm(p => ({ ...p, [k]: e.target.value }))
   const setCheck = k => e => setForm(p => ({ ...p, [k]: e.target.checked }))
 
-  const handleSave = () => {
-    if (!form.name || !form.salt || !form.mrp) { alert('Medicine name, salt and MRP are required'); return }
-    navigate('/franchise/medicines')
+  const handleSave = async () => {
+    if (!form.name.trim()) { toast.error('Medicine name is required'); return }
+    if (!form.salt.trim()) { toast.error('Salt / generic name is required'); return }
+    if (!form.mrp)         { toast.error('MRP is required'); return }
+
+    setSaving(true)
+    try {
+      const payload = {
+        ...form,
+        mrp:           parseFloat(form.mrp)           || 0,
+        purchasePrice: parseFloat(form.purchasePrice) || 0,
+        reorderLevel:  parseInt(form.reorderLevel)    || 100,
+        openingStock:  parseInt(form.openingStock)    || 0,
+        gst:           parseFloat(form.gst)           || 0,
+      }
+      await postRequest({ url: '/franchise/medicines', cred: payload })
+      toast.success('Medicine added successfully')
+      navigate('/franchise/medicines')
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Failed to add medicine')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -87,10 +125,10 @@ export default function AddMedicine() {
               <Input value={form.brand} onChange={set('brand')} placeholder="e.g. Crocin" />
             </FL>
             <FL label="Medicine Category">
-              <Sel value={form.category} onChange={set('category')} opts={CATEGORIES.slice(1)} />
+              <Sel value={form.category} onChange={set('category')} opts={categories} />
             </FL>
             <FL label="Select Formulation">
-              <Sel value={form.formulation} onChange={set('formulation')} opts={FORMULATIONS.slice(1)} />
+              <Sel value={form.formulation} onChange={set('formulation')} opts={formulations} />
             </FL>
             <FL label="Strength">
               <Input value={form.strength} onChange={set('strength')} placeholder="e.g. 650 mg" />
@@ -98,8 +136,8 @@ export default function AddMedicine() {
             <FL label="Unit">
               <Sel value={form.unit} onChange={set('unit')} opts={UNITS} />
             </FL>
-            <FL label="Company">
-              <Sel value={form.company} onChange={set('company')} opts={COMPANIES.slice(1)} />
+            <FL label="Company / Manufacturer">
+              <Sel value={form.company} onChange={set('company')} opts={companies} />
             </FL>
             <FL label="HSN Code">
               <Input value={form.hsn} onChange={set('hsn')} placeholder="3004" />
@@ -112,10 +150,10 @@ export default function AddMedicine() {
           {/* Pricing & Stock */}
           <Section title="Pricing & Stock">
             <FL label="MRP (₹)" required>
-              <Input value={form.mrp} onChange={set('mrp')} placeholder="₹ 0.00" type="number" />
+              <Input value={form.mrp} onChange={set('mrp')} placeholder="0.00" type="number" />
             </FL>
             <FL label="Purchase Price (₹)">
-              <Input value={form.purchasePrice} onChange={set('purchasePrice')} placeholder="₹ 0.00" type="number" />
+              <Input value={form.purchasePrice} onChange={set('purchasePrice')} placeholder="0.00" type="number" />
             </FL>
             <FL label="Opening Stock">
               <Input value={form.openingStock} onChange={set('openingStock')} placeholder="0" type="number" />
@@ -141,13 +179,13 @@ export default function AddMedicine() {
               <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13 }}>
                 <input type="checkbox" checked={form.prescription} onChange={setCheck('prescription')}
                   style={{ width: 15, height: 15, accentColor: '#0c3b73' }} />
-                <span style={{ fontWeight: 500, color: '#374151' }}>Prescription Required</span>
+                <span style={{ fontWeight: 500, color: '#374151' }}>Prescription Required (Rx)</span>
               </label>
             </div>
           </div>
         </div>
 
-        {/* Right: Image Upload + Save */}
+        {/* Right: Image Upload + Pack Size + Save */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {/* Image Upload */}
           <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: 18 }}>
@@ -156,7 +194,7 @@ export default function AddMedicine() {
               onMouseEnter={e => e.currentTarget.style.borderColor='#0c3b73'}
               onMouseLeave={e => e.currentTarget.style.borderColor='#e5e7eb'}>
               <Upload size={28} color="#9ca3af" style={{ margin: '0 auto 10px', display: 'block' }} />
-              <p style={{ fontSize: 12, color: '#6b7280', margin: '0 0 4px', fontWeight: 600 }}>No image selected</p>
+              <p style={{ fontSize: 12, color: '#6b7280', margin: '0 0 4px', fontWeight: 600 }}>Click or drag to upload</p>
               <p style={{ fontSize: 10, color: '#9ca3af', margin: 0 }}>PNG, JPG up to 2MB</p>
             </div>
           </div>
@@ -170,9 +208,9 @@ export default function AddMedicine() {
 
           {/* Action Buttons */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <button onClick={handleSave}
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '11px', background: '#0c3b73', border: 'none', borderRadius: 9, fontSize: 14, fontWeight: 700, color: '#fff', cursor: 'pointer' }}>
-              <Save size={15} /> Save Medicine
+            <button onClick={handleSave} disabled={saving}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '11px', background: saving ? '#9ca3af' : '#0c3b73', border: 'none', borderRadius: 9, fontSize: 14, fontWeight: 700, color: '#fff', cursor: saving ? 'not-allowed' : 'pointer' }}>
+              <Save size={15} /> {saving ? 'Saving...' : 'Save Medicine'}
             </button>
             <button onClick={() => navigate('/franchise/medicines')}
               style={{ padding: '10px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 9, fontSize: 13, fontWeight: 600, color: '#374151', cursor: 'pointer' }}>

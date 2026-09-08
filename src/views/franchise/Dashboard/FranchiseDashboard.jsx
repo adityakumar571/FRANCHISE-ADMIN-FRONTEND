@@ -11,6 +11,36 @@ import {
 import { getRequest } from '../../../Helpers/index'
 import toast from 'react-hot-toast'
 
+/* ── Role-based lazy imports ── */
+import AccountsDashboard from '../RoleDashboards/AccountsDashboard'
+import StaffDashboard    from '../RoleDashboards/StaffDashboard'
+import CustomerDashboard from '../RoleDashboards/CustomerDashboard'
+import VendorDashboard   from '../RoleDashboards/VendorDashboard'
+
+/**
+ * FranchiseDashboard — Smart role router
+ *
+ * SuperAdmin / Admin  → Full FranchiseDashboard (live rates, KPIs, etc.)
+ * Accounts            → AccountsDashboard (cash book, bank, expenses)
+ * Staff               → StaffDashboard (billing, tasks, low stock)
+ * Customer            → CustomerDashboard (purchases, reminders, loyalty)
+ * Vendor              → VendorDashboard (B2B orders, invoices)
+ */
+function RoleDashboardRouter() {
+  const { franchiseUser } = useFranchise()
+  const role = franchiseUser?.role
+
+  if (role === 'Accounts')  return <AccountsDashboard />
+  if (role === 'Staff')     return <StaffDashboard />
+  if (role === 'Customer')  return <CustomerDashboard />
+  if (role === 'Vendor')    return <VendorDashboard />
+
+  // SuperAdmin, Admin, Franchise Owner, or any unrecognised role → full dashboard
+  return <AdminDashboard />
+}
+
+export default RoleDashboardRouter
+
 /* ─── Reusable components ─── */
 const Card = ({ children, style = {} }) => (
   <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', ...style }}>{children}</div>
@@ -59,7 +89,7 @@ const fmt = (n) => {
 }
 
 /* ════════════════════════════════════════════ */
-export default function FranchiseDashboard() {
+function AdminDashboard() {
   const navigate = useNavigate()
   const { franchiseUser, franchiseInfo } = useFranchise()
 

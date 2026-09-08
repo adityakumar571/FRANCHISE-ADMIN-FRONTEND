@@ -66,21 +66,23 @@ export const AppProvider = ({ children }) => {
   /**
    * Fetch fresh tenant details from the API.
    * Called on app mount + exposed so any component can trigger a refresh.
+   * NOTE: Only runs when a subdomain is detected — safe for franchise portal.
    */
   const refreshTenantDetails = useCallback(async () => {
     const subdomain = getSubdomain()
     if (!subdomain) return
     try {
-      const res = await axios.get(`${BASE_URL}schools?subdomain=${subdomain}`, {
+      const res = await axios.get(`${BASE_URL}franchise/info?subdomain=${subdomain}`, {
         headers: {
           'x-tenant-id':   subdomain,
           'Cache-Control': 'no-cache',
           Pragma:          'no-cache',
         },
       })
-      const data = res?.data?.data?.tenants?.[0] || null
+      const data = res?.data?.data || null
       if (data) setTenantDetailsState(data)
     } catch (err) {
+      // silently fail — tenant stays from localStorage
       console.error('[AppContext] Failed to refresh tenant details:', err)
     }
   }, [])

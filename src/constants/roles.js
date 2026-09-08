@@ -26,9 +26,9 @@ export const FRANCHISE_ROLES = [
 export const ROLE_REDIRECT = {
   [ROLES.SUPERADMIN]: '/franchise/dashboard',
   [ROLES.ADMIN]:      '/franchise/dashboard',
-  [ROLES.ACCOUNTS]:   '/franchise/accounts/cash-book',
-  [ROLES.STAFF]:      '/franchise/pos/billing',
+  [ROLES.ACCOUNTS]:   '/franchise/dashboard',
+  [ROLES.STAFF]:      '/franchise/dashboard',
   [ROLES.CUSTOMER]:   '/franchise/dashboard',
-  [ROLES.VENDOR]:     '/franchise/b2b-orders',
+  [ROLES.VENDOR]:     '/franchise/dashboard',
 }
 
