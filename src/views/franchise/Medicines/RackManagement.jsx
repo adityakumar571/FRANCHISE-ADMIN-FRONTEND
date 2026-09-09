@@ -24,7 +24,7 @@ export default function RackManagement() {
   const fetchRacks = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await getRequest('/franchise/medicines/racks')
+      const res = await getRequest('/franchise/rack-management')
       setRacks(res.data?.data || [])
     } catch { toast.error('Failed to load racks') }
     finally   { setLoading(false) }
@@ -51,10 +51,10 @@ export default function RackManagement() {
     setSaving(true)
     try {
       if (editRack) {
-        await putRequest({ url: `/franchise/medicines/racks/${editRack._id}`, cred: form })
+        await putRequest({ url: `/franchise/rack-management/${editRack._id}`, cred: form })
         toast.success('Rack updated')
       } else {
-        await postRequest({ url: '/franchise/medicines/racks', cred: form })
+        await postRequest({ url: '/franchise/rack-management', cred: form })
         toast.success('Rack added')
       }
       setShowAdd(false)
