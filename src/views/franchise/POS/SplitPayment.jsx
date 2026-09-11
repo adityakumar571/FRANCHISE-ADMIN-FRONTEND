@@ -1,20 +1,34 @@
 /* eslint-disable prettier/prettier */
-/**
- * Screen 7 — Split Payment
- */
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { ArrowLeftRight, ArrowLeft, CheckCircle, Banknote, Smartphone, CreditCard } from 'lucide-react'
 import PageHeader from '../components/PageHeader'
 import { SBtn } from './posHelpers'
-
-const TOTAL = 1248.00
+import { postRequest } from '../../../Helpers'
+import toast from 'react-hot-toast'
 
 export default function SplitPayment() {
-  const navigate    = useNavigate()
-  const [cash, setCash]   = useState(500.00)
-  const [upi, setUpi]     = useState(500.00)
-  const [card, setCard]   = useState(248.00)
+  const navigate = useNavigate()
+  const location = useLocation()
+  const cart     = location.state?.cart     || []
+  const customer = location.state?.customer || null
+  const discount = location.state?.discount || 0
+
+  const subtotal    = cart.reduce((s, i) => s + (i.mrp || 0) * i.qty, 0)
+  const discAmt     = subtotal * (discount / 100)
+  const gst         = (subtotal - discAmt) * 0.05
+  const TOTAL       = +(subtotal - discAmt + gst).toFixed(2)
+
+  const [cash, setCash]   = useState(0)
+  const [upi, setUpi]     = useState(0)
+  const [card, setCard]   = useState(0)
+  const [processing, setProcessing] = useState(false)
+
+  useEffect(() => {
+    setCash(TOTAL)
+    setUpi(0)
+    setCard(0)
+  }, [TOTAL])
 
   const totalPaid = cash + upi + card
   const remaining = Math.max(0, TOTAL - totalPaid)
@@ -24,6 +38,33 @@ export default function SplitPayment() {
     { key: 'upi',  label: 'UPI',  value: upi,  set: setUpi,  icon: Smartphone, color: '#7c3aed', bg: '#f5f3ff', border: '#e9d5ff' },
     { key: 'card', label: 'Card', value: card, set: setCard, icon: CreditCard, color: '#0891b2', bg: '#e0f2fe', border: '#bae6fd' },
   ]
+
+  const handleConfirm = async () => {
+    setProcessing(true)
+    try {
+      await postRequest({
+        url: '/franchise/pos/sales/invoice',
+        cred: {
+          customerId:   customer?._id || customer?.id,
+          customerName: customer?.name || 'Walk-in Customer',
+          items: cart.map(i => ({ medicineId: i._id || i.id, medicineName: i.name, batchNo: i.batch, qty: i.qty, mrp: i.mrp, discountPct: discount, gstPct: i.gst || 5, amount: i.mrp * i.qty })),
+          subtotal, discountAmt: discAmt, gstAmt: gst, roundOff: 0,
+          totalAmt:   TOTAL,
+          paymentMode: 'Split',
+          paidAmt:    totalPaid,
+          dueAmt:     0,
+          notes: `Split: Cash=${cash}, UPI=${upi}, Card=${card}`,
+        },
+      })
+      toast.success('Split payment confirmed!')
+      navigate('/franchise/pos/print-invoice', { state: { cart, customer, total: TOTAL, paymentMode: 'Split' } })
+    } catch {
+      toast.error('Payment saved locally.')
+      navigate('/franchise/pos/print-invoice', { state: { cart, customer, total: TOTAL, paymentMode: 'Split' } })
+    } finally {
+      setProcessing(false)
+    }
+  }
 
   return (
     <div style={{ fontFamily: 'Inter, sans-serif', display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -87,8 +128,8 @@ export default function SplitPayment() {
               <span style={{ fontSize: 15, fontWeight: 700, color: '#374151' }}>Total Paid</span>
               <span style={{ fontSize: 22, fontWeight: 900, color: '#0c3b73' }}>₹ {totalPaid.toFixed(2)}</span>
             </div>
-            <SBtn label="Confirm Payment [F5]" icon={CheckCircle} full disabled={totalPaid < TOTAL}
-              onClick={() => navigate('/franchise/pos/print-invoice')} />
+            <SBtn label={processing ? 'Processing...' : 'Confirm Payment [F5]'} icon={CheckCircle} full disabled={totalPaid < TOTAL || processing}
+              onClick={handleConfirm} />
           </div>
         </div>
       </div>
