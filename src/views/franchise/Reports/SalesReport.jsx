@@ -1,113 +1,106 @@
 /* eslint-disable prettier/prettier */
-/**
- * SalesReport — Franchise Daily/Period Sales Report
- */
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { FileText, Download, TrendingUp, IndianRupee, ShoppingCart, RotateCcw } from 'lucide-react'
 import PageHeader from '../components/PageHeader'
 import DataTable from '../components/DataTable'
+import { getRequest } from '../../../Helpers'
+import toast from 'react-hot-toast'
 
-const MOCK_SALES = [
-  { inv: 'SI-0048', date: '22 Aug 2026', time: '10:30 AM', customer: 'Rahul Sharma', items: 4, gross: '₹1,250', disc: '₹50', net: '₹1,200', payment: 'UPI', cashier: 'Neha G.' },
-  { inv: 'SI-0047', date: '22 Aug 2026', time: '10:15 AM', customer: 'Walk-in', items: 2, gross: '₹480', disc: '₹0', net: '₹480', payment: 'Cash', cashier: 'Neha G.' },
-  { inv: 'SI-0046', date: '22 Aug 2026', time: '09:55 AM', customer: 'Priya Mehta', items: 6, gross: '₹2,100', disc: '₹100', net: '₹2,000', payment: 'Card', cashier: 'Neha G.' },
-  { inv: 'SI-0045', date: '22 Aug 2026', time: '09:30 AM', customer: 'Walk-in', items: 1, gross: '₹320', disc: '₹0', net: '₹320', payment: 'Cash', cashier: 'Amit K.' },
-  { inv: 'SI-0044', date: '21 Aug 2026', time: '05:45 PM', customer: 'Anita Joshi', items: 3, gross: '₹890', disc: '₹40', net: '₹850', payment: 'UPI', cashier: 'Neha G.' },
-  { inv: 'SI-0043', date: '21 Aug 2026', time: '03:20 PM', customer: 'Walk-in', items: 5, gross: '₹1,650', disc: '₹0', net: '₹1,650', payment: 'Cash', cashier: 'Amit K.' },
-]
+export default function SalesReport() {
+  const [report, setReport]   = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [from, setFrom] = useState('')
+  const [to, setTo]     = useState('')
+  const [page, setPage] = useState(1)
 
-const payColors = { Cash: '#16a34a', UPI: '#7c3aed', Card: '#0891b2' }
+  const fetchReport = async () => {
+    setLoading(true)
+    try {
+      const res = await getRequest(`/franchise/reports/sales?from=${from}&to=${to}&page=${page}&limit=20`)
+      setReport(res.data?.data)
+    } catch { toast.error('Failed to load sales report') }
+    finally   { setLoading(false) }
+  }
+  useEffect(() => { fetchReport() }, [from, to, page])
 
-const SalesReport = () => {
-  const [from, setFrom] = useState('2026-08-22')
-  const [to, setTo] = useState('2026-08-22')
-
-  const kpis = [
-    { label: 'Total Sales', value: '₹48,650', sub: '24 invoices', icon: IndianRupee, color: '#0c3b73' },
-    { label: 'Sales Returns', value: '₹1,250', sub: '3 returns', icon: RotateCcw, color: '#dc2626' },
-    { label: 'Net Sales', value: '₹47,400', sub: 'After returns', icon: TrendingUp, color: '#16a34a' },
-    { label: 'Avg Invoice', value: '₹1,975', sub: 'Per transaction', icon: ShoppingCart, color: '#7c3aed' },
-  ]
+  const fmt = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+  const kpi = report?.kpi || {}
 
   const columns = [
-    { title: 'Invoice', key: 'inv', render: v => <span style={{ fontFamily: 'monospace', fontSize: 12, color: '#0c3b73', fontWeight: 600 }}>{v}</span> },
-    { title: 'Date', key: 'date', render: v => <span style={{ fontSize: 12, color: '#6b7280' }}>{v}</span> },
-    { title: 'Time', key: 'time', render: v => <span style={{ fontSize: 12, color: '#9ca3af' }}>{v}</span> },
-    { title: 'Customer', key: 'customer' },
-    { title: 'Items', key: 'items', align: 'center' },
-    { title: 'Gross', key: 'gross', align: 'right' },
-    { title: 'Discount', key: 'disc', align: 'right', render: v => <span style={{ color: '#dc2626' }}>{v}</span> },
-    { title: 'Net Amount', key: 'net', align: 'right', render: v => <strong style={{ color: '#111827' }}>{v}</strong> },
-    {
-      title: 'Payment', key: 'payment', render: v => (
-        <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600, background: (payColors[v] || '#6b7280') + '18', color: payColors[v] || '#6b7280' }}>{v}</span>
-      )
-    },
-    { title: 'Cashier', key: 'cashier', render: v => <span style={{ fontSize: 12, color: '#6b7280' }}>{v}</span> },
+    { title: 'Invoice No.',  key: 'invoiceNo',  render: (v) => <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#0c3b73', fontWeight: 700 }}>{v}</span> },
+    { title: 'Date',         key: 'date' },
+    { title: 'Time',         key: 'time',        render: (v) => <span style={{ color: '#6b7280', fontSize: 12 }}>{v}</span> },
+    { title: 'Customer',     key: 'customer' },
+    { title: 'Items',        key: 'items',        align: 'center' },
+    { title: 'Gross (₹)',    key: 'gross',        render: (v) => fmt(v) },
+    { title: 'Discount (₹)',  key: 'discount',    render: (v) => <span style={{ color: '#16a34a' }}>{fmt(v)}</span> },
+    { title: 'Net (₹)',      key: 'net',          render: (v) => <span style={{ fontWeight: 700, color: '#0c3b73' }}>{fmt(v)}</span> },
+    { title: 'Payment',      key: 'payment' },
+    { title: 'Cashier',      key: 'cashier',      render: (v) => <span style={{ color: '#6b7280', fontSize: 12 }}>{v}</span> },
   ]
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <PageHeader icon={FileText} title="Sales Report" subtitle="Daily and period-wise sales analysis" color="#0c3b73">
-        <button style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
-          <Download size={14} /> Export
+    <div style={{ fontFamily: 'Inter, sans-serif', display: 'flex', flexDirection: 'column', gap: 18 }}>
+      <PageHeader icon={FileText} title="Sales Report" subtitle="Detailed sales analysis by date range" color="#0c3b73">
+        <button style={{ padding: '7px 14px', border: '1px solid #e5e7eb', borderRadius: 8, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, fontSize: 12 }}>
+          <Download size={12} /> Export
         </button>
       </PageHeader>
 
       {/* Date Filter */}
-      <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', padding: '16px 20px', display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-        {[{ label: 'From Date', val: from, set: setFrom }, { label: 'To Date', val: to, set: setTo }].map(({ label, val, set }) => (
-          <div key={label}>
-            <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 5 }}>{label}</label>
-            <input type="date" value={val} onChange={e => set(e.target.value)} style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #d1d5db', fontSize: 13, outline: 'none' }} />
-          </div>
-        ))}
-        <div style={{ display: 'flex', gap: 6 }}>
-          {['Today', 'Yesterday', 'Last 7 Days', 'This Month'].map(q => (
-            <button key={q} style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#f9fafb', fontSize: 12, cursor: 'pointer', color: '#374151' }}>{q}</button>
-          ))}
-        </div>
-        <button style={{ padding: '9px 20px', borderRadius: 8, border: 'none', background: '#0c3b73', fontSize: 13, cursor: 'pointer', color: '#fff', fontWeight: 600 }}>Apply</button>
+      <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10, padding: '12px 16px', display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 13 }}>From:</span>
+        <input type="date" value={from} onChange={e => setFrom(e.target.value)} style={{ padding: '7px 12px', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 13, outline: 'none' }} />
+        <span style={{ fontSize: 13 }}>To:</span>
+        <input type="date" value={to} onChange={e => setTo(e.target.value)} style={{ padding: '7px 12px', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 13, outline: 'none' }} />
+        <button onClick={fetchReport} style={{ padding: '7px 16px', border: 'none', borderRadius: 7, background: '#0c3b73', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Apply</button>
+        {(from || to) && <button onClick={() => { setFrom(''); setTo('') }} style={{ padding: '7px 14px', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 12, cursor: 'pointer' }}>Clear</button>}
       </div>
 
-      {/* KPI Cards */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-        {kpis.map(k => (
-          <div key={k.label} style={{ flex: '1 1 160px', background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 38, height: 38, borderRadius: 9, background: k.color + '18', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      {/* KPI */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+        {[
+          { label: 'Total Sales',      value: loading ? '...' : fmt(kpi.totalSales),   icon: IndianRupee, color: '#0c3b73', bg: '#e0e7ff' },
+          { label: 'Sales Returns',    value: loading ? '...' : fmt(kpi.totalReturns), icon: RotateCcw,  color: '#dc2626', bg: '#fee2e2' },
+          { label: 'Net Sales',        value: loading ? '...' : fmt(kpi.netSales),     icon: TrendingUp, color: '#16a34a', bg: '#dcfce7' },
+          { label: 'Avg Invoice Value',value: loading ? '...' : fmt(kpi.avgInvoice),   icon: ShoppingCart,color:'#d97706', bg: '#fef3c7' },
+        ].map(k => (
+          <div key={k.label} style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 40, height: 40, borderRadius: 10, background: k.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <k.icon size={18} color={k.color} />
             </div>
             <div>
-              <p style={{ margin: 0, fontSize: 11, color: '#9ca3af', fontWeight: 500 }}>{k.label}</p>
-              <p style={{ margin: '2px 0 0', fontSize: 18, fontWeight: 700, color: k.color }}>{k.value}</p>
-              <p style={{ margin: '1px 0 0', fontSize: 11, color: '#9ca3af' }}>{k.sub}</p>
+              <p style={{ fontSize: 11, color: '#6b7280', margin: 0 }}>{k.label}</p>
+              <p style={{ fontSize: 16, fontWeight: 800, color: k.color, margin: '2px 0 0' }}>{k.value}</p>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Payment Mode Summary */}
-      <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', padding: '16px 20px' }}>
-        <h4 style={{ fontSize: 13, fontWeight: 700, color: '#374151', margin: '0 0 12px' }}>Payment Mode Breakdown</h4>
-        <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
-          {[{ mode: 'Cash', amt: '₹22,500', pct: 46 }, { mode: 'UPI', amt: '₹18,900', pct: 39 }, { mode: 'Card', amt: '₹7,250', pct: 15 }].map(p => (
-            <div key={p.mode} style={{ flex: '1 1 140px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                <span style={{ fontSize: 12, color: '#374151', fontWeight: 500 }}>{p.mode}</span>
-                <span style={{ fontSize: 12, fontWeight: 700, color: payColors[p.mode] }}>{p.amt}</span>
-              </div>
-              <div style={{ height: 6, borderRadius: 3, background: '#f3f4f6', overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${p.pct}%`, background: payColors[p.mode], borderRadius: 3 }} />
-              </div>
-              <p style={{ margin: '3px 0 0', fontSize: 11, color: '#9ca3af' }}>{p.pct}%</p>
+      {/* Payment Breakdown */}
+      {!loading && report?.paymentBreakdown && (
+        <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: 16, display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
+          <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#374151' }}>Payment Breakdown:</p>
+          {Object.entries(report.paymentBreakdown).map(([mode, count]) => (
+            <div key={mode} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>{mode}:</span>
+              <span style={{ fontSize: 14, fontWeight: 800, color: '#0c3b73' }}>{count} invoices</span>
             </div>
           ))}
         </div>
-      </div>
+      )}
 
-      <DataTable columns={columns} data={MOCK_SALES} total={MOCK_SALES.length} page={1} limit={20} />
+      {/* Table */}
+      <DataTable
+        columns={columns}
+        data={report?.invoices || []}
+        loading={loading}
+        total={report?.total || 0}
+        page={page}
+        limit={20}
+        onPageChange={setPage}
+        onLimitChange={() => {}}
+      />
     </div>
   )
 }
-
-export default SalesReport

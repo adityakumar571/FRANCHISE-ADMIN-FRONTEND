@@ -19,6 +19,7 @@ import {
   Map,
 } from 'lucide-react'
 
+
 const C = '#fabf22'
 const S = { marginRight: 10, flexShrink: 0 }
 const ic = (Icon) => <Icon size={17} color={C} style={S} />

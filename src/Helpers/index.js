@@ -106,5 +106,8 @@ export const deleteRequest1 = async (url) => {
   return api.delete(url)
 }
 
-// ── Static token export (used in a few older components) ─────────────────────
+// ── Static token export (kept for backward compatibility — use getHeaders() for fresh value) ─────
+// NOTE: This is evaluated once at module load. Use Cookies.get('LMS') directly for live token.
+export const getToken = () => Cookies.get('LMS')
+/** @deprecated Use getToken() for a fresh value. This snapshot may be stale. */
 export const token = Cookies.get('LMS')

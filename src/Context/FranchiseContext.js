@@ -179,6 +179,8 @@ export const FranchiseProvider = ({ children }) => {
 
   const isAuthenticated = !!Cookies.get('LMS') && !!franchiseUser
 
+  // Re-check auth whenever franchiseUser changes (covers logout + login cycles)
+
   return (
     <FranchiseContext.Provider
       value={{

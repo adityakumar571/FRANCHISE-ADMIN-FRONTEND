@@ -1,19 +1,20 @@
 import { ROLES } from './roles'
 
+// Route-level permission map for franchise portal routes
 export const ROUTE_PERMISSION = {
-  '/dashboard/admin': [ROLES.SUPERADMIN],
-  '/dashboard/teachers': [ROLES.SUPERADMIN, ROLES.ADMIN],
-  '/dashboard/students': [ROLES.SUPERADMIN, ROLES.ADMIN, ROLES.TEACHER, ROLES.STUDENT],
-  '/dashboard/parents': [ROLES.SUPERADMIN, ROLES.ADMIN],
-
-  '/fee/feesstructure': [ROLES.SUPERADMIN, ROLES.ADMIN],
-  '/fee/feescollection': [ROLES.SUPERADMIN, ROLES.ADMIN],
-  '/fee/feesreport': [ROLES.SUPERADMIN, ROLES.ADMIN],
-
-  '/admission': [ROLES.SUPERADMIN, ROLES.ADMIN],
-  '/enrollment': [ROLES.SUPERADMIN, ROLES.ADMIN],
-  '/studenttransfer': [ROLES.SUPERADMIN, ROLES.ADMIN],
-
-  '/attendance': [ROLES.SUPERADMIN, ROLES.ADMIN, ROLES.TEACHER],
-  '/reportcard': [ROLES.SUPERADMIN, ROLES.ADMIN, ROLES.TEACHER, ROLES.STUDENT],
+  '/franchise/dashboard':        [ROLES.SUPERADMIN, ROLES.ADMIN, ROLES.ACCOUNTS, ROLES.STAFF, ROLES.CUSTOMER, ROLES.VENDOR],
+  '/franchise/pos':              [ROLES.SUPERADMIN, ROLES.ADMIN, ROLES.STAFF, ROLES.CUSTOMER],
+  '/franchise/purchase':         [ROLES.SUPERADMIN, ROLES.ADMIN],
+  '/franchise/inventory':        [ROLES.SUPERADMIN, ROLES.ADMIN, ROLES.STAFF],
+  '/franchise/live-rates':       [ROLES.SUPERADMIN, ROLES.ADMIN],
+  '/franchise/medicines':        [ROLES.SUPERADMIN, ROLES.ADMIN, ROLES.STAFF],
+  '/franchise/suppliers':        [ROLES.SUPERADMIN, ROLES.ADMIN],
+  '/franchise/customers':        [ROLES.SUPERADMIN, ROLES.ADMIN, ROLES.STAFF, ROLES.CUSTOMER],
+  '/franchise/accounts':         [ROLES.SUPERADMIN, ROLES.ADMIN, ROLES.ACCOUNTS],
+  '/franchise/reports':          [ROLES.SUPERADMIN, ROLES.ADMIN, ROLES.ACCOUNTS],
+  '/franchise/staff':            [ROLES.SUPERADMIN, ROLES.ADMIN],
+  '/franchise/b2b-orders':       [ROLES.SUPERADMIN, ROLES.ADMIN, ROLES.VENDOR],
+  '/franchise/user-management':  [ROLES.SUPERADMIN, ROLES.ADMIN],
+  '/franchise/settings':         [ROLES.SUPERADMIN, ROLES.ADMIN],
+  '/franchise/audit':            [ROLES.SUPERADMIN, ROLES.ADMIN],
 }

@@ -20,7 +20,7 @@ const DefaultLayout = () => {
     if (!token) {
       navigate('/franchise-login', { replace: true })
     }
-  }, [])
+  }, [navigate])
 
   return (
     <div>

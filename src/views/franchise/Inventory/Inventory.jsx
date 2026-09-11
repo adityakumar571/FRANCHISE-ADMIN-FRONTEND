@@ -1,6 +1,8 @@
 /* eslint-disable prettier/prettier */
-import { useState } from 'react'
-import { ClipboardList, Search, AlertTriangle, ChevronLeft, ChevronRight, BarChart2 } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import { ClipboardList, Search, AlertTriangle, ChevronLeft, ChevronRight, BarChart2, RefreshCw } from 'lucide-react'
+import { getRequest } from '../../../Helpers'
+import toast from 'react-hot-toast'
 
 const MOCK = [
   { id: 'MED001', name: 'Paracetamol 650mg', batch: 'BT-23001', expiry: '31 Dec 2026', qty: 1250, mrp: '₹15.00', purchasePrice: '₹8.50', stockValue: '₹10,625', location: 'A-01', status: 'In Stock' },
@@ -30,18 +32,44 @@ const Td = ({ children, style = {} }) => <td style={{ padding: '10px 12px', font
 const STATUSES = ['All Status', 'In Stock', 'Low Stock', 'Out of Stock', 'Near Expiry']
 
 export default function Inventory() {
-  const [search, setSearch] = useState('')
-  const [status, setStatus] = useState('All Status')
+  const [search, setSearch]       = useState('')
+  const [status, setStatus]       = useState('All Status')
+  const [stock, setStock]         = useState([])
+  const [summary, setSummary]     = useState({ totalItems: 0, lowStock: 0, outOfStock: 0, nearExpiry: 0, totalValue: 0 })
+  const [loading, setLoading]     = useState(true)
+  const [page, setPage]           = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [total, setTotal]         = useState(0)
+  const limit = 20
 
-  const filtered = MOCK.filter(p =>
-    (search === '' || p.name.toLowerCase().includes(search.toLowerCase()) || p.batch.toLowerCase().includes(search.toLowerCase())) &&
-    (status === 'All Status' || p.status === status)
-  )
+  const fetchStock = useCallback(async () => {
+    setLoading(true)
+    try {
+      const statusParam = status !== 'All Status' ? status : ''
+      const res = await getRequest(`/franchise/inventory/stock?search=${encodeURIComponent(search)}&status=${encodeURIComponent(statusParam)}&page=${page}&limit=${limit}`)
+      const d = res.data?.data
+      setStock(d?.stock || [])
+      setTotal(d?.total || 0)
+      setTotalPages(d?.totalPages || 1)
 
-  const totalValue = MOCK.reduce((acc, p) => {
-    const val = parseFloat(p.stockValue.replace('₹', '').replace(',', '')) || 0
-    return acc + val
-  }, 0)
+      // Get summary from dashboard
+      const dashRes = await getRequest('/franchise/inventory/dashboard')
+      const kpi = dashRes.data?.data?.kpi || {}
+      setSummary({
+        totalItems: kpi.totalItems || 0,
+        lowStock:   kpi.lowStock   || 0,
+        outOfStock: kpi.outOfStock || 0,
+        nearExpiry: kpi.nearExpiry || 0,
+        totalValue: kpi.totalValue || 0,
+      })
+    } catch {
+      toast.error('Failed to load stock')
+    } finally {
+      setLoading(false)
+    }
+  }, [search, status, page])
+
+  useEffect(() => { fetchStock() }, [fetchStock])
 
   return (
     <div style={{ fontFamily: 'Inter, sans-serif', display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -65,11 +93,11 @@ export default function Inventory() {
       {/* Summary */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
         {[
-          { label: 'Total Items',     value: '8,945',  color: '#0c3b73' },
-          { label: 'Low Stock',       value: '156',    color: '#d97706' },
-          { label: 'Out of Stock',    value: '98',     color: '#dc2626' },
-          { label: 'Near Expiry',     value: '48',     color: '#ea580c' },
-          { label: 'Total Stock Value', value: `₹${(totalValue / 100).toFixed(0)}L+`, color: '#7c3aed' },
+          { label: 'Total Items',       value: loading ? '...' : summary.totalItems,  color: '#0c3b73' },
+          { label: 'Low Stock',         value: loading ? '...' : summary.lowStock,    color: '#d97706' },
+          { label: 'Out of Stock',      value: loading ? '...' : summary.outOfStock,  color: '#dc2626' },
+          { label: 'Near Expiry',       value: loading ? '...' : summary.nearExpiry,  color: '#ea580c' },
+          { label: 'Total Stock Value', value: loading ? '...' : `₹${Number(summary.totalValue || 0).toLocaleString('en-IN')}`, color: '#7c3aed' },
         ].map((c) => (
           <div key={c.label} style={{ background: '#fff', borderRadius: 10, padding: '14px 16px', border: '1px solid #e5e7eb' }}>
             <p style={{ fontSize: 11, color: '#6b7280', margin: '0 0 4px' }}>{c.label}</p>
@@ -79,20 +107,22 @@ export default function Inventory() {
       </div>
 
       {/* Alert */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 8 }}>
-        <AlertTriangle size={15} color="#ea580c" />
-        <span style={{ fontSize: 13, color: '#9a3412' }}>
-          <strong>2 products</strong> are expiring within 30 days. Review inventory and initiate returns.
-        </span>
-      </div>
+      {!loading && summary.nearExpiry > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 8 }}>
+          <AlertTriangle size={15} color="#ea580c" />
+          <span style={{ fontSize: 13, color: '#9a3412' }}>
+            <strong>{summary.nearExpiry} batches</strong> are expiring within 90 days. Review inventory and initiate returns.
+          </span>
+        </div>
+      )}
 
       {/* Filters */}
       <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
           <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name or batch..." style={{ width: '100%', paddingLeft: 30, padding: '8px 10px 8px 30px', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 13, outline: 'none', background: '#f9fafb' }} />
+          <input value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} placeholder="Search by name or batch..." style={{ width: '100%', paddingLeft: 30, padding: '8px 10px 8px 30px', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 13, outline: 'none', background: '#f9fafb' }} />
         </div>
-        <select value={status} onChange={e => setStatus(e.target.value)} style={{ padding: '8px 12px', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 13, background: '#f9fafb', cursor: 'pointer' }}>
+        <select value={status} onChange={e => { setStatus(e.target.value); setPage(1) }} style={{ padding: '8px 12px', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 13, background: '#f9fafb', cursor: 'pointer' }}>
           {STATUSES.map(s => <option key={s}>{s}</option>)}
         </select>
       </div>
@@ -105,31 +135,36 @@ export default function Inventory() {
               <tr>{['Code', 'Product Name', 'Batch No.', 'Expiry', 'Qty', 'MRP', 'Purchase Price', 'Stock Value', 'Location', 'Status'].map(h => <Th key={h} c={h} />)}</tr>
             </thead>
             <tbody>
-              {filtered.length === 0
-                ? <tr><td colSpan={10} style={{ padding: 40, textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>No items found</td></tr>
-                : filtered.map((p) => (
-                  <tr key={p.id} onMouseEnter={e => e.currentTarget.style.background = '#fafafa'} onMouseLeave={e => e.currentTarget.style.background = ''}>
-                    <Td><span style={{ fontFamily: 'monospace', fontSize: 11, background: '#f3f4f6', padding: '2px 7px', borderRadius: 4 }}>{p.id}</span></Td>
-                    <Td style={{ fontWeight: 600, color: '#111827' }}>{p.name}</Td>
-                    <Td><span style={{ fontFamily: 'monospace', fontSize: 12 }}>{p.batch}</span></Td>
-                    <Td style={{ color: '#6b7280' }}>{p.expiry}</Td>
-                    <Td style={{ fontWeight: 600, color: p.qty === 0 ? '#dc2626' : p.qty < 25 ? '#d97706' : '#111827' }}>{p.qty}</Td>
-                    <Td style={{ fontWeight: 600 }}>{p.mrp}</Td>
-                    <Td style={{ color: '#6b7280' }}>{p.purchasePrice}</Td>
-                    <Td style={{ fontWeight: 600, color: '#0c3b73' }}>{p.stockValue}</Td>
-                    <Td><span style={{ fontFamily: 'monospace', fontSize: 12, background: '#f3f4f6', padding: '2px 7px', borderRadius: 4 }}>{p.location}</span></Td>
-                    <Td><Badge s={p.status} /></Td>
-                  </tr>
-                ))}
+              {loading
+                ? Array(5).fill(0).map((_, i) => (
+                  <tr key={i}>{Array(10).fill(0).map((_, j) => <td key={j} style={{ padding: '10px 12px' }}><div style={{ height: 14, background: '#f3f4f6', borderRadius: 4 }} /></td>)}</tr>
+                ))
+                : stock.length === 0
+                  ? <tr><td colSpan={10} style={{ padding: 40, textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>No items found</td></tr>
+                  : stock.map((p) => (
+                    <tr key={p.id} onMouseEnter={e => e.currentTarget.style.background = '#fafafa'} onMouseLeave={e => e.currentTarget.style.background = ''}>
+                      <Td><span style={{ fontFamily: 'monospace', fontSize: 11, background: '#f3f4f6', padding: '2px 7px', borderRadius: 4 }}>{p.code}</span></Td>
+                      <Td style={{ fontWeight: 600, color: '#111827' }}>{p.name}</Td>
+                      <Td><span style={{ fontFamily: 'monospace', fontSize: 12 }}>{p.batch}</span></Td>
+                      <Td style={{ color: '#6b7280' }}>{p.expiry}</Td>
+                      <Td style={{ fontWeight: 600, color: p.qty === 0 ? '#dc2626' : p.qty < 25 ? '#d97706' : '#111827' }}>{p.qty}</Td>
+                      <Td style={{ fontWeight: 600 }}>{p.mrp}</Td>
+                      <Td style={{ color: '#6b7280' }}>{p.purchasePrice}</Td>
+                      <Td style={{ fontWeight: 600, color: '#0c3b73' }}>{p.stockValue}</Td>
+                      <Td><span style={{ fontFamily: 'monospace', fontSize: 12, background: '#f3f4f6', padding: '2px 7px', borderRadius: 4 }}>{p.location}</span></Td>
+                      <Td><Badge s={p.status} /></Td>
+                    </tr>
+                  ))
+              }
             </tbody>
           </table>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', borderTop: '1px solid #f3f4f6' }}>
-          <span style={{ fontSize: 12, color: '#6b7280' }}>Showing {filtered.length} of {MOCK.length} items</span>
+          <span style={{ fontSize: 12, color: '#6b7280' }}>Showing {stock.length} of {total} items</span>
           <div style={{ display: 'flex', gap: 4 }}>
-            <button style={{ background: 'none', border: '1px solid #e5e7eb', borderRadius: 6, padding: '4px 8px', cursor: 'pointer' }}><ChevronLeft size={14} /></button>
-            <button style={{ background: '#0c3b73', border: 'none', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', color: '#fff', fontSize: 12 }}>1</button>
-            <button style={{ background: 'none', border: '1px solid #e5e7eb', borderRadius: 6, padding: '4px 8px', cursor: 'pointer' }}><ChevronRight size={14} /></button>
+            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} style={{ background: 'none', border: '1px solid #e5e7eb', borderRadius: 6, padding: '4px 8px', cursor: 'pointer' }}><ChevronLeft size={14} /></button>
+            <button style={{ background: '#0c3b73', border: 'none', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', color: '#fff', fontSize: 12 }}>{page}</button>
+            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} style={{ background: 'none', border: '1px solid #e5e7eb', borderRadius: 6, padding: '4px 8px', cursor: 'pointer' }}><ChevronRight size={14} /></button>
           </div>
         </div>
       </div>
