@@ -42,25 +42,38 @@ export default function SplitPayment() {
   const handleConfirm = async () => {
     setProcessing(true)
     try {
-      await postRequest({
-        url: '/franchise/pos/sales/invoice',
-        cred: {
-          customerId:   customer?._id || customer?.id,
-          customerName: customer?.name || 'Walk-in Customer',
-          items: cart.map(i => ({ medicineId: i._id || i.id, medicineName: i.name, batchNo: i.batch, qty: i.qty, mrp: i.mrp, discountPct: discount, gstPct: i.gst || 5, amount: i.mrp * i.qty })),
-          subtotal, discountAmt: discAmt, gstAmt: gst, roundOff: 0,
-          totalAmt:   TOTAL,
-          paymentMode: 'Split',
-          paidAmt:    totalPaid,
-          dueAmt:     0,
-          notes: `Split: Cash=${cash}, UPI=${upi}, Card=${card}`,
-        },
+      await postRequest('franchise/pos/sales/invoice', {
+        customerId:   customer?._id || customer?.id,
+        customerName: customer?.name || 'Walk-in Customer',
+        items: cart.map(i => ({
+          medicineId:  i._id || i.id,
+          medicineName: i.name,
+          batchNo:      i.batch,
+          qty:          i.qty,
+          mrp:          i.mrp,
+          discountPct:  discount,
+          gstPct:       i.gst || 5,
+          amount:       i.mrp * i.qty,
+        })),
+        subtotal,
+        discountAmt: discAmt,
+        gstAmt:      gst,
+        roundOff:    0,
+        totalAmt:    TOTAL,
+        paymentMode: 'Split',
+        paidAmt:     totalPaid,
+        dueAmt:      0,
+        paymentDetails: [
+          { mode: 'Cash', amount: cash },
+          { mode: 'UPI',  amount: upi  },
+          { mode: 'Card', amount: card },
+        ].filter(p => p.amount > 0),
+        notes: `Split — Cash: ₹${cash}, UPI: ₹${upi}, Card: ₹${card}`,
       })
       toast.success('Split payment confirmed!')
       navigate('/franchise/pos/print-invoice', { state: { cart, customer, total: TOTAL, paymentMode: 'Split' } })
     } catch {
-      toast.error('Payment saved locally.')
-      navigate('/franchise/pos/print-invoice', { state: { cart, customer, total: TOTAL, paymentMode: 'Split' } })
+      toast.error('Payment failed. Please try again.')
     } finally {
       setProcessing(false)
     }

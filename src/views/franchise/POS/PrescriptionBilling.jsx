@@ -1,30 +1,61 @@
 /* eslint-disable prettier/prettier */
 /**
- * Screen 5 — Prescription Billing
+ * Screen 5 — Prescription Billing (API Integrated)
  */
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { FileText, ArrowLeft, UploadCloud, Trash2, IndianRupee } from 'lucide-react'
+import toast from 'react-hot-toast'
 import PageHeader from '../components/PageHeader'
 import { Th, Td, BillRow, SBtn } from './posHelpers'
-import { PRESCRIPTION_MEDS } from './posMockData'
+import { getRequest } from '../../../Helpers'
 
 export default function PrescriptionBilling() {
   const navigate  = useNavigate()
-  const [meds, setMeds] = useState(PRESCRIPTION_MEDS)
+  const [meds, setMeds]         = useState([])
+  const [loading, setLoading]   = useState(false)
+  const [prescFile, setPrescFile] = useState(null)
+  const [searchQ, setSearchQ]   = useState('')
+  const [searchRes, setSearchRes] = useState([])
 
-  const subtotal  = meds.reduce((s,m) => s + m.mrp * m.qty, 0)
+  const subtotal  = meds.reduce((s,m) => s + (m.mrp||0) * (m.qty||1), 0)
   const discount  = subtotal * 0.03
   const taxable   = subtotal - discount
-  const gst5      = meds.filter(m=>m.gst===5).reduce((s,m)=>s+m.mrp*m.qty,0)*0.05
-  const gst12     = meds.filter(m=>m.gst===12).reduce((s,m)=>s+m.mrp*m.qty,0)*0.12
+  const gst5      = meds.filter(m=>m.gst===5).reduce((s,m)=>s+(m.mrp||0)*(m.qty||1),0)*0.05
+  const gst12     = meds.filter(m=>m.gst===12).reduce((s,m)=>s+(m.mrp||0)*(m.qty||1),0)*0.12
   const total     = taxable + gst5 + gst12
+
+  const handleSearch = async (q) => {
+    setSearchQ(q)
+    if (q.length < 2) { setSearchRes([]); return }
+    try {
+      const res = await getRequest(`franchise/pos/medicines/search?q=${encodeURIComponent(q)}`)
+      setSearchRes(res?.data || [])
+    } catch { setSearchRes([]) }
+  }
+
+  const addMed = (m) => {
+    setMeds(p => [...p, { ...m, qty: 1, id: m._id }])
+    setSearchRes([])
+    setSearchQ('')
+  }
+
+  const handleFileUpload = async (file) => {
+    if (!file) return
+    setPrescFile(file)
+    setLoading(true)
+    toast('Prescription uploaded. Add medicines manually below.', { icon: '📋' })
+    setLoading(false)
+  }
 
   return (
     <div style={{ fontFamily: 'Inter, sans-serif', display: 'flex', flexDirection: 'column', gap: 18 }}>
       <PageHeader icon={FileText} title="Prescription Billing" subtitle="Upload prescription and auto-detect medicines" color="#d97706">
         <SBtn label="Back to Billing" icon={ArrowLeft} bg="#f3f4f6" color="#374151" border="#e5e7eb" sm onClick={() => navigate('/franchise/pos/billing')} />
-        <SBtn label="Upload Prescription" icon={UploadCloud} bg="#e0e7ff" color="#0c3b73" border="#c7d2fe" sm />
+        <label style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', background: '#e0e7ff', color: '#0c3b73', border: '1px solid #c7d2fe', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+          <UploadCloud size={13} /> Upload Prescription
+          <input type="file" accept="image/*,.pdf" style={{ display: 'none' }} onChange={e => handleFileUpload(e.target.files[0])} />
+        </label>
       </PageHeader>
 
       <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr 240px', gap: 16, alignItems: 'start' }}>
@@ -34,12 +65,22 @@ export default function PrescriptionBilling() {
             <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: '#374151' }}>Prescription</p>
           </div>
           <div style={{ padding: 14 }}>
-            <div style={{ background: '#f9fafb', border: '2px dashed #e5e7eb', borderRadius: 8, height: 200, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, cursor: 'pointer' }}
-              onMouseEnter={e => e.currentTarget.style.borderColor='#0c3b73'}
-              onMouseLeave={e => e.currentTarget.style.borderColor='#e5e7eb'}>
-              <UploadCloud size={28} color="#9ca3af" />
-              <p style={{ fontSize: 11, color: '#9ca3af', textAlign: 'center', margin: 0 }}>Click to upload or drag prescription here</p>
-            </div>
+            <label style={{ display: 'block', cursor: 'pointer' }}>
+              <div style={{ background: '#f9fafb', border: `2px dashed ${prescFile ? '#d97706' : '#e5e7eb'}`, borderRadius: 8, height: 200, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+                {prescFile ? (
+                  <>
+                    <FileText size={28} color="#d97706" />
+                    <p style={{ fontSize: 11, color: '#d97706', textAlign: 'center', margin: 0, fontWeight: 600 }}>{prescFile.name}</p>
+                  </>
+                ) : (
+                  <>
+                    <UploadCloud size={28} color="#9ca3af" />
+                    <p style={{ fontSize: 11, color: '#9ca3af', textAlign: 'center', margin: 0 }}>Click to upload or drag prescription here</p>
+                  </>
+                )}
+              </div>
+              <input type="file" accept="image/*,.pdf" style={{ display: 'none' }} onChange={e => handleFileUpload(e.target.files[0])} />
+            </label>
             <p style={{ fontSize: 10, color: '#9ca3af', textAlign: 'center', margin: '8px 0 0' }}>Supports JPG, PNG, PDF</p>
           </div>
         </div>
@@ -48,19 +89,40 @@ export default function PrescriptionBilling() {
         <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
           <div style={{ padding: '12px 16px', borderBottom: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <p style={{ margin: 0, fontSize: 13, fontWeight: 700 }}>Detected Medicines ({meds.length})</p>
-            <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 20, background: '#dcfce7', color: '#16a34a', fontWeight: 600 }}>Auto Detected</span>
+            <div style={{ position: 'relative' }}>
+              <input value={searchQ} onChange={e => handleSearch(e.target.value)}
+                placeholder="Search & add medicine..."
+                style={{ padding: '6px 10px', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 12, outline: 'none', background: '#f9fafb', width: 200 }} />
+              {searchRes.length > 0 && (
+                <div style={{ position: 'absolute', top: '100%', right: 0, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', zIndex: 50, width: 240, maxHeight: 200, overflowY: 'auto' }}>
+                  {searchRes.map((m, i) => (
+                    <div key={i} onClick={() => addMed(m)}
+                      style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid #f3f4f6', fontSize: 12 }}
+                      onMouseEnter={e => e.currentTarget.style.background='#f9fafb'}
+                      onMouseLeave={e => e.currentTarget.style.background=''}>
+                      <span style={{ fontWeight: 600 }}>{m.name}</span>
+                      <span style={{ color: '#6b7280', marginLeft: 6 }}>₹{m.mrp}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead><tr>{['Medicine Name','MRP','Stock','Qty','Action'].map(h => <Th key={h} c={h} />)}</tr></thead>
               <tbody>
-                {meds.map((m,i) => (
-                  <tr key={m.id} onMouseEnter={e=>e.currentTarget.style.background='#fafafa'} onMouseLeave={e=>e.currentTarget.style.background=''}>
+                {meds.length === 0 ? (
+                  <tr><td colSpan={5} style={{ padding: 32, textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>
+                    Upload prescription or search medicines above
+                  </td></tr>
+                ) : meds.map((m,i) => (
+                  <tr key={m.id || i} onMouseEnter={e=>e.currentTarget.style.background='#fafafa'} onMouseLeave={e=>e.currentTarget.style.background=''}>
                     <Td style={{ fontWeight: 600 }}>{m.name}</Td>
-                    <Td style={{ fontWeight: 700, color: '#0c3b73' }}>₹{m.mrp.toFixed(2)}</Td>
-                    <Td style={{ color: m.stock < 30 ? '#dc2626' : '#374151', fontWeight: 600 }}>{m.stock}</Td>
+                    <Td style={{ fontWeight: 700, color: '#0c3b73' }}>₹{(m.mrp||0).toFixed(2)}</Td>
+                    <Td style={{ color: (m.stock||0) < 30 ? '#dc2626' : '#374151', fontWeight: 600 }}>{m.stock || 0}</Td>
                     <Td>
-                      <input type="number" value={m.qty} min={1} onChange={e => setMeds(p => p.map((x,j) => j===i ? {...x, qty: +e.target.value||1} : x))}
+                      <input type="number" value={m.qty||1} min={1} onChange={e => setMeds(p => p.map((x,j) => j===i ? {...x, qty: +e.target.value||1} : x))}
                         style={{ width: 50, padding: '4px 8px', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 13, textAlign: 'center', outline: 'none' }} />
                     </Td>
                     <Td>
@@ -88,14 +150,16 @@ export default function PrescriptionBilling() {
             <BillRow label="Taxable"     value={`₹ ${taxable.toFixed(2)}`} />
             <BillRow label="GST (5%)"    value={`₹ ${gst5.toFixed(2)}`} />
             <BillRow label="GST (12%)"   value={`₹ ${gst12.toFixed(2)}`} />
-            <BillRow label="Round Off"   value="₹ 0.18" />
+            <BillRow label="Round Off"   value="₹ 0.00" />
             <div style={{ borderTop: '2px solid #0c3b73', marginTop: 8, paddingTop: 8, display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ fontSize: 14, fontWeight: 700 }}>Total Amount</span>
               <span style={{ fontSize: 16, fontWeight: 800, color: '#0c3b73' }}>₹ {total.toFixed(2)}</span>
             </div>
           </div>
           <div style={{ padding: '12px 14px', borderTop: '1px solid #f3f4f6' }}>
-            <SBtn label="Proceed to Pay [F5]" icon={IndianRupee} full onClick={() => navigate('/franchise/pos/payment')} />
+            <SBtn label="Proceed to Pay [F5]" icon={IndianRupee} full
+              disabled={meds.length === 0}
+              onClick={() => navigate('/franchise/pos/payment', { state: { cartItems: meds, total } })} />
           </div>
         </div>
       </div>

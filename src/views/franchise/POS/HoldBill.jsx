@@ -22,8 +22,10 @@ export default function HoldBill() {
   const fetchHoldBills = async () => {
     setLoading(true)
     try {
-      const res = await getRequest('/franchise/pos/hold-bills')
-      setBills(res.data?.data || [])
+      const res = await getRequest('franchise/pos/hold-bills')
+      // API returns array directly in data
+      const list = res?.data?.data || res?.data || []
+      setBills(Array.isArray(list) ? list : [])
     } catch {
       toast.error('Failed to load hold bills')
     } finally {
@@ -36,10 +38,10 @@ export default function HoldBill() {
   const handleHold = async () => {
     setSaving(true)
     try {
-      await postRequest({ url: '/franchise/pos/hold-bills', cred: {
+      await postRequest('franchise/pos/hold-bills', {
         customerName: customer || 'Walk-In Customer',
         items: [], subtotal: 0, totalAmt: 0, note,
-      }})
+      })
       toast.success('Bill held successfully')
       navigate('/franchise/pos/billing')
     } catch {
@@ -51,8 +53,9 @@ export default function HoldBill() {
 
   const handleDelete = async (id) => {
     try {
-      await deleteRequest(`/franchise/pos/hold-bills/${id}`)
-      setBills(p => p.filter(b => b.id !== id))
+      await deleteRequest(`franchise/pos/hold-bills/${id}`)
+      // use _id (not id) — match what API returns
+      setBills(p => p.filter(b => (b._id || b.id) !== id))
       toast.success('Hold bill removed')
     } catch {
       toast.error('Failed to delete hold bill')
@@ -135,12 +138,23 @@ export default function HoldBill() {
                       <Td>
                         <div style={{ display: 'flex', gap: 6 }}>
                           <button
-                            onClick={() => navigate('/franchise/pos/billing')}
+                            onClick={() => navigate('/franchise/pos/billing', {
+                              state: {
+                                resumeHoldBill: {
+                                  holdId:       b.holdId,
+                                  id:           b.id || b._id,
+                                  customerName: b.name,
+                                  items:        b.items || [],
+                                  totalAmt:     b.amount,
+                                  note:         b.note,
+                                }
+                              }
+                            })}
                             style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, padding: '5px 10px', border: 'none', borderRadius: 6, background: '#e0e7ff', color: '#0c3b73', cursor: 'pointer' }}>
                             <Play size={10} /> Resume
                           </button>
                           <button
-                            onClick={() => handleDelete(b.id)}
+                            onClick={() => handleDelete(b.id || b._id)}
                             style={{ padding: '5px 7px', border: 'none', borderRadius: 6, background: '#fee2e2', cursor: 'pointer' }}>
                             <Trash2 size={11} color="#dc2626" />
                           </button>

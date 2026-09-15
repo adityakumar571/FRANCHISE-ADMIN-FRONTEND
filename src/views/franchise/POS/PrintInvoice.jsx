@@ -1,30 +1,51 @@
 /* eslint-disable prettier/prettier */
 /**
- * Screen 9 — Print Invoice
+ * Screen 9 — Print Invoice (API Integrated)
  */
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { Printer, ArrowLeft, Download, Share2, Plus, Minus } from 'lucide-react'
 import PageHeader from '../components/PageHeader'
 import { SBtn, FieldLabel, SelectInput } from './posHelpers'
-import { MEDICINES } from './posMockData'
-
-const INVOICE_ITEMS = MEDICINES.slice(0, 3).map((m, i) => ({ ...m, qty: i+1, disc: 0 }))
+import { getRequest } from '../../../Helpers'
 
 export default function PrintInvoice() {
-  const navigate = useNavigate()
+  const navigate   = useNavigate()
+  const { id }     = useParams()
+  const location   = useLocation()
+  const [invoice, setInvoice] = useState(location.state?.invoice || null)
+  const [loading, setLoading] = useState(!location.state?.invoice)
+
   const [printer, setPrinter]     = useState('PDF / A4 Printer')
   const [paperSize, setPaperSize] = useState('A4')
   const [fontSize, setFontSize]   = useState('10')
   const [copies, setCopies]       = useState(1)
 
-  const subtotal = INVOICE_ITEMS.reduce((s,m) => s + m.mrp * m.qty, 0)
+  useEffect(() => {
+    if (!invoice && id) {
+      getRequest(`franchise/pos/sales/invoice/${id}`)
+        .then(res => { if (res?.data) setInvoice(res.data) })
+        .catch(() => {})
+        .finally(() => setLoading(false))
+    } else {
+      setLoading(false)
+    }
+  }, [id])
+
+  const items    = invoice?.items || []
+  const subtotal = items.reduce((s, m) => s + (m.mrp || m.price || 0) * (m.qty || m.quantity || 0), 0)
   const total    = subtotal * 1.05
+
+  if (loading) return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200, color: '#6b7280', fontSize: 14 }}>
+      Loading invoice...
+    </div>
+  )
 
   return (
     <div style={{ fontFamily: 'Inter, sans-serif', display: 'flex', flexDirection: 'column', gap: 18 }}>
       <PageHeader icon={Printer} title="Print Invoice" subtitle="Preview and print the bill invoice" color="#0c3b73">
-        <SBtn label="Back" icon={ArrowLeft} bg="#f3f4f6" color="#374151" border="#e5e7eb" sm onClick={() => navigate('/franchise/pos/payment')} />
+        <SBtn label="Back" icon={ArrowLeft} bg="#f3f4f6" color="#374151" border="#e5e7eb" sm onClick={() => navigate(-1)} />
         <SBtn label="New Bill" bg="#0c3b73" color="#fff" sm onClick={() => navigate('/franchise/pos/billing')} />
       </PageHeader>
 
@@ -39,13 +60,24 @@ export default function PrintInvoice() {
               {/* Header */}
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 14, paddingBottom: 12, borderBottom: '1px solid #e5e7eb' }}>
                 <div>
-                  <p style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#0c3b73', fontFamily: 'Inter' }}>Araya Medical Store</p>
-                  <p style={{ margin: '2px 0', fontSize: 10, color: '#6b7280', fontFamily: 'Inter' }}>Shop No. 12A, Main Market, Lucknow, UP - 226001</p>
-                  <p style={{ margin: 0, fontSize: 10, color: '#6b7280', fontFamily: 'Inter' }}>GST: 09AAAPA1234K1ZM  ·  DL: UP-LKO-001  ·  Ph: 0522-001122</p>
+                  <p style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#0c3b73', fontFamily: 'Inter' }}>
+                    {invoice?.franchiseName || 'Pharmacy'}
+                  </p>
+                  <p style={{ margin: '2px 0', fontSize: 10, color: '#6b7280', fontFamily: 'Inter' }}>
+                    {invoice?.address || ''}
+                  </p>
+                  <p style={{ margin: 0, fontSize: 10, color: '#6b7280', fontFamily: 'Inter' }}>
+                    {invoice?.gstNo ? `GST: ${invoice.gstNo}` : ''}
+                    {invoice?.phone ? `  ·  Ph: ${invoice.phone}` : ''}
+                  </p>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#374151', fontFamily: 'Inter' }}>INV-2025-07534</p>
-                  <p style={{ margin: '2px 0', fontSize: 11, color: '#6b7280', fontFamily: 'Inter' }}>30-05-2025</p>
+                  <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#374151', fontFamily: 'Inter' }}>
+                    {invoice?.invoiceNo || invoice?._id || '—'}
+                  </p>
+                  <p style={{ margin: '2px 0', fontSize: 11, color: '#6b7280', fontFamily: 'Inter' }}>
+                    {invoice?.date ? new Date(invoice.date).toLocaleDateString('en-IN') : ''}
+                  </p>
                   <p style={{ margin: 0, fontSize: 10, color: '#9ca3af', fontFamily: 'Inter' }}>Qty in Quantities</p>
                 </div>
               </div>
@@ -60,15 +92,19 @@ export default function PrintInvoice() {
                   </tr>
                 </thead>
                 <tbody>
-                  {INVOICE_ITEMS.map((item, i) => (
-                    <tr key={item.id}>
+                  {items.length === 0 ? (
+                    <tr><td colSpan={7} style={{ padding: 20, textAlign: 'center', color: '#9ca3af', fontSize: 12 }}>No items</td></tr>
+                  ) : items.map((item, i) => (
+                    <tr key={i}>
                       <td style={{ padding: '6px 8px', fontSize: 11, fontFamily: 'Inter', borderBottom: '1px solid #f3f4f6' }}>{i+1}</td>
-                      <td style={{ padding: '6px 8px', fontSize: 11, fontWeight: 600, fontFamily: 'Inter', borderBottom: '1px solid #f3f4f6' }}>{item.name}</td>
-                      <td style={{ padding: '6px 8px', fontSize: 10, fontFamily: 'monospace', borderBottom: '1px solid #f3f4f6' }}>{item.batch}</td>
-                      <td style={{ padding: '6px 8px', fontSize: 11, fontFamily: 'Inter', borderBottom: '1px solid #f3f4f6' }}>{item.qty}</td>
-                      <td style={{ padding: '6px 8px', fontSize: 11, fontFamily: 'Inter', borderBottom: '1px solid #f3f4f6' }}>₹{item.mrp.toFixed(2)}</td>
-                      <td style={{ padding: '6px 8px', fontSize: 11, fontFamily: 'Inter', borderBottom: '1px solid #f3f4f6' }}>0%</td>
-                      <td style={{ padding: '6px 8px', fontSize: 11, fontWeight: 700, fontFamily: 'Inter', borderBottom: '1px solid #f3f4f6' }}>₹{(item.mrp*item.qty).toFixed(2)}</td>
+                      <td style={{ padding: '6px 8px', fontSize: 11, fontWeight: 600, fontFamily: 'Inter', borderBottom: '1px solid #f3f4f6' }}>{item.name || item.medicineName}</td>
+                      <td style={{ padding: '6px 8px', fontSize: 10, fontFamily: 'monospace', borderBottom: '1px solid #f3f4f6' }}>{item.batch || ''}</td>
+                      <td style={{ padding: '6px 8px', fontSize: 11, fontFamily: 'Inter', borderBottom: '1px solid #f3f4f6' }}>{item.qty || item.quantity}</td>
+                      <td style={{ padding: '6px 8px', fontSize: 11, fontFamily: 'Inter', borderBottom: '1px solid #f3f4f6' }}>₹{(item.mrp || item.price || 0).toFixed(2)}</td>
+                      <td style={{ padding: '6px 8px', fontSize: 11, fontFamily: 'Inter', borderBottom: '1px solid #f3f4f6' }}>{item.disc || 0}%</td>
+                      <td style={{ padding: '6px 8px', fontSize: 11, fontWeight: 700, fontFamily: 'Inter', borderBottom: '1px solid #f3f4f6' }}>
+                        ₹{((item.mrp || item.price || 0) * (item.qty || item.quantity || 0)).toFixed(2)}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

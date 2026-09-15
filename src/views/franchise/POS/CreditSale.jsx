@@ -1,5 +1,5 @@
 /* eslint-disable prettier/prettier */
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { CreditCard, ArrowLeft, Save, Smartphone, AlertCircle } from 'lucide-react'
 import PageHeader from '../components/PageHeader'
@@ -24,42 +24,58 @@ export default function CreditSale() {
   const [dueDate, setDueDate]     = useState('')
   const [note, setNote]           = useState('')
   const [saving, setSaving]       = useState(false)
-  const debounceRef = useRef()
+  const [creditLimit, setCreditLimit] = useState(0)
 
   useEffect(() => {
     (async () => {
       try {
-        const res = await getRequest('/franchise/pos/customers/search?q=&limit=20')
-        setCustomers(res.data?.data?.customers || [])
+        const res = await getRequest('franchise/pos/customers/search?q=&limit=50')
+        const list = res?.data?.customers || res?.data?.data?.customers || []
+        setCustomers(Array.isArray(list) ? list : [])
       } catch { setCustomers([]) }
     })()
   }, [])
 
+  // Fetch real credit limit when customer changes
+  useEffect(() => {
+    const id = custId
+    if (!id) { setCreditLimit(0); return }
+    getRequest(`franchise/customers/${id}`)
+      .then(res => {
+        const c = res?.data
+        // walletBalance = credit available; fallback to 5000 if not set
+        setCreditLimit(c?.walletBalance || c?.creditLimit || 5000)
+      })
+      .catch(() => setCreditLimit(5000))
+  }, [custId])
+
   const cust        = customers.find(c => (c._id || c.id) === custId) || customer_loc
-  const creditLimit = 2000
-  const prevDue     = cust?.dueAmount || 0
+  const prevDue     = cust?.dueAmount || parseFloat((cust?.due || '0').replace('₹','')) || 0
   const remaining   = creditLimit - TOTAL - prevDue
 
   const handleSave = async () => {
     if (!cust) { toast.error('Please select a customer'); return }
     setSaving(true)
     try {
-      await postRequest({
-        url: '/franchise/pos/sales/credit-sale',
-        cred: {
-          customerId:   cust._id || cust.id,
-          customerName: cust.name,
-          items: cart.map(i => ({ medicineId: i._id || i.id, medicineName: i.name, qty: i.qty, mrp: i.mrp, amount: i.mrp * i.qty })),
-          totalAmt: TOTAL,
-          creditAmt: TOTAL,
-          notes: note,
-        },
+      await postRequest('franchise/pos/sales/credit-sale', {
+        customerId:   cust._id || cust.id,
+        customerName: cust.name,
+        items: cart.map(i => ({
+          medicineId:   i._id || i.id,
+          medicineName: i.name,
+          qty:          i.qty,
+          mrp:          i.mrp,
+          amount:       i.mrp * i.qty,
+        })),
+        totalAmt:  TOTAL,
+        creditAmt: TOTAL,
+        dueDate:   dueDate || null,
+        notes:     note,
       })
       toast.success('Credit sale saved!')
       navigate('/franchise/pos/billing')
     } catch {
-      toast.error('Credit sale saved locally.')
-      navigate('/franchise/pos/billing')
+      toast.error('Failed to save credit sale')
     } finally {
       setSaving(false)
     }

@@ -9,12 +9,6 @@ import { getRequest } from '../../../Helpers'
 import toast from 'react-hot-toast'
 import PageHeader from '../components/PageHeader'
 
-const MOCK_RESULTS = [
-  { supplier: 'Medico Agencies', assignmentType: 'preferred', stock: 500, ptr: 42.50, scheme: '10+1', netRate: 38.64, isPreferred: true, isAvailable: true },
-  { supplier: 'PharmaDist Pvt Ltd', assignmentType: 'assigned', stock: 1200, ptr: 44.00, scheme: null, netRate: 44.00, isPreferred: false, isAvailable: true },
-  { supplier: 'SunPharma Dist', assignmentType: 'recommended', stock: 0, ptr: 41.00, scheme: null, netRate: 41.00, isPreferred: false, isAvailable: false },
-]
-
 const LiveRateCompare = () => {
   const [query, setQuery]       = useState('')
   const [results, setResults]   = useState([])
@@ -22,17 +16,22 @@ const LiveRateCompare = () => {
   const [searched, setSearched] = useState(false)
   const [selectedMed, setSelectedMed] = useState(null)
 
-  const handleSearch = (e) => {
+  const handleSearch = async (e) => {
     e.preventDefault()
     if (!query.trim()) return
     setLoading(true)
-    // In production: getRequest(`franchise/purchase/live-rate?medicine=${query}`)
-    setTimeout(() => {
-      setResults(MOCK_RESULTS)
+    try {
+      const res = await getRequest(`franchise/purchase/live-rate?medicine=${encodeURIComponent(query.trim())}`)
+      setResults(res?.data || [])
       setSelectedMed(query)
       setSearched(true)
+    } catch {
+      // fallback to empty results on error
+      setResults([])
+      setSearched(true)
+    } finally {
       setLoading(false)
-    }, 800)
+    }
   }
 
   const minRate = results.length ? Math.min(...results.filter((r) => r.isAvailable).map((r) => r.netRate)) : 0
