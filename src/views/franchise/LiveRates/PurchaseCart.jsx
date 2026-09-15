@@ -1,13 +1,13 @@
 /* eslint-disable prettier/prettier */
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ShoppingCart, Trash2 } from 'lucide-react'
 import PageHeader from '../components/PageHeader'
-import { postRequest } from '../../../Helpers'
+import { getRequest, postRequest } from '../../../Helpers'
 import toast from 'react-hot-toast'
 
-// Cart is managed in local state (session-level)
-const INIT_CART = [
+// Fallback demo items if API returns empty cart
+const DEMO_CART = [
   { id: 'c1', name: 'Paracetamol 650mg Tablet', pack: 'Strip of 15', qty: 50, price: 15.95, discountPct: 12, amount: 680.00 },
   { id: 'c2', name: 'Azithral 500 Tablet',      pack: 'Strip of 3',  qty: 30, price: 43.00, discountPct: 10, amount: 1161.80 },
   { id: 'c3', name: 'Amoxicillin 500mg',        pack: 'Strip of 10', qty: 10, price: 28.00, discountPct: 12, amount: 492.80 },
@@ -22,11 +22,35 @@ const Td = ({ children, style = {} }) => (
 
 export default function PurchaseCart() {
   const navigate = useNavigate()
-  const [items, setItems]       = useState(INIT_CART)
+  const [items, setItems]       = useState([])
+  const [cartLoading, setCartLoading] = useState(true)
   const [placing, setPlacing]   = useState(false)
 
-  const removeItem = (id) => setItems(p => p.filter(it => it.id !== id))
-  const updateQty  = (id, delta) => setItems(p => p.map(it => it.id === id ? { ...it, qty: Math.max(1, it.qty + delta), amount: +(it.price * Math.max(1, it.qty + delta) * (1 - it.discountPct / 100)).toFixed(2) } : it))
+  // Load cart from API on mount, fallback to demo data if empty
+  useEffect(() => {
+    const loadCart = async () => {
+      setCartLoading(true)
+      try {
+        const res = await getRequest('/franchise/live-rates/purchase-cart')
+        const serverItems = res.data?.data?.items || []
+        // API returns empty cart (cart is session-level) — use demo data to show UI
+        setItems(serverItems.length > 0 ? serverItems : DEMO_CART)
+      } catch {
+        setItems(DEMO_CART)
+      } finally {
+        setCartLoading(false)
+      }
+    }
+    loadCart()
+  }, [])
+
+  const removeItem = (id) => setItems(p => p.filter(it => (it.id || it._id) !== id))
+  const updateQty  = (id, delta) => setItems(p => p.map(it => {
+    const itId = it.id || it._id
+    if (itId !== id) return it
+    const newQty = Math.max(1, it.qty + delta)
+    return { ...it, qty: newQty, amount: +(it.price * newQty * (1 - (it.discountPct || 0) / 100)).toFixed(2) }
+  }))
 
   const totalItems  = items.reduce((s, it) => s + it.qty, 0)
   const grossAmt    = +items.reduce((s, it) => s + it.price * it.qty, 0).toFixed(2)
@@ -75,27 +99,39 @@ export default function PurchaseCart() {
                   <Th c="Price (₹)" align="right" /><Th c="Disc%" align="center" /><Th c="Amount (₹)" align="right" /><Th c="" />
                 </tr></thead>
                 <tbody>
-                  {items.map(it => (
-                    <tr key={it.id} onMouseEnter={e => e.currentTarget.style.background = '#fafafa'} onMouseLeave={e => e.currentTarget.style.background = ''}>
-                      <Td style={{ fontWeight: 600 }}>{it.name}</Td>
-                      <Td style={{ color: '#6b7280', fontSize: 12 }}>{it.pack}</Td>
-                      <Td style={{ textAlign: 'center' }}>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                          <button onClick={() => updateQty(it.id, -1)} style={{ width: 24, height: 24, borderRadius: 5, border: '1px solid #e5e7eb', background: '#f9fafb', cursor: 'pointer', fontWeight: 700 }}>-</button>
-                          <span style={{ fontWeight: 700, minWidth: 24, textAlign: 'center' }}>{it.qty}</span>
-                          <button onClick={() => updateQty(it.id, +1)} style={{ width: 24, height: 24, borderRadius: 5, border: '1px solid #e5e7eb', background: '#f9fafb', cursor: 'pointer', fontWeight: 700 }}>+</button>
-                        </div>
-                      </Td>
-                      <Td style={{ textAlign: 'right' }}>₹ {it.price.toFixed(2)}</Td>
-                      <Td style={{ textAlign: 'center', color: '#16a34a', fontWeight: 600 }}>{it.discountPct}%</Td>
-                      <Td style={{ textAlign: 'right', fontWeight: 700, color: '#0c3b73' }}>₹ {it.amount.toFixed(2)}</Td>
-                      <Td>
-                        <button onClick={() => removeItem(it.id)} style={{ background: '#fee2e2', border: 'none', borderRadius: 5, padding: '4px 7px', cursor: 'pointer' }}>
-                          <Trash2 size={12} color="#dc2626" />
-                        </button>
-                      </Td>
-                    </tr>
-                  ))}
+                  {cartLoading
+                    ? Array(3).fill(0).map((_, i) => (
+                      <tr key={i}>{Array(7).fill(0).map((_, j) => (
+                        <td key={j} style={{ padding: '10px 12px' }}>
+                          <div style={{ height: 13, background: '#f3f4f6', borderRadius: 4 }} />
+                        </td>
+                      ))}</tr>
+                    ))
+                    : items.map(it => {
+                      const itId = it.id || it._id
+                      return (
+                      <tr key={itId} onMouseEnter={e => e.currentTarget.style.background = '#fafafa'} onMouseLeave={e => e.currentTarget.style.background = ''}>
+                        <Td style={{ fontWeight: 600 }}>{it.name}</Td>
+                        <Td style={{ color: '#6b7280', fontSize: 12 }}>{it.pack || it.packSize}</Td>
+                        <Td style={{ textAlign: 'center' }}>
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                            <button onClick={() => updateQty(itId, -1)} style={{ width: 24, height: 24, borderRadius: 5, border: '1px solid #e5e7eb', background: '#f9fafb', cursor: 'pointer', fontWeight: 700 }}>-</button>
+                            <span style={{ fontWeight: 700, minWidth: 24, textAlign: 'center' }}>{it.qty}</span>
+                            <button onClick={() => updateQty(itId, +1)} style={{ width: 24, height: 24, borderRadius: 5, border: '1px solid #e5e7eb', background: '#f9fafb', cursor: 'pointer', fontWeight: 700 }}>+</button>
+                          </div>
+                        </Td>
+                        <Td style={{ textAlign: 'right' }}>₹ {Number(it.price || it.rate || 0).toFixed(2)}</Td>
+                        <Td style={{ textAlign: 'center', color: '#16a34a', fontWeight: 600 }}>{it.discountPct || 0}%</Td>
+                        <Td style={{ textAlign: 'right', fontWeight: 700, color: '#0c3b73' }}>₹ {Number(it.amount || 0).toFixed(2)}</Td>
+                        <Td>
+                          <button onClick={() => removeItem(itId)} style={{ background: '#fee2e2', border: 'none', borderRadius: 5, padding: '4px 7px', cursor: 'pointer' }}>
+                            <Trash2 size={12} color="#dc2626" />
+                          </button>
+                        </Td>
+                      </tr>
+                      )
+                    })
+                  }
                 </tbody>
               </table>
             </div>

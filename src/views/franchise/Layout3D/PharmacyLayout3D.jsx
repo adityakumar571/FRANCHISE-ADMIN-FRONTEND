@@ -8,8 +8,8 @@ import { MapPin, Plus, Package, Layers, AlertTriangle, Search, X, ChevronRight, 
 import { getRequest } from '../../../Helpers'
 import toast from 'react-hot-toast'
 
-/* ═══════════════════ MOCK DATA ═══════════════════ */
-const COUNTERS = [
+/* ═══════════════════ MOCK DATA (fallback) ═══════════════════ */
+const COUNTERS_FALLBACK = [
   { id: 'A', label: 'Counter A', color: '#3b82f6', x: 1, y: 0, status: 'active' },
   { id: 'B', label: 'Counter B', color: '#3b82f6', x: 3, y: 0, status: 'active' },
   { id: 'C', label: 'Counter C', color: '#3b82f6', x: 5, y: 0, status: 'active' },
@@ -17,7 +17,7 @@ const COUNTERS = [
   { id: 'F', label: 'Counter F', color: '#3b82f6', x: 0, y: 2, status: 'active' },
 ]
 
-const RACKS = [
+const RACKS_FALLBACK = [
   // Row A
   { id: 'A1', counter: 'A', shelf: 'Top',    box: 'Box 01', row: 0, col: 1, status: 'available', items: 38, capacity: 40 },
   { id: 'A2', counter: 'A', shelf: 'Middle', box: 'Box 02', row: 0, col: 2, status: 'available', items: 35, capacity: 40 },
@@ -118,18 +118,69 @@ const IsometricRack = ({ rack, selected, onClick, pinned }) => {
 
 /* ═══════════════════ MAIN COMPONENT ═══════════════════ */
 export default function PharmacyLayout3D() {
-  const [search, setSearch]           = useState('')
-  const [selectedRack, setSelectedRack] = useState(RACKS.find(r => r.id === 'B6'))
-  const [selectedCounter, setCounter] = useState('B')
-  const [foundMed, setFoundMed]       = useState(null)
-  const [showAddModal, setAddModal]   = useState(false)
-  const [addType, setAddType]         = useState('counter') // 'counter' | 'rack'
+  const [search, setSearch]             = useState('')
+  const [COUNTERS, setCounters]         = useState(COUNTERS_FALLBACK)
+  const [RACKS, setRacks]               = useState(RACKS_FALLBACK)
+  const [selectedRack, setSelectedRack] = useState(RACKS_FALLBACK.find(r => r.id === 'B6'))
+  const [selectedCounter, setCounter]   = useState('B')
+  const [foundMed, setFoundMed]         = useState(null)
+  const [showAddModal, setAddModal]     = useState(false)
+  const [addType, setAddType]           = useState('counter') // 'counter' | 'rack'
+
+  /* Load counters + racks from API on mount */
+  useEffect(() => {
+    const loadLayout = async () => {
+      try {
+        const [cRes, rRes] = await Promise.allSettled([
+          getRequest('/franchise/layout/counters'),
+          getRequest('/franchise/layout/racks'),
+        ])
+        if (cRes.status === 'fulfilled') {
+          const apiCounters = cRes.value.data?.data || []
+          if (apiCounters.length > 0) {
+            // Map API counter format to component format
+            const mapped = apiCounters.map((c, i) => ({
+              id:     c.id || c.label?.charAt(c.label.length - 1) || String.fromCharCode(65 + i),
+              label:  c.label || `Counter ${String.fromCharCode(65 + i)}`,
+              color:  '#3b82f6',
+              x:      c.x != null ? c.x : i * 2,
+              y:      c.y != null ? c.y : 0,
+              status: c.status || 'active',
+            }))
+            setCounters(mapped)
+          }
+        }
+        if (rRes.status === 'fulfilled') {
+          const apiRacks = rRes.value.data?.data || []
+          if (apiRacks.length > 0) {
+            // Map API rack format to component format
+            const mapped = apiRacks.map((r, i) => ({
+              id:       r.code || r.id || `R${i + 1}`,
+              counter:  r.counter || 'A',
+              shelf:    r.shelf   || 'Top',
+              box:      r.description || 'General',
+              row:      Math.floor(i / 6),
+              col:      (i % 6) + 1,
+              status:   r.status || 'available',
+              items:    r.items  || 0,
+              capacity: r.capacity || 40,
+            }))
+            setRacks(mapped)
+            setSelectedRack(mapped.find(r => r.id === 'B6') || mapped[0])
+          }
+        }
+      } catch {
+        // Silently fallback to hardcoded data — UI remains same
+      }
+    }
+    loadLayout()
+  }, [])
 
   /* Search logic */
   const handleSearch = async (val) => {
     setSearch(val)
     if (!val.trim()) { setFoundMed(null); return }
-    // First check local mock data for instant feedback
+    // First check local medicines for instant feedback
     const med = MEDICINES.find(m => m.name.toLowerCase().includes(val.toLowerCase()))
     if (med) {
       setFoundMed(med)

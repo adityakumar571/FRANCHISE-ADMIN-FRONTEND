@@ -111,8 +111,9 @@ import ProfitLoss   from './views/franchise/Accounts/ProfitLoss'
 import BalanceSheet from './views/franchise/Accounts/BalanceSheet'
 
 // ── Staff & Users ─────────────────────────────────────────────────────────────
-import StaffUsers from './views/franchise/Staff/StaffUsers'
+import StaffUsers        from './views/franchise/Staff/StaffUsers'
 import MenuAccessControl from './views/franchise/Staff/MenuAccessControl'
+import RoleMaster        from './views/franchise/Staff/RoleMaster'
 
 // ── User Management ───────────────────────────────────────────────────────────
 import UserManagement from './views/franchise/UserManagement/UserManagement'
@@ -253,6 +254,7 @@ const routes = [
   /* ── Staff ── */
   { path: '/franchise/staff',             element: StaffUsers,        accessKey: 'staff_list'   },
   { path: '/franchise/staff/menu-access', element: MenuAccessControl, accessKey: 'staff_access' },
+  { path: '/franchise/staff/roles',       element: RoleMaster,        accessKey: 'staff_access' },
 
   /* ── User Management ── */
   { path: '/franchise/user-management', element: UserManagement },

@@ -19,6 +19,7 @@ import {
   Map,
 } from 'lucide-react'
 
+
 const C = '#fabf22'
 const S = { marginRight: 10, flexShrink: 0 }
 const ic = (Icon) => <Icon size={17} color={C} style={S} />
@@ -278,6 +279,7 @@ const franchiseNav = [
     accessKey: 'staff',
     items: [
       { component: CNavItem, name: 'Staff List',          to: '/franchise/staff',             icon: ic(List),        accessKey: 'staff_list'   },
+      { component: CNavItem, name: 'Role Master',         to: '/franchise/staff/roles',       icon: ic(ShieldCheck), accessKey: 'staff_access' },
       { component: CNavItem, name: 'Menu Access Control', to: '/franchise/staff/menu-access', icon: ic(ShieldCheck), accessKey: 'staff_access' },
     ],
   },

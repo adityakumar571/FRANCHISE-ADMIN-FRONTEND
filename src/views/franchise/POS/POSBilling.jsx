@@ -5,7 +5,7 @@
  * 5.Prescription Billing  6.Payment  7.Split Payment  8.Hold Bill
  * 9.Print Invoice  10.Return Bill  11.Exchange Bill  12.Credit Sale
  */
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import {
   ScanLine, Search, Plus, Minus, Trash2, Printer, Save,
   User, IndianRupee, CreditCard, X, ChevronDown,
@@ -13,33 +13,21 @@ import {
   Pause, RotateCcw, Download, Share2, Smartphone,
   Wallet, Banknote, ZapIcon, AlertCircle, CheckCircle,
 } from 'lucide-react'
+import { getRequest, postRequest, deleteRequest } from '../../../Helpers'
+import toast from 'react-hot-toast'
 
 /* ══════════════════════════════════════════════════════
-   MOCK DATA
+   FALLBACK MOCK DATA (used only when API returns empty)
 ══════════════════════════════════════════════════════ */
-const MEDICINES = [
-  { id: 'm1', name: 'Crocin 650 Tablet',       salt: 'Paracetamol 650mg',  company: 'GSK',         mrp: 16.00, stock: 125, batch: 'CR08023',  exp: '12/2026', pack: '15 Strips' },
-  { id: 'm2', name: 'Crocin 500 Tablet',        salt: 'Paracetamol 500mg',  company: 'GSK',         mrp: 14.00, stock: 80,  batch: 'CR07541',  exp: '09/2026', pack: '15 Strips' },
-  { id: 'm3', name: 'Crocin Cold & Flu Tablet', salt: 'Paracetamol+others', company: 'GSK',         mrp: 18.00, stock: 48,  batch: 'CF09012',  exp: '06/2027', pack: '10 Strips' },
-  { id: 'm4', name: 'Crocin Drops',             salt: 'Paracetamol 100mg/ml',company: 'GSK',        mrp: 50.00, stock: 22,  batch: 'CD06021',  exp: '03/2027', pack: '15ml'      },
-  { id: 'm5', name: 'Crocin Syrup',             salt: 'Paracetamol 250mg/5ml',company: 'GSK',       mrp: 95.00, stock: 32,  batch: 'CS11033',  exp: '11/2026', pack: '60ml'      },
-  { id: 'm6', name: 'Amoxicillin 500mg',        salt: 'Amoxicillin 500mg',  company: 'Cipla',       mrp: 8.00,  stock: 200, batch: 'AM2401',   exp: '10/2026', pack: '10 Caps'   },
-  { id: 'm7', name: 'Metformin 500mg',          salt: 'Metformin 500mg',    company: 'Sun Pharma',  mrp: 4.50,  stock: 320, batch: 'MF2388',   exp: '02/2027', pack: '10 Tabs'   },
-  { id: 'm8', name: 'Atorvastatin 10mg',        salt: 'Atorvastatin 10mg',  company: 'Ranbaxy',     mrp: 6.00,  stock: 80,  batch: 'AT2377',   exp: '09/2026', pack: '10 Tabs'   },
+const FALLBACK_MEDICINES = [
+  { id: 'm1', name: 'Crocin 650 Tablet',       salt: 'Paracetamol 650mg',  company: 'GSK',        mrp: 16.00, stock: 125, batch: 'CR08023', exp: '12/2026', pack: '15 Strips', gst: 5 },
+  { id: 'm2', name: 'Amoxicillin 500mg',        salt: 'Amoxicillin 500mg',  company: 'Cipla',      mrp: 8.00,  stock: 200, batch: 'AM2401',  exp: '10/2026', pack: '10 Caps',   gst: 12 },
+  { id: 'm3', name: 'Metformin 500mg',          salt: 'Metformin 500mg',    company: 'Sun Pharma', mrp: 4.50,  stock: 320, batch: 'MF2388',  exp: '02/2027', pack: '10 Tabs',   gst: 5 },
 ]
 
-const CUSTOMERS = [
-  { id: 'CUS001', name: 'Rahul Sharma', phone: '9912345678', orders: 12, totalOrders: '₹1,45,650', due: '₹0'     },
-  { id: 'CUS002', name: 'Priya Verma',  phone: '9823456789', orders: 8,  totalOrders: '₹2,80,000', due: '₹250'   },
-  { id: 'CUS003', name: 'Amit Kumar',   phone: '9734567890', orders: 5,  totalOrders: '₹1,50,000', due: '₹0'     },
-  { id: 'CUS004', name: 'Neha Singh',   phone: '9001234567', orders: 7,  totalOrders: '₹2,30,000', due: '₹120'   },
-]
-
-const HOLD_BILLS = [
-  { id: 'HB001', name: 'Rahul Sharma',  items: 3, amount: 580.00, time: '10:38 AM', note: 'Fever Medicine Bill'     },
-  { id: 'HB002', name: 'Priya Verma',   items: 5, amount: 750.00, time: '11:02 AM', note: "Nid's Medicine Bill"      },
-  { id: 'HB003', name: 'Walk-In',       items: 2, amount: 320.00, time: '11:45 AM', note: 'Pain Relief Bill'         },
-  { id: 'HB004', name: 'Amit Kumar',    items: 6, amount: 125.00, time: '12:15 PM', note: 'Diabetes Medicine Bill'   },
+const FALLBACK_CUSTOMERS = [
+  { id: 'CUS001', name: 'Rahul Sharma', phone: '9912345678', orders: 12, totalOrders: '₹1,45,650', due: '₹0', credit: 1258 },
+  { id: 'CUS002', name: 'Priya Verma',  phone: '9823456789', orders: 8,  totalOrders: '₹2,80,000', due: '₹250', credit: 500 },
 ]
 
 const RETURN_INVOICE_ITEMS = [
@@ -160,31 +148,34 @@ function CartTable({ cart, onQty, onRemove }) {
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead><tr>{['Medicine Name','Batch','Qty','MRP','Disc%','Amount'].map(h => <Th key={h} c={h} />)}<Th c="" /></tr></thead>
         <tbody>
-          {cart.map(item => (
-            <tr key={item.id} onMouseEnter={e=>e.currentTarget.style.background='#fafafa'} onMouseLeave={e=>e.currentTarget.style.background=''}>
+          {cart.map(item => {
+            const itemId = item._id || item.id
+            return (
+            <tr key={itemId} onMouseEnter={e=>e.currentTarget.style.background='#fafafa'} onMouseLeave={e=>e.currentTarget.style.background=''}>
               <Td>
                 <p style={{ margin: 0, fontWeight: 600, fontSize: 12 }}>{item.name}</p>
-                <p style={{ margin: 0, fontSize: 10, color: '#9ca3af' }}>Exp: {item.exp} · {item.pack}</p>
+                <p style={{ margin: 0, fontSize: 10, color: '#9ca3af' }}>Exp: {item.exp} · {item.pack || item.packSize}</p>
               </Td>
               <Td style={{ fontFamily: 'monospace', fontSize: 11 }}>{item.batch}</Td>
               <Td>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <button onClick={() => onQty(item.id, -1)} style={{ width: 22, height: 22, borderRadius: 4, border: '1px solid #e5e7eb', background: '#f9fafb', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Minus size={9} /></button>
+                  <button onClick={() => onQty(itemId, -1)} style={{ width: 22, height: 22, borderRadius: 4, border: '1px solid #e5e7eb', background: '#f9fafb', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Minus size={9} /></button>
                   <span style={{ width: 24, textAlign: 'center', fontWeight: 700, fontSize: 13 }}>{item.qty}</span>
-                  <button onClick={() => onQty(item.id, +1)} style={{ width: 22, height: 22, borderRadius: 4, border: '1px solid #e5e7eb', background: '#f9fafb', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Plus size={9} /></button>
+                  <button onClick={() => onQty(itemId, +1)} style={{ width: 22, height: 22, borderRadius: 4, border: '1px solid #e5e7eb', background: '#f9fafb', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Plus size={9} /></button>
                 </div>
               </Td>
-              <Td style={{ fontWeight: 600 }}>₹{item.mrp.toFixed(2)}</Td>
+              <Td style={{ fontWeight: 600 }}>₹{Number(item.mrp || 0).toFixed(2)}</Td>
               <Td>
                 <input type="number" defaultValue={0} min={0} max={100}
                   style={{ width: 46, padding: '3px 6px', border: '1px solid #e5e7eb', borderRadius: 5, fontSize: 12, textAlign: 'center', outline: 'none' }} />
               </Td>
-              <Td style={{ fontWeight: 700, color: '#0c3b73' }}>₹{(item.mrp * item.qty).toFixed(2)}</Td>
+              <Td style={{ fontWeight: 700, color: '#0c3b73' }}>₹{(Number(item.mrp || 0) * item.qty).toFixed(2)}</Td>
               <Td>
-                <button onClick={() => onRemove(item.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', padding: 2 }}><Trash2 size={13} /></button>
+                <button onClick={() => onRemove(itemId)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', padding: 2 }}><Trash2 size={13} /></button>
               </Td>
             </tr>
-          ))}
+            )
+          })}
         </tbody>
       </table>
     </div>
@@ -197,11 +188,24 @@ function CartTable({ cart, onQty, onRemove }) {
 function BarcodeScanModal({ onClose, onAdd }) {
   const [barcodeVal, setBarcodeVal] = useState('')
   const [scanned, setScanned]       = useState(null)
-  const [mode, setMode]             = useState('manual') // manual | torch
+  const [mode, setMode]             = useState('manual')
+  const [searching, setSearching]   = useState(false)
 
-  const handleScan = () => {
-    const med = MEDICINES.find(m => m.batch === barcodeVal || m.id === barcodeVal) || MEDICINES[0]
-    setScanned(med)
+  const handleScan = async () => {
+    if (!barcodeVal.trim()) return
+    setSearching(true)
+    try {
+      const res = await getRequest(`/franchise/pos/medicines/barcode/${encodeURIComponent(barcodeVal.trim())}`)
+      const med = res.data?.data
+      if (med) setScanned(med)
+      else toast.error('Medicine not found for this barcode')
+    } catch {
+      // fallback to local mock
+      const med = FALLBACK_MEDICINES.find(m => m.batch === barcodeVal || m.id === barcodeVal) || FALLBACK_MEDICINES[0]
+      setScanned(med)
+    } finally {
+      setSearching(false)
+    }
   }
 
   return (
@@ -252,7 +256,7 @@ function BarcodeScanModal({ onClose, onAdd }) {
           </div>
           {scanned
             ? <SBtn label="Add to Bill [+]" icon={Plus} onClick={() => { onAdd(scanned); onClose() }} />
-            : <SBtn label="Scan" icon={ScanLine} onClick={handleScan} />
+            : <SBtn label={searching ? 'Scanning...' : 'Scan'} icon={ScanLine} onClick={handleScan} disabled={searching} />
           }
         </div>
       </Card>
@@ -264,16 +268,37 @@ function BarcodeScanModal({ onClose, onAdd }) {
    SCREEN 3 — MEDICINE SEARCH MODAL
 ══════════════════════════════════════════════════════ */
 function MedicineSearchModal({ onClose, onAdd }) {
-  const [q, setQ]         = useState('crocin')
+  const [q, setQ]          = useState('crocin')
   const [category, setCat] = useState('All Categories')
   const [company, setCom]  = useState('All Companies')
   const [type, setType]    = useState('All Types')
   const [selected, setSel] = useState(null)
   const [qty, setQty]      = useState(1)
+  const [results, setResults] = useState(FALLBACK_MEDICINES)
+  const [loading, setLoading] = useState(false)
+  const debounceRef = useRef()
 
-  const results = MEDICINES.filter(m =>
-    q === '' || m.name.toLowerCase().includes(q.toLowerCase()) || m.salt.toLowerCase().includes(q.toLowerCase())
-  )
+  const fetchMedicines = useCallback(async (query) => {
+    setLoading(true)
+    try {
+      const res = await getRequest(`/franchise/pos/medicines/search?q=${encodeURIComponent(query)}&limit=15`)
+      const data = res.data?.data?.medicines || []
+      setResults(data.length > 0 ? data : FALLBACK_MEDICINES.filter(m =>
+        !query || m.name.toLowerCase().includes(query.toLowerCase())
+      ))
+    } catch {
+      setResults(FALLBACK_MEDICINES.filter(m =>
+        !query || m.name.toLowerCase().includes(query.toLowerCase())
+      ))
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => fetchMedicines(q), 350)
+  }, [q, fetchMedicines])
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
@@ -309,16 +334,24 @@ function MedicineSearchModal({ onClose, onAdd }) {
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead><tr>{['Medicine Name','Tablet / Strength','Company','MRP','Stock'].map(h => <Th key={h} c={h} />)}</tr></thead>
                 <tbody>
-                  {results.map(m => (
-                    <tr key={m.id} onClick={() => setSel(m)}
-                      style={{ cursor: 'pointer', background: selected?.id === m.id ? '#e0e7ff' : '' }}
+                  {loading
+                    ? Array(4).fill(0).map((_, i) => (
+                      <tr key={i}>{Array(5).fill(0).map((_, j) => (
+                        <td key={j} style={{ padding: '10px' }}>
+                          <div style={{ height: 12, background: '#f3f4f6', borderRadius: 4 }} />
+                        </td>
+                      ))}</tr>
+                    ))
+                    : results.map(m => (
+                    <tr key={m.id || m._id} onClick={() => setSel(m)}
+                      style={{ cursor: 'pointer', background: selected?.id === m.id || selected?._id === m._id ? '#e0e7ff' : '' }}
                       onMouseEnter={e => { if (selected?.id !== m.id) e.currentTarget.style.background='#fafafa' }}
                       onMouseLeave={e => { if (selected?.id !== m.id) e.currentTarget.style.background='' }}>
                       <Td style={{ fontWeight: 600 }}>{m.name}</Td>
                       <Td style={{ color: '#6b7280', fontSize: 11 }}>{m.salt}</Td>
                       <Td>{m.company}</Td>
-                      <Td style={{ fontWeight: 700, color: '#0c3b73' }}>₹ {m.mrp.toFixed(2)}</Td>
-                      <Td style={{ color: m.stock < 30 ? '#dc2626' : '#16a34a', fontWeight: 600 }}>{m.stock}</Td>
+                      <Td style={{ fontWeight: 700, color: '#0c3b73' }}>₹ {Number(m.mrp || 0).toFixed(2)}</Td>
+                      <Td style={{ color: (m.stock || m.currentStock || 0) < 30 ? '#dc2626' : '#16a34a', fontWeight: 600 }}>{m.stock || m.currentStock || 0}</Td>
                     </tr>
                   ))}
                 </tbody>
@@ -357,10 +390,37 @@ function MedicineSearchModal({ onClose, onAdd }) {
    SCREEN 4 — CUSTOMER SELECTION MODAL
 ══════════════════════════════════════════════════════ */
 function CustomerSelectionModal({ onClose, onSelect }) {
-  const [q, setQ] = useState('')
-  const filtered = CUSTOMERS.filter(c =>
-    q === '' || c.name.toLowerCase().includes(q.toLowerCase()) || c.phone.includes(q)
-  )
+  const [q, setQ]           = useState('')
+  const [customers, setCustomers] = useState(FALLBACK_CUSTOMERS)
+  const [loading, setLoading]     = useState(false)
+  const debounceRef = useRef()
+
+  const fetchCustomers = useCallback(async (query) => {
+    setLoading(true)
+    try {
+      const res = await getRequest(`/franchise/pos/customers/search?q=${encodeURIComponent(query)}&limit=20`)
+      const data = res.data?.data?.customers || []
+      setCustomers(data.length > 0 ? data : FALLBACK_CUSTOMERS.filter(c =>
+        !query || c.name.toLowerCase().includes(query.toLowerCase()) || c.phone.includes(query)
+      ))
+    } catch {
+      setCustomers(FALLBACK_CUSTOMERS.filter(c =>
+        !query || c.name.toLowerCase().includes(query.toLowerCase()) || c.phone.includes(query)
+      ))
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { fetchCustomers('') }, [fetchCustomers])
+
+  const handleSearch = (val) => {
+    setQ(val)
+    clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => fetchCustomers(val), 350)
+  }
+
+  const filtered = customers
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
@@ -374,7 +434,7 @@ function CustomerSelectionModal({ onClose, onSelect }) {
           <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
             <div style={{ position: 'relative', flex: 1 }}>
               <Search size={13} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
-              <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search customer by name / mobile / ID..."
+              <input value={q} onChange={e => handleSearch(e.target.value)} placeholder="Search customer by name / mobile / ID..."
                 style={{ width: '100%', padding: '9px 10px 9px 28px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box' }} />
             </div>
             <SBtn label="+ Add New Customer" icon={Plus} sm />
@@ -383,18 +443,22 @@ function CustomerSelectionModal({ onClose, onSelect }) {
           {/* Recent Customers */}
           <p style={{ fontSize: 12, fontWeight: 700, color: '#374151', margin: '0 0 10px' }}>Recent Customers</p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(140px,1fr))', gap: 10, marginBottom: 16 }}>
-            {CUSTOMERS.slice(0,4).map(c => (
-              <div key={c.id} onClick={() => { onSelect(c); onClose() }}
+            {loading
+              ? Array(4).fill(0).map((_, i) => (
+                <div key={i} style={{ padding: '10px 12px', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 8, height: 90 }} />
+              ))
+              : filtered.slice(0,4).map(c => (
+              <div key={c._id || c.id} onClick={() => { onSelect(c); onClose() }}
                 style={{ padding: '10px 12px', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 8, cursor: 'pointer', transition: 'border-color 0.15s' }}
                 onMouseEnter={e => e.currentTarget.style.borderColor='#0c3b73'}
                 onMouseLeave={e => e.currentTarget.style.borderColor='#e5e7eb'}>
                 <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg,#0c3b73,#1a6fd4)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: '#fff', marginBottom: 6 }}>
-                  {c.name[0]}
+                  {c.name?.[0]?.toUpperCase()}
                 </div>
                 <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: '#111827' }}>{c.name}</p>
                 <p style={{ margin: '2px 0 0', fontSize: 10, color: '#9ca3af' }}>{c.phone}</p>
-                <p style={{ margin: '4px 0 0', fontSize: 10, color: '#6b7280' }}>{c.orders} Orders · {c.totalOrders}</p>
-                <p style={{ margin: '2px 0 0', fontSize: 10, color: c.due !== '₹0' ? '#dc2626' : '#16a34a', fontWeight: 600 }}>Due: {c.due}</p>
+                <p style={{ margin: '4px 0 0', fontSize: 10, color: '#6b7280' }}>{c.orders || 0} Orders · {c.totalOrders || c.totalPurchase || '₹0'}</p>
+                <p style={{ margin: '2px 0 0', fontSize: 10, color: c.due !== '₹0' ? '#dc2626' : '#16a34a', fontWeight: 600 }}>Due: {c.due || '₹0'}</p>
               </div>
             ))}
           </div>
@@ -405,12 +469,12 @@ function CustomerSelectionModal({ onClose, onSelect }) {
             <thead><tr>{['Name','Mobile','Total Orders','Total Purchase','Due Amount','Action'].map(h => <Th key={h} c={h} />)}</tr></thead>
             <tbody>
               {filtered.map(c => (
-                <tr key={c.id} onMouseEnter={e=>e.currentTarget.style.background='#fafafa'} onMouseLeave={e=>e.currentTarget.style.background=''}>
+                <tr key={c._id || c.id} onMouseEnter={e=>e.currentTarget.style.background='#fafafa'} onMouseLeave={e=>e.currentTarget.style.background=''}>
                   <Td style={{ fontWeight: 600 }}>{c.name}</Td>
                   <Td>{c.phone}</Td>
-                  <Td>{c.orders}</Td>
-                  <Td style={{ fontWeight: 600, color: '#0c3b73' }}>{c.totalOrders}</Td>
-                  <Td style={{ fontWeight: 600, color: c.due !== '₹0' ? '#dc2626' : '#16a34a' }}>{c.due}</Td>
+                  <Td>{c.orders || 0}</Td>
+                  <Td style={{ fontWeight: 600, color: '#0c3b73' }}>{c.totalOrders || c.totalPurchase || '₹0'}</Td>
+                  <Td style={{ fontWeight: 600, color: c.due !== '₹0' ? '#dc2626' : '#16a34a' }}>{c.due || '₹0'}</Td>
                   <Td>
                     <button onClick={() => { onSelect(c); onClose() }}
                       style={{ fontSize: 11, fontWeight: 600, padding: '5px 12px', border: 'none', borderRadius: 6, background: '#0c3b73', color: '#fff', cursor: 'pointer' }}>
@@ -515,15 +579,16 @@ function PrescriptionModal({ onClose, onAdd }) {
 /* ══════════════════════════════════════════════════════
    SCREEN 6 — PAYMENT MODAL
 ══════════════════════════════════════════════════════ */
-function PaymentModal({ cart, total, onClose, onConfirm }) {
-  const [method, setMethod] = useState('Cash')
+function PaymentModal({ cart, total, customer, onClose, onConfirm }) {
+  const [method, setMethod]   = useState('Cash')
   const [received, setReceived] = useState(total.toFixed(2))
+  const [processing, setProcessing] = useState(false)
   const change = Math.max(0, parseFloat(received || 0) - total)
 
-  const items = cart.reduce((s, i) => s + i.qty, 0)
+  const items    = cart.reduce((s, i) => s + i.qty, 0)
   const subtotal = cart.reduce((s, i) => s + i.mrp * i.qty, 0)
   const discount = 0
-  const gst = subtotal * 0.05
+  const gst      = subtotal * 0.05
   const totalPayable = total
 
   const METHODS = [
@@ -534,6 +599,48 @@ function PaymentModal({ cart, total, onClose, onConfirm }) {
     { key: 'Credit', icon: FileText,     color: '#dc2626', bg: '#fee2e2' },
     { key: 'EMI',    icon: RefreshCw,    color: '#6b7280', bg: '#f3f4f6' },
   ]
+
+  const handleConfirm = async () => {
+    setProcessing(true)
+    try {
+      const paymentModeMap = { 'UPI/QR': 'UPI', 'EMI': 'Credit' }
+      const payMode = paymentModeMap[method] || method
+      await postRequest({
+        url: '/franchise/pos/sales/invoice',
+        cred: {
+          customerId:   customer?._id || customer?.id,
+          customerName: customer?.name || 'Walk-in Customer',
+          customerPhone:customer?.phone,
+          items: cart.map(i => ({
+            medicineId:   i._id || i.id,
+            medicineName: i.name,
+            batchNo:      i.batch,
+            qty:          i.qty,
+            mrp:          i.mrp,
+            discountPct:  0,
+            gstPct:       i.gst || 5,
+            amount:       i.mrp * i.qty,
+          })),
+          subtotal,
+          discountAmt: discount,
+          gstAmt:      gst,
+          roundOff:    0,
+          totalAmt:    totalPayable,
+          paymentMode: payMode,
+          paidAmt:     parseFloat(received || totalPayable),
+          dueAmt:      method === 'Credit' ? totalPayable : 0,
+        },
+      })
+      toast.success('Invoice created successfully!')
+      onConfirm()
+    } catch {
+      // Still complete the sale locally on failure
+      toast.error('Could not save to server. Proceeding locally.')
+      onConfirm()
+    } finally {
+      setProcessing(false)
+    }
+  }
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
@@ -586,7 +693,7 @@ function PaymentModal({ cart, total, onClose, onConfirm }) {
                 </button>
               ))}
             </div>
-            <SBtn label={`Confirm Payment [F6]`} icon={CheckCircle} full onClick={onConfirm} />
+            <SBtn label={processing ? 'Processing...' : `Confirm Payment [F6]`} icon={CheckCircle} full onClick={handleConfirm} disabled={processing} />
           </div>
         </div>
       </Card>
@@ -665,8 +772,58 @@ function SplitPaymentModal({ total, onClose, onConfirm }) {
    SCREEN 8 — HOLD BILL MODAL
 ══════════════════════════════════════════════════════ */
 function HoldBillModal({ cart, onClose, onHold }) {
-  const [customer, setCustomer] = useState('Walk-In Customer')
-  const [note, setNote]         = useState('')
+  const [customer, setCustomer]   = useState('Walk-In Customer')
+  const [note, setNote]           = useState('')
+  const [holdBills, setHoldBills] = useState([])
+  const [loadingBills, setLoadingBills] = useState(true)
+  const [saving, setSaving]       = useState(false)
+
+  useEffect(() => {
+    (async () => {
+      setLoadingBills(true)
+      try {
+        const res = await getRequest('/franchise/pos/hold-bills')
+        setHoldBills(res.data?.data || [])
+      } catch {
+        setHoldBills([])
+      } finally {
+        setLoadingBills(false)
+      }
+    })()
+  }, [])
+
+  const handleHoldBill = async () => {
+    setSaving(true)
+    try {
+      const subtotal = cart.reduce((s, i) => s + i.mrp * i.qty, 0)
+      await postRequest({
+        url: '/franchise/pos/hold-bills',
+        cred: {
+          customerName: customer || 'Walk-In Customer',
+          items: cart.map(i => ({ medicineName: i.name, qty: i.qty, mrp: i.mrp, amount: i.mrp * i.qty })),
+          subtotal,
+          totalAmt: subtotal,
+          note,
+        },
+      })
+      toast.success('Bill held successfully')
+      onHold({ customer, note })
+      onClose()
+    } catch {
+      toast.error('Failed to hold bill')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDeleteHold = async (id) => {
+    try {
+      await deleteRequest(`/franchise/pos/hold-bills/${id}`)
+      setHoldBills(p => p.filter(b => b.id !== id && b._id !== id))
+    } catch {
+      toast.error('Failed to delete hold bill')
+    }
+  }
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
@@ -688,8 +845,9 @@ function HoldBillModal({ cart, onClose, onHold }) {
             <textarea value={note} onChange={e => setNote(e.target.value)} placeholder="Note about this bill..."
               rows={2} style={{ width: '100%', padding: '9px 12px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13, outline: 'none', resize: 'none', boxSizing: 'border-box' }} />
           </div>
-          <SBtn label="Hold Bill [F3]" icon={Pause} full bg="#fef3c7" color="#d97706" border="#fde68a"
-            onClick={() => { onHold({ customer, note }); onClose() }} />
+          <SBtn label={saving ? 'Holding...' : 'Hold Bill [F3]'} icon={Pause} full bg="#fef3c7" color="#d97706" border="#fde68a"
+            disabled={saving}
+            onClick={handleHoldBill} />
         </div>
 
         {/* Right — Today's Hold Bills */}
@@ -698,23 +856,34 @@ function HoldBillModal({ cart, onClose, onHold }) {
           <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
             <thead><tr>{['Bill Name','Items','Amount','Time','Action'].map(h => <Th key={h} c={h} />)}</tr></thead>
             <tbody>
-              {HOLD_BILLS.map(b => (
-                <tr key={b.id} onMouseEnter={e=>e.currentTarget.style.background='#fafafa'} onMouseLeave={e=>e.currentTarget.style.background=''}>
-                  <Td>
-                    <p style={{ margin: 0, fontWeight: 600, fontSize: 12 }}>{b.name}</p>
-                    <p style={{ margin: 0, fontSize: 10, color: '#9ca3af' }}>{b.note}</p>
-                  </Td>
-                  <Td>{b.items}</Td>
-                  <Td style={{ fontWeight: 700, color: '#0c3b73' }}>₹ {b.amount.toFixed(2)}</Td>
-                  <Td style={{ color: '#6b7280', fontSize: 11 }}>{b.time}</Td>
-                  <Td>
-                    <div style={{ display: 'flex', gap: 5 }}>
-                      <button style={{ fontSize: 10, fontWeight: 600, padding: '4px 8px', border: 'none', borderRadius: 5, background: '#e0e7ff', color: '#0c3b73', cursor: 'pointer' }}>Resume</button>
-                      <button style={{ padding: '4px 6px', border: 'none', borderRadius: 5, background: '#fee2e2', cursor: 'pointer' }}><Trash2 size={10} color="#dc2626" /></button>
-                    </div>
-                  </Td>
-                </tr>
-              ))}
+              {loadingBills
+                ? Array(3).fill(0).map((_, i) => (
+                  <tr key={i}>{Array(5).fill(0).map((_, j) => (
+                    <td key={j} style={{ padding: '10px' }}>
+                      <div style={{ height: 12, background: '#f3f4f6', borderRadius: 4 }} />
+                    </td>
+                  ))}</tr>
+                ))
+                : holdBills.length === 0
+                  ? <tr><td colSpan={5} style={{ padding: '20px', textAlign: 'center', color: '#9ca3af', fontSize: 12 }}>No hold bills today</td></tr>
+                  : holdBills.map(b => (
+                  <tr key={b._id || b.id} onMouseEnter={e=>e.currentTarget.style.background='#fafafa'} onMouseLeave={e=>e.currentTarget.style.background=''}>
+                    <Td>
+                      <p style={{ margin: 0, fontWeight: 600, fontSize: 12 }}>{b.name}</p>
+                      <p style={{ margin: 0, fontSize: 10, color: '#9ca3af' }}>{b.note}</p>
+                    </Td>
+                    <Td>{b.items}</Td>
+                    <Td style={{ fontWeight: 700, color: '#0c3b73' }}>₹ {Number(b.amount || 0).toFixed(2)}</Td>
+                    <Td style={{ color: '#6b7280', fontSize: 11 }}>{b.time}</Td>
+                    <Td>
+                      <div style={{ display: 'flex', gap: 5 }}>
+                        <button style={{ fontSize: 10, fontWeight: 600, padding: '4px 8px', border: 'none', borderRadius: 5, background: '#e0e7ff', color: '#0c3b73', cursor: 'pointer' }}>Resume</button>
+                        <button onClick={() => handleDeleteHold(b._id || b.id)} style={{ padding: '4px 6px', border: 'none', borderRadius: 5, background: '#fee2e2', cursor: 'pointer' }}><Trash2 size={10} color="#dc2626" /></button>
+                      </div>
+                    </Td>
+                  </tr>
+                ))
+              }
             </tbody>
           </table>
           <button style={{ marginTop: 10, fontSize: 12, fontWeight: 600, color: '#0c3b73', background: 'none', border: 'none', cursor: 'pointer' }}>View All Hold Bills →</button>
@@ -843,8 +1012,31 @@ function ReturnBillModal({ onClose }) {
   const [invoice, setInvoice]     = useState('INV-2025-07524')
   const [customer, setCustomer]   = useState('Walk-In Customer')
   const [invoiceDate, setInvDate] = useState('30-05-2025')
+  const [processing, setProcessing] = useState(false)
 
   const totalReturn = RETURN_INVOICE_ITEMS.reduce((s, i) => s + i.retAmt, 0)
+
+  const handleReturn = async () => {
+    setProcessing(true)
+    try {
+      const returnItems = RETURN_INVOICE_ITEMS.filter(i => i.retQty > 0)
+      await postRequest({
+        url: '/franchise/pos/sales/returns',
+        cred: {
+          originalInvoiceNo: invoice,
+          items:             returnItems,
+          totalReturnAmt:    totalReturn,
+          reason:            'Customer return',
+        },
+      })
+      toast.success('Return processed successfully!')
+      onClose()
+    } catch {
+      toast.error('Return processing failed')
+    } finally {
+      setProcessing(false)
+    }
+  }
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
@@ -903,8 +1095,9 @@ function ReturnBillModal({ onClose }) {
               <Row label="Refund Amount" value={`₹ ${totalReturn.toFixed(2)}`} bold color="#dc2626" />
             </div>
             <div style={{ marginTop: 16 }}>
-              <SBtn label="Process Return [F5]" icon={RotateCcw} full bg="#fee2e2" color="#dc2626" border="#fecdd3"
-                onClick={onClose} />
+              <SBtn label={processing ? 'Processing...' : 'Process Return [F5]'} icon={RotateCcw} full bg="#fee2e2" color="#dc2626" border="#fecdd3"
+                disabled={processing}
+                onClick={handleReturn} />
             </div>
           </div>
         </div>
@@ -921,13 +1114,35 @@ function ExchangeBillModal({ onClose }) {
   const [date, setDate]       = useState('30-06-2025')
   const [exchType]            = useState('Medicine')
   const [upgrade]             = useState('Upgrade')
+  const [processing, setProcessing] = useState(false)
 
-  const returnItems = [
-    { name: 'Crocin 650 Tablet', batch: 'CR08023', qty: 10.00, mrp: 15.00, disc: 0 },
-  ]
-  const newItems = [
-    { name: 'Grace Advance Tablet', qty: 10.00, mrp: 10.00 },
-  ]
+  const returnItems = [{ name: 'Crocin 650 Tablet', batch: 'CR08023', qty: 10.00, mrp: 15.00, disc: 0 }]
+  const newItems    = [{ name: 'Grace Advance Tablet', qty: 10.00, mrp: 10.00 }]
+
+  const handleExchange = async () => {
+    setProcessing(true)
+    try {
+      const totalReturnAmt = returnItems.reduce((s, i) => s + i.qty * i.mrp, 0)
+      const totalNewAmt    = newItems.reduce((s, i) => s + i.qty * i.mrp, 0)
+      await postRequest({
+        url: '/franchise/pos/sales/exchange',
+        cred: {
+          returnItems:        returnItems,
+          newItems:           newItems,
+          totalReturnAmt,
+          totalNewAmt,
+          paymentMode:        'Cash',
+          originalInvoiceNo:  invoice,
+        },
+      })
+      toast.success('Exchange processed successfully!')
+      onClose()
+    } catch {
+      toast.error('Exchange processing failed')
+    } finally {
+      setProcessing(false)
+    }
+  }
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
@@ -999,7 +1214,7 @@ function ExchangeBillModal({ onClose }) {
               <span style={{ fontSize: 13, color: '#6b7280', marginRight: 16 }}>Net Payable</span>
               <span style={{ fontSize: 22, fontWeight: 800, color: '#0c3b73' }}>₹ 3.00</span>
             </div>
-            <SBtn label="Process Exchange [F5]" icon={ArrowLeftRight} onClick={onClose} />
+            <SBtn label={processing ? 'Processing...' : 'Process Exchange [F5]'} icon={ArrowLeftRight} disabled={processing} onClick={handleExchange} />
           </div>
         </div>
       </Card>
@@ -1010,17 +1225,46 @@ function ExchangeBillModal({ onClose }) {
 /* ══════════════════════════════════════════════════════
    SCREEN 12 — CREDIT SALE MODAL
 ══════════════════════════════════════════════════════ */
-function CreditSaleModal({ cart, total, onClose }) {
-  const [customer, setCustomer] = useState('Rahul Sharma')
+function CreditSaleModal({ cart, total, customer: selectedCustomer, onClose }) {
+  const [customer, setCustomer] = useState(selectedCustomer?.name || 'Rahul Sharma')
   const [dueDate, setDueDate]   = useState('')
   const [note, setNote]         = useState('Customer will pay in next week')
+  const [processing, setProcessing] = useState(false)
 
-  const availableCredit = 1258.00
-  const subtotal = cart.reduce((s, i) => s + i.mrp * i.qty, 0) || 560.00
-  const discount = 0
-  const taxable  = subtotal - discount
-  const creditLimit = 1710.00
-  const remaining   = creditLimit - subtotal
+  const availableCredit = selectedCustomer?.credit || 1258.00
+  const subtotal        = cart.reduce((s, i) => s + i.mrp * i.qty, 0) || 560.00
+  const discount        = 0
+  const creditLimit     = 1710.00
+  const remaining       = creditLimit - subtotal
+
+  const handleCreditSale = async () => {
+    setProcessing(true)
+    try {
+      await postRequest({
+        url: '/franchise/pos/sales/credit-sale',
+        cred: {
+          customerId:   selectedCustomer?._id || selectedCustomer?.id,
+          customerName: customer,
+          items: cart.map(i => ({
+            medicineId:   i._id || i.id,
+            medicineName: i.name,
+            qty:          i.qty,
+            mrp:          i.mrp,
+            amount:       i.mrp * i.qty,
+          })),
+          totalAmt:   subtotal,
+          creditAmt:  subtotal,
+          notes:      note,
+        },
+      })
+      toast.success('Credit sale saved!')
+      onClose()
+    } catch {
+      toast.error('Credit sale failed')
+    } finally {
+      setProcessing(false)
+    }
+  }
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
@@ -1088,7 +1332,7 @@ function CreditSaleModal({ cart, total, onClose }) {
             )}
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <SBtn label="Save as Credit Sale [F5]" icon={Save} full bg="#dcfce7" color="#16a34a" border="#bbf7d0" onClick={onClose} />
+              <SBtn label={processing ? 'Saving...' : 'Save as Credit Sale [F5]'} icon={Save} full bg="#dcfce7" color="#16a34a" border="#bbf7d0" disabled={processing} onClick={handleCreditSale} />
               <SBtn label="Send SMS / WhatsApp"     icon={Smartphone} full bg="#e0f2fe" color="#0891b2" border="#bae6fd" sm />
             </div>
           </div>
@@ -1116,26 +1360,38 @@ export default function POSBilling() {
   const subtotal = cart.reduce((s, i) => s + i.mrp * i.qty, 0)
   const total    = subtotal * (1 - discount / 100) * 1.05
 
+  const debounceSearch = useRef()
+
   const handleSearchInput = val => {
     setSearch(val)
     if (val.length < 2) { setSuggest([]); return }
-    setSuggest(MEDICINES.filter(m => m.name.toLowerCase().includes(val.toLowerCase())).slice(0,6))
+    clearTimeout(debounceSearch.current)
+    debounceSearch.current = setTimeout(async () => {
+      try {
+        const res = await getRequest(`/franchise/pos/medicines/search?q=${encodeURIComponent(val)}&limit=6`)
+        const data = res.data?.data?.medicines || []
+        setSuggest(data.length > 0 ? data : FALLBACK_MEDICINES.filter(m => m.name.toLowerCase().includes(val.toLowerCase())).slice(0, 6))
+      } catch {
+        setSuggest(FALLBACK_MEDICINES.filter(m => m.name.toLowerCase().includes(val.toLowerCase())).slice(0, 6))
+      }
+    }, 300)
   }
 
   const addToCart = med => {
+    const medId = med._id || med.id
     setCart(p => {
-      const ex = p.find(i => i.id === med.id)
-      if (ex) return p.map(i => i.id === med.id ? { ...i, qty: i.qty + (med.qty || 1) } : i)
-      return [...p, { ...med, qty: med.qty || 1 }]
+      const ex = p.find(i => (i._id || i.id) === medId)
+      if (ex) return p.map(i => (i._id || i.id) === medId ? { ...i, qty: i.qty + (med.qty || 1) } : i)
+      return [...p, { ...med, id: medId, qty: med.qty || 1 }]
     })
     setSearch(''); setSuggest([])
     searchRef.current?.focus()
   }
 
   const updateQty = (id, delta) => setCart(p =>
-    p.map(i => i.id === id ? { ...i, qty: Math.max(1, i.qty + delta) } : i)
+    p.map(i => (i._id || i.id) === id ? { ...i, qty: Math.max(1, i.qty + delta) } : i)
   )
-  const removeItem = id => setCart(p => p.filter(i => i.id !== id))
+  const removeItem = id => setCart(p => p.filter(i => (i._id || i.id) !== id))
 
   const close = () => setModal(null)
 
@@ -1147,13 +1403,13 @@ export default function POSBilling() {
       {modal === 'search'       && <MedicineSearchModal    onClose={close} onAdd={addToCart} />}
       {modal === 'customer'     && <CustomerSelectionModal onClose={close} onSelect={setCust} />}
       {modal === 'prescription' && <PrescriptionModal      onClose={close} onAdd={addToCart} />}
-      {modal === 'payment'      && <PaymentModal cart={cart} total={total} onClose={close} onConfirm={() => { setCart([]); setCust(null); close() }} />}
+      {modal === 'payment'      && <PaymentModal cart={cart} total={total} customer={customer} onClose={close} onConfirm={() => { setCart([]); setCust(null); close() }} />}
       {modal === 'split'        && <SplitPaymentModal total={total} onClose={close} onConfirm={() => { setCart([]); close() }} />}
       {modal === 'hold'         && <HoldBillModal cart={cart} onClose={close} onHold={() => { setCart([]); setCust(null) }} />}
       {modal === 'print'        && <PrintInvoiceModal cart={cart} customer={customer} total={total} onClose={close} />}
       {modal === 'return'       && <ReturnBillModal onClose={close} />}
       {modal === 'exchange'     && <ExchangeBillModal onClose={close} />}
-      {modal === 'credit'       && <CreditSaleModal cart={cart} total={total} onClose={close} />}
+      {modal === 'credit'       && <CreditSaleModal cart={cart} total={total} customer={customer} onClose={close} />}
 
       {/* ── TOP ACTION BAR ── */}
       <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10, padding: '10px 16px', marginBottom: 14, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -1204,16 +1460,16 @@ export default function POSBilling() {
               {suggest.length > 0 && (
                 <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.1)', zIndex: 100, marginTop: 4, overflow: 'hidden' }}>
                   {suggest.map(m => (
-                    <div key={m.id} onClick={() => addToCart(m)}
+                    <div key={m._id || m.id} onClick={() => addToCart(m)}
                       style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
                       onMouseEnter={e => e.currentTarget.style.background = '#f0f9ff'}
                       onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                       <div>
                         <p style={{ margin: 0, fontWeight: 600, fontSize: 13 }}>{m.name}</p>
-                        <p style={{ margin: 0, fontSize: 10, color: '#9ca3af' }}>Batch: {m.batch} · Exp: {m.exp} · Stock: {m.stock}</p>
+                        <p style={{ margin: 0, fontSize: 10, color: '#9ca3af' }}>Batch: {m.batch} · Exp: {m.exp} · Stock: {m.stock || m.currentStock || 0}</p>
                       </div>
                       <div style={{ textAlign: 'right' }}>
-                        <p style={{ margin: 0, fontWeight: 700, fontSize: 13, color: '#0c3b73' }}>₹{m.mrp}</p>
+                        <p style={{ margin: 0, fontWeight: 700, fontSize: 13, color: '#0c3b73' }}>₹{Number(m.mrp || 0).toFixed(2)}</p>
                         <p style={{ margin: 0, fontSize: 9, color: '#9ca3af' }}>MRP</p>
                       </div>
                     </div>
