@@ -58,7 +58,7 @@ export default function ReturnBill() {
     if (totalReturn === 0) return
     setProcessing(true)
     try {
-      await postRequest('franchise/pos/sales/returns', {
+      await postRequest({ url: 'franchise/pos/sales/returns', cred: {
         originalInvoiceNo: invoice,
         customerName: customer,
         items: items.filter(i => i.retQty > 0).map(i => ({
@@ -71,7 +71,7 @@ export default function ReturnBill() {
         })),
         totalReturnAmt: totalReturn,
         reason: 'Customer return',
-      })
+      }})
       toast.success('Return processed successfully')
       navigate('/franchise/pos/billing')
     } catch {

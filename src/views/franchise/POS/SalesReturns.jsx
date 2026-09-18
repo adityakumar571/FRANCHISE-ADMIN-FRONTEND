@@ -54,7 +54,7 @@ const SalesReturns = () => {
     if (!billRef.trim()) { toast.error('Bill reference required'); return }
     setSaving(true)
     try {
-      await postRequest('franchise/pos/sales/returns', {
+      await postRequest({ url: 'franchise/pos/sales/returns', cred: {
         originalInvoiceNo: billRef,
         customerName: customer,
         items: items.map(it => ({
@@ -66,7 +66,7 @@ const SalesReturns = () => {
         })),
         reason,
         totalReturnAmt: totalRefund,
-      })
+      }})
       toast.success('Return processed and stock adjusted')
       setBill(''); setCust(''); setItems([{ ...EMPTY_ITEM }]); setReason('')
       setTab('list')

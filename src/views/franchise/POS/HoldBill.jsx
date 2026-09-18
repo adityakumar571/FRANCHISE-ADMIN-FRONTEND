@@ -38,10 +38,10 @@ export default function HoldBill() {
   const handleHold = async () => {
     setSaving(true)
     try {
-      await postRequest('franchise/pos/hold-bills', {
+      await postRequest({ url: 'franchise/pos/hold-bills', cred: {
         customerName: customer || 'Walk-In Customer',
         items: [], subtotal: 0, totalAmt: 0, note,
-      })
+      }})
       toast.success('Bill held successfully')
       navigate('/franchise/pos/billing')
     } catch {

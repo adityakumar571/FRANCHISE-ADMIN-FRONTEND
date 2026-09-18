@@ -57,7 +57,7 @@ export default function CreditSale() {
     if (!cust) { toast.error('Please select a customer'); return }
     setSaving(true)
     try {
-      await postRequest('franchise/pos/sales/credit-sale', {
+      await postRequest({ url: 'franchise/pos/sales/credit-sale', cred: {
         customerId:   cust._id || cust.id,
         customerName: cust.name,
         items: cart.map(i => ({
@@ -71,7 +71,7 @@ export default function CreditSale() {
         creditAmt: TOTAL,
         dueDate:   dueDate || null,
         notes:     note,
-      })
+      }})
       toast.success('Credit sale saved!')
       navigate('/franchise/pos/billing')
     } catch {

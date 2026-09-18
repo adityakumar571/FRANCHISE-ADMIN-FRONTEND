@@ -42,7 +42,7 @@ export default function SplitPayment() {
   const handleConfirm = async () => {
     setProcessing(true)
     try {
-      await postRequest('franchise/pos/sales/invoice', {
+      await postRequest({ url: 'franchise/pos/sales/invoice', cred: {
         customerId:   customer?._id || customer?.id,
         customerName: customer?.name || 'Walk-in Customer',
         items: cart.map(i => ({
@@ -69,7 +69,7 @@ export default function SplitPayment() {
           { mode: 'Card', amount: card },
         ].filter(p => p.amount > 0),
         notes: `Split — Cash: ₹${cash}, UPI: ₹${upi}, Card: ₹${card}`,
-      })
+      }})
       toast.success('Split payment confirmed!')
       navigate('/franchise/pos/print-invoice', { state: { cart, customer, total: TOTAL, paymentMode: 'Split' } })
     } catch {

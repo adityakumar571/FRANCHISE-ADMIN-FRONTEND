@@ -88,7 +88,7 @@ export default function ExchangeBill() {
     }
     setProcessing(true)
     try {
-      await postRequest('franchise/pos/sales/exchange', {
+      await postRequest({ url: 'franchise/pos/sales/exchange', cred: {
         originalInvoiceNo: invoice,
         exchangeType: exchType,
         upgradeType,
@@ -110,7 +110,7 @@ export default function ExchangeBill() {
         totalReturnAmt: returnTotal,
         totalNewAmt:    newTotal,
         paymentMode:    'Cash',
-      })
+      }})
       toast.success('Exchange processed successfully')
       navigate('/franchise/pos/billing')
     } catch {
