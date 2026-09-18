@@ -11,11 +11,22 @@ export default defineConfig(() => {
     plugins: [react(), tailwindcss()],
     build: {
       outDir: 'build',
+      // Chunk splitting for faster initial load
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            vendor: ['react', 'react-dom', 'react-router-dom'],
+            ui: ['@coreui/react', '@coreui/coreui', 'antd'],
+            mui: ['@mui/material', '@mui/icons-material'],
+            charts: ['chart.js', 'recharts'],
+          },
+        },
+      },
     },
     css: {
       postcss: {
         plugins: [
-          autoprefixer({}), // add options if needed
+          autoprefixer({}),
         ],
       },
       preprocessorOptions: {
@@ -31,14 +42,25 @@ export default defineConfig(() => {
       exclude: [],
     },
     optimizeDeps: {
-      force: true,
+      // force: true  <-- REMOVED: yeh har reload pe deps dobara bundle karta tha (slow reload ka main reason)
       esbuildOptions: {
         loader: {
           '.js': 'jsx',
         },
       },
+      // Frequently used heavy packages pre-bundle karo
+      include: [
+        'react',
+        'react-dom',
+        'react-router-dom',
+        'axios',
+        'antd',
+        '@coreui/react',
+        'recharts',
+        'dayjs',
+        'moment',
+      ],
     },
-    // plugins: [react(), tailwindcss()],
     resolve: {
       alias: [
         {
@@ -50,11 +72,14 @@ export default defineConfig(() => {
     },
     server: {
       port: 5179,
-      host: true,         // bind to 0.0.0.0 so subdomain.localhost resolves
+      host: true,
       open: true,
-      allowedHosts: 'all', // allow any hostname including *.localhost subdomains
+      allowedHosts: 'all',
+      // HMR (Hot Module Replacement) fast reload ke liye
+      hmr: {
+        overlay: true,
+      },
       proxy: {
-        // Proxy all /api requests to the local backend — avoids CORS in development
         '/api': {
           target: 'http://localhost:9001',
           changeOrigin: true,

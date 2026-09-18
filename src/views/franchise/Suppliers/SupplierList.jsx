@@ -46,7 +46,13 @@ export default function SupplierList() {
   return (
     <div style={{ fontFamily: 'Inter, sans-serif', display: 'flex', flexDirection: 'column', gap: 18 }}>
       <PageHeader icon={Truck} title="Supplier List" subtitle="Manage all your suppliers" color="#d97706">
-        <button style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '8px 14px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 12, background: '#fff', cursor: 'pointer' }}>
+        <button
+          onClick={() => {
+            const rows = suppliers.map(s => `${s.id},${s.name},${s.phone},${s.email},${s.city},${s.outstanding},${s.status}`).join('\n')
+            const csv = `Supplier Code,Name,Phone,Email,City,Outstanding,Status\n${rows}`
+            const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download='suppliers.csv'; a.click()
+          }}
+          style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '8px 14px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 12, background: '#fff', cursor: 'pointer' }}>
           <Download size={13} /> Export
         </button>
         <button onClick={() => navigate('/franchise/suppliers/add')}
@@ -89,7 +95,13 @@ export default function SupplierList() {
           <option value="Active">Active</option>
           <option value="Inactive">Inactive</option>
         </select>
-        <button style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '9px 14px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 12, background: '#fff', cursor: 'pointer' }}>
+        <button
+          onClick={() => {
+            const rows = suppliers.map(s => `${s.id},${s.name},${s.phone},${s.email},${s.city},${s.outstanding},${s.status}`).join('\n')
+            const csv = `Supplier Code,Name,Phone,Email,City,Outstanding,Status\n${rows}`
+            const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download='suppliers.csv'; a.click()
+          }}
+          style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '9px 14px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 12, background: '#fff', cursor: 'pointer' }}>
           <Download size={12} /> Export
         </button>
       </div>
@@ -134,8 +146,10 @@ export default function SupplierList() {
                             style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '5px 9px', border: 'none', borderRadius: 6, background: '#e0e7ff', color: '#0c3b73', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
                             <Eye size={11} /> View
                           </button>
-                          <button style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '5px 9px', border: 'none', borderRadius: 6, background: '#fef3c7', color: '#d97706', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
-                            <Edit2 size={11} />
+                          <button
+                            onClick={() => navigate(`/franchise/suppliers/${s._id}/edit`)}
+                            style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '5px 9px', border: 'none', borderRadius: 6, background: '#fef3c7', color: '#d97706', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                            <Edit2 size={11} /> Edit
                           </button>
                         </div>
                       </Td>
