@@ -94,7 +94,7 @@ const franchiseNav = [
     accessKey: 'purchase',
     items: [
       { component: CNavItem, name: 'Purchase Dashboard', to: '/franchise/purchase/dashboard',       icon: ic(LayoutDashboard), accessKey: 'purchase_dashboard' },
-      { component: CNavItem, name: 'New Purchase',       to: '/franchise/purchase/orders',          icon: ic(ShoppingCart),    accessKey: 'purchase_orders'    },
+      { component: CNavItem, name: 'New Purchase',       to: '/franchise/purchase/live-rate',       icon: ic(ShoppingCart),    accessKey: 'purchase_liverates' },
       { component: CNavItem, name: 'Purchase Orders',    to: '/franchise/purchase/orders',          icon: ic(FileText),        accessKey: 'purchase_orders'    },
       { component: CNavItem, name: 'GRN / Inward',       to: '/franchise/purchase/grn',             icon: ic(Warehouse),       accessKey: 'purchase_grn'       },
       { component: CNavItem, name: 'Purchase Returns',   to: '/franchise/purchase/returns',         icon: ic(RotateCcw),       accessKey: 'purchase_returns'   },

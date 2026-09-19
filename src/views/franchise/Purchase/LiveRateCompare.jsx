@@ -21,7 +21,7 @@ const LiveRateCompare = () => {
     if (!query.trim()) return
     setLoading(true)
     try {
-      const res = await getRequest(`franchise/purchase/live-rate?medicine=${encodeURIComponent(query.trim())}`)
+      const res = await getRequest(`/franchise/live-rates?medicine=${encodeURIComponent(query.trim())}`)
       setResults(res?.data || [])
       setSelectedMed(query)
       setSearched(true)

@@ -9,7 +9,7 @@ import {
   Eye, Phone, MessageSquare, TrendingUp, TrendingDown,
   ShoppingBag, Tag, IndianRupee, Truck, Plus,
   RotateCcw, ClipboardList, List, MoreHorizontal,
-  CheckCircle, Clock, AlertTriangle, Zap,
+  CheckCircle, Clock, AlertTriangle, Zap, Package,
 } from 'lucide-react'
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,

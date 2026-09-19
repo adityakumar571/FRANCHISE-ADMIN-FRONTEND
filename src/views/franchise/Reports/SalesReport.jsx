@@ -16,7 +16,7 @@ export default function SalesReport() {
   const fetchReport = async () => {
     setLoading(true)
     try {
-      const res = await getRequest(`/franchise/reports/sales?from=${from}&to=${to}&page=${page}&limit=20`)
+      const res = await getRequest(`franchise/reports/sales?from=${from}&to=${to}&page=${page}&limit=20`)
       setReport(res.data?.data)
     } catch { toast.error('Failed to load sales report') }
     finally   { setLoading(false) }
