@@ -21,21 +21,27 @@ export default function PrescriptionBilling() {
   const subtotal  = meds.reduce((s,m) => s + (m.mrp||0) * (m.qty||1), 0)
   const discount  = subtotal * 0.03
   const taxable   = subtotal - discount
-  const gst5      = meds.filter(m=>m.gst===5).reduce((s,m)=>s+(m.mrp||0)*(m.qty||1),0)*0.05
-  const gst12     = meds.filter(m=>m.gst===12).reduce((s,m)=>s+(m.mrp||0)*(m.qty||1),0)*0.12
-  const total     = taxable + gst5 + gst12
+  // Use actual gstPct from each medicine item
+  const gstAmt    = meds.reduce((s,m) => {
+    const lineAmt = (m.mrp||0) * (m.qty||1) * 0.97          // after 3% disc
+    return s + lineAmt * ((m.gst || m.gstPct || 0) / 100)
+  }, 0)
+  const total     = taxable + gstAmt
 
   const handleSearch = async (q) => {
     setSearchQ(q)
     if (q.length < 2) { setSearchRes([]); return }
     try {
-      const res = await getRequest(`franchise/pos/medicines/search?q=${encodeURIComponent(q)}`)
-      setSearchRes(res?.data || [])
+      const res = await getRequest(`/franchise/pos/medicines/search?q=${encodeURIComponent(q)}`)
+      // apiResponse wrapper: res.data.data.medicines
+      const list = res?.data?.data?.medicines || res?.data?.medicines || []
+      setSearchRes(Array.isArray(list) ? list : [])
     } catch { setSearchRes([]) }
   }
 
   const addMed = (m) => {
-    setMeds(p => [...p, { ...m, qty: 1, id: m._id }])
+    const medId = m._id || m.id
+    setMeds(p => [...p, { ...m, _id: medId, qty: 1 }])
     setSearchRes([])
     setSearchQ('')
   }
@@ -146,11 +152,9 @@ export default function PrescriptionBilling() {
           <div style={{ padding: '14px' }}>
             <BillRow label="Items"       value={meds.length} />
             <BillRow label="MRP Total"   value={`₹ ${subtotal.toFixed(2)}`} />
-            <BillRow label="Discount"    value={`- ₹ ${discount.toFixed(2)}`} color="#dc2626" />
+            <BillRow label="Discount (3%)" value={`- ₹ ${discount.toFixed(2)}`} color="#dc2626" />
             <BillRow label="Taxable"     value={`₹ ${taxable.toFixed(2)}`} />
-            <BillRow label="GST (5%)"    value={`₹ ${gst5.toFixed(2)}`} />
-            <BillRow label="GST (12%)"   value={`₹ ${gst12.toFixed(2)}`} />
-            <BillRow label="Round Off"   value="₹ 0.00" />
+            <BillRow label="GST"         value={`₹ ${gstAmt.toFixed(2)}`} />
             <div style={{ borderTop: '2px solid #0c3b73', marginTop: 8, paddingTop: 8, display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ fontSize: 14, fontWeight: 700 }}>Total Amount</span>
               <span style={{ fontSize: 16, fontWeight: 800, color: '#0c3b73' }}>₹ {total.toFixed(2)}</span>

@@ -135,7 +135,11 @@ export default function PaymentHistory() {
                     <Td style={{ textAlign: 'right', fontWeight: 700, color: '#16a34a' }}>₹{(r.amount||0).toLocaleString('en-IN',{minimumFractionDigits:2})}</Td>
                     <Td style={{ color: '#6b7280', fontSize: 12 }}>{r.narration || r.notes || ''}</Td>
                     <Td>
-                      <button style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '5px 9px', border: 'none', borderRadius: 6, background: '#e0e7ff', color: '#0c3b73', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                      <button
+                        onClick={() => {
+                          toast(`Payment: ₹${(r.amount||0).toLocaleString('en-IN')} · ${r.mode} · ${r.date ? new Date(r.date).toLocaleDateString('en-IN') : ''}${r.txnRef ? ` · Ref: ${r.txnRef}` : ''}`, { icon: '💳', duration: 4000 })
+                        }}
+                        style={{ display:'flex', alignItems:'center', gap:3, padding:'5px 9px', border:'none', borderRadius:6, background:'#e0e7ff', color:'#0c3b73', fontSize:11, fontWeight:600, cursor:'pointer' }}>
                         View
                       </button>
                     </Td>
@@ -182,7 +186,7 @@ function AddPaymentModal({ supplierId, onClose, onSaved }) {
     if (!form.amount) { toast.error('Amount required'); return }
     setSaving(true)
     try {
-      await postRequest(`franchise/suppliers/${supplierId}/payments`, { ...form, amount: parseFloat(form.amount) })
+      await postRequest({ url: `franchise/suppliers/${supplierId}/payments`, cred: { ...form, amount: parseFloat(form.amount) } })
       toast.success('Payment added successfully')
       onSaved()
       onClose()

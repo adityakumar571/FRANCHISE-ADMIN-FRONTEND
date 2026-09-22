@@ -1,6 +1,6 @@
 /* eslint-disable prettier/prettier */
 import React, { Suspense, useContext } from 'react'
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { CSpinner } from '@coreui/react'
 import { ShieldCheck } from 'lucide-react'
 import routes from '../routes'
@@ -24,9 +24,13 @@ const UnauthorizedPage = () => (
   </div>
 )
 
+// Billing paths that need fresh mount on every navigate (for hold bill resume)
+const REMOUNT_PATHS = ['/franchise/pos/billing', '/franchise/pos']
+
 const AppContent = () => {
   const { franchiseUser, hasAccess } = useContext(FranchiseContext)
-  const role = franchiseUser?.role
+  const role     = franchiseUser?.role
+  const location = useLocation()
 
   return (
     <div style={{ backgroundColor: '#f8fafc', padding: '20px', minHeight: 'calc(100vh - 52px)' }}>
@@ -41,9 +45,15 @@ const AppContent = () => {
             // Menu access check
             const menuAllowed = !route.accessKey || hasAccess(route.accessKey)
 
+            // Force remount on billing route when navigating with state (hold bill resume)
+            const isBillingRoute = REMOUNT_PATHS.includes(route.path)
+            const routeKey = isBillingRoute && location.state?.resumeHoldBill
+              ? `billing-resume-${location.key}`
+              : idx
+
             return (
               <Route
-                key={idx}
+                key={routeKey}
                 path={route.path}
                 element={
                   !roleAllowed

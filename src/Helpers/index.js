@@ -29,7 +29,7 @@ const getHeaders = () => {
   const token    = Cookies.get('LMS')
   const tenantId = getTenant()
   const headers  = { 'x-tenant-id': tenantId }
-  if (token) headers['Authorization'] = token   // only set if token exists
+  if (token) headers['Authorization'] = `Bearer ${token}`   // ← Bearer prefix added
   return headers
 }
 

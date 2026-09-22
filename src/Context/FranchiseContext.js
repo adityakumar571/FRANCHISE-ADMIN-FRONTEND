@@ -14,7 +14,7 @@
  * Loaded from localStorage on mount (persisted after FranchiseLogin).
  * Cleared on logout.
  */
-import React, { createContext, useContext, useState, useCallback } from 'react'
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react'
 import Cookies from 'js-cookie'
 
 export const FranchiseContext = createContext()
@@ -174,12 +174,24 @@ export const FranchiseProvider = ({ children }) => {
     localStorage.removeItem('franchise_subdomain')
     setFranchiseUserState(null)
     setFranchiseInfoState(null)
-    setMenuAccessState({ ...FULL_MENU_ACCESS })
+    // Clear menuAccess on logout — do NOT leave FULL_MENU_ACCESS in memory
+    setMenuAccessState({})
   }, [])
 
   const isAuthenticated = !!Cookies.get('LMS') && !!franchiseUser
 
   // Re-check auth whenever franchiseUser changes (covers logout + login cycles)
+  // Also re-check periodically for cookie expiry mid-session
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const cookieAlive = !!Cookies.get('LMS')
+      // If cookie expired but user is still "logged in", trigger logout
+      if (!cookieAlive && franchiseUser) {
+        logoutFranchise()
+      }
+    }, 60 * 1000) // check every 60 seconds
+    return () => clearInterval(interval)
+  }, [franchiseUser, logoutFranchise])
 
   return (
     <FranchiseContext.Provider

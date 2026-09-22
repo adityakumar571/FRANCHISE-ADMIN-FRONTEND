@@ -34,7 +34,7 @@ const LiveRateCompare = () => {
     }
   }
 
-  const minRate = results.length ? Math.min(...results.filter((r) => r.isAvailable).map((r) => r.netRate)) : 0
+  const minRate = results.length ? Math.min(...results.filter((r) => r.isAvailable && r.netRate != null).map((r) => Number(r.netRate || 0))) : 0
 
   return (
     <div>
@@ -94,11 +94,11 @@ const LiveRateCompare = () => {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
                     <div style={{ background: '#f9fafb', borderRadius: 8, padding: '10px 12px' }}>
                       <p style={{ fontSize: 11, color: '#9ca3af', margin: '0 0 3px', fontWeight: 500 }}>PTR Rate</p>
-                      <p style={{ fontSize: 18, fontWeight: 700, margin: 0, color: '#111827' }}>₹{r.ptr.toFixed(2)}</p>
+                      <p style={{ fontSize: 18, fontWeight: 700, margin: 0, color: '#111827' }}>₹{Number(r.ptr || 0).toFixed(2)}</p>
                     </div>
                     <div style={{ background: isBest ? '#eff6ff' : '#f9fafb', borderRadius: 8, padding: '10px 12px' }}>
                       <p style={{ fontSize: 11, color: '#9ca3af', margin: '0 0 3px', fontWeight: 500 }}>Net Rate</p>
-                      <p style={{ fontSize: 18, fontWeight: 700, margin: 0, color: isBest ? '#2563eb' : '#111827' }}>₹{r.netRate.toFixed(2)}</p>
+                      <p style={{ fontSize: 18, fontWeight: 700, margin: 0, color: isBest ? '#2563eb' : '#111827' }}>₹{Number(r.netRate || 0).toFixed(2)}</p>
                     </div>
                   </div>
 

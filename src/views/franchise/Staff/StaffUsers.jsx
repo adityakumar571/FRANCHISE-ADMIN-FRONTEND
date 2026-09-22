@@ -120,6 +120,8 @@ export default function StaffUsers() {
     e.preventDefault()
     if (!form.name.trim()) { toast.error('Name is required'); return }
     if (!form.role)        { toast.error('Role is required');  return }
+    if (!form.phone?.trim()) { toast.error('Phone number is required'); return }
+    if (form.phone && !/^\d{10}$/.test(form.phone.trim())) { toast.error('Phone must be 10 digits'); return }
     if (!editId && !form.password) { toast.error('Password is required for new staff'); return }
 
     setSaving(true)

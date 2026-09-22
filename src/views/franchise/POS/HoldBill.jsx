@@ -5,7 +5,7 @@
  */
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Pause, ArrowLeft, Trash2, Play } from 'lucide-react'
+import { Pause, ArrowLeft, Trash2, Play, Loader2 } from 'lucide-react'
 import PageHeader from '../components/PageHeader'
 import { Th, Td, SBtn, TextInput, FieldLabel } from './posHelpers'
 import { getRequest, postRequest, deleteRequest } from '../../../Helpers/index'
@@ -18,12 +18,13 @@ export default function HoldBill() {
   const [bills, setBills]         = useState([])
   const [loading, setLoading]     = useState(true)
   const [saving, setSaving]       = useState(false)
+  const [resumingId, setResumingId] = useState(null)  // tracks which bill is being resumed
 
   const fetchHoldBills = async () => {
     setLoading(true)
     try {
-      const res = await getRequest('franchise/pos/hold-bills')
-      // API returns array directly in data
+      const res = await getRequest('/franchise/pos/hold-bills')
+      // Backend returns apiResponse(200, result) where result is the array directly
       const list = res?.data?.data || res?.data || []
       setBills(Array.isArray(list) ? list : [])
     } catch {
@@ -35,10 +36,44 @@ export default function HoldBill() {
 
   useEffect(() => { fetchHoldBills() }, [])
 
+  const handleResume = async (billId, billName) => {
+    const id = String(billId)   // ensure string for API URL
+    setResumingId(id)
+    try {
+      const res = await getRequest(`/franchise/pos/hold-bills/${id}`)
+      console.log('[handleResume] raw res.data:', JSON.stringify(res?.data))
+
+      const fullBill = res?.data?.data || res?.data
+      console.log('[handleResume] fullBill:', fullBill)
+      console.log('[handleResume] items count:', fullBill?.items?.length)
+
+      if (!fullBill) { toast.error('Could not load hold bill'); return }
+
+      navigate('/franchise/pos/billing', {
+        state: {
+          resumeHoldBill: {
+            holdId:       fullBill.holdId,
+            id:           String(fullBill._id || fullBill.id),
+            customerName: fullBill.customerName,
+            customerId:   fullBill.customerId  ? String(fullBill.customerId) : null,
+            items:        fullBill.items        || [],
+            totalAmt:     fullBill.totalAmt,
+            note:         fullBill.note,
+          }
+        }
+      })
+    } catch (err) {
+      console.error('[handleResume] error:', err)
+      toast.error('Failed to resume hold bill')
+    } finally {
+      setResumingId(null)
+    }
+  }
+
   const handleHold = async () => {
     setSaving(true)
     try {
-      await postRequest({ url: 'franchise/pos/hold-bills', cred: {
+      await postRequest({ url: '/franchise/pos/hold-bills', cred: {
         customerName: customer || 'Walk-In Customer',
         items: [], subtotal: 0, totalAmt: 0, note,
       }})
@@ -53,8 +88,7 @@ export default function HoldBill() {
 
   const handleDelete = async (id) => {
     try {
-      await deleteRequest(`franchise/pos/hold-bills/${id}`)
-      // use _id (not id) — match what API returns
+      await deleteRequest(`/franchise/pos/hold-bills/${id}`)
       setBills(p => p.filter(b => (b._id || b.id) !== id))
       toast.success('Hold bill removed')
     } catch {
@@ -124,34 +158,28 @@ export default function HoldBill() {
                     </tr>
                   ))
                   : bills.map(b => (
-                    <tr key={b.id}
+                    <tr key={b.id || b._id}
                       onMouseEnter={e => e.currentTarget.style.background = '#fafafa'}
                       onMouseLeave={e => e.currentTarget.style.background = ''}>
                       <Td>
-                        <p style={{ margin: 0, fontWeight: 700, fontSize: 13 }}>{b.name}</p>
+                        <p style={{ margin: 0, fontWeight: 700, fontSize: 13 }}>{b.name || b.customerName || 'Walk-In'}</p>
                         <p style={{ margin: 0, fontSize: 10, color: '#9ca3af' }}>{b.holdId}</p>
                       </Td>
-                      <Td style={{ fontWeight: 600 }}>{b.items}</Td>
-                      <Td style={{ fontWeight: 700, color: '#0c3b73' }}>₹ {(b.amount || 0).toFixed(2)}</Td>
+                      <Td style={{ fontWeight: 600 }}>{b.items ?? 0}</Td>
+                      <Td style={{ fontWeight: 700, color: '#0c3b73' }}>₹ {(b.amount || b.totalAmt || 0).toFixed(2)}</Td>
                       <Td style={{ color: '#6b7280', fontSize: 12 }}>{b.time}</Td>
-                      <Td style={{ color: '#9ca3af', fontSize: 12 }}>{b.note}</Td>
+                      <Td style={{ color: '#9ca3af', fontSize: 12 }}>{b.note || '—'}</Td>
                       <Td>
                         <div style={{ display: 'flex', gap: 6 }}>
                           <button
-                            onClick={() => navigate('/franchise/pos/billing', {
-                              state: {
-                                resumeHoldBill: {
-                                  holdId:       b.holdId,
-                                  id:           b.id || b._id,
-                                  customerName: b.name,
-                                  items:        b.items || [],
-                                  totalAmt:     b.amount,
-                                  note:         b.note,
-                                }
-                              }
-                            })}
-                            style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, padding: '5px 10px', border: 'none', borderRadius: 6, background: '#e0e7ff', color: '#0c3b73', cursor: 'pointer' }}>
-                            <Play size={10} /> Resume
+                            onClick={() => handleResume(b.id || b._id, b.name || b.customerName)}
+                            disabled={resumingId === String(b.id || b._id)}
+                            style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, padding: '5px 10px', border: 'none', borderRadius: 6, background: '#e0e7ff', color: '#0c3b73', cursor: resumingId === String(b.id || b._id) ? 'not-allowed' : 'pointer', opacity: resumingId === String(b.id || b._id) ? 0.7 : 1 }}>
+                            {resumingId === String(b.id || b._id)
+                              ? <Loader2 size={10} style={{ animation: 'spin 0.8s linear infinite' }} />
+                              : <Play size={10} />
+                            }
+                            {resumingId === String(b.id || b._id) ? 'Loading...' : 'Resume'}
                           </button>
                           <button
                             onClick={() => handleDelete(b.id || b._id)}

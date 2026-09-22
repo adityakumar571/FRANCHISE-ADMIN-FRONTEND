@@ -23,8 +23,9 @@ export default function ReturnBill() {
     if (!invoice.trim()) return
     setLoading(true)
     try {
-      const res = await getRequest(`franchise/pos/sales/invoice-by-no/${encodeURIComponent(invoice.trim())}`)
-      const inv = res?.data
+      const res = await getRequest(`/franchise/pos/sales/invoice-by-no/${encodeURIComponent(invoice.trim())}`)
+      // apiResponse wrapper: res.data.data = invoice object
+      const inv = res?.data?.data || res?.data
       if (inv) {
         setCustomer(inv.customerName || 'Walk-In Customer')
         setInvDate(inv.invoiceDate ? new Date(inv.invoiceDate).toLocaleDateString('en-IN') : '')
@@ -58,7 +59,7 @@ export default function ReturnBill() {
     if (totalReturn === 0) return
     setProcessing(true)
     try {
-      await postRequest({ url: 'franchise/pos/sales/returns', cred: {
+      await postRequest({ url: '/franchise/pos/sales/returns', cred: {
         originalInvoiceNo: invoice,
         customerName: customer,
         items: items.filter(i => i.retQty > 0).map(i => ({

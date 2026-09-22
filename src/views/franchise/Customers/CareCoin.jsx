@@ -68,10 +68,10 @@ export default function CareCoin() {
     }
     setRedeeming(option.label)
     try {
-      await postRequest(`franchise/customers/${id}/carecoin/redeem`, {
+      await postRequest({ url: `franchise/customers/${id}/carecoin/redeem`, cred: {
         coins: option.coins,
         rewardLabel: option.label,
-      })
+      } })
       toast.success(`${option.label} redeemed successfully!`)
       fetchData()
     } catch {

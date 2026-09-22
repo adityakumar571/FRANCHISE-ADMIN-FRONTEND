@@ -2,12 +2,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  Users, Plus, Eye, Edit2, Search, Trash2,
+  Users, Plus, Eye, Edit2, Search, Trash2, X, Save,
   ChevronLeft, ChevronRight, IndianRupee, UserCheck,
   Wallet, Star, Crown, Bell, Award,
 } from 'lucide-react'
 import PageHeader from '../components/PageHeader'
-import { getRequest, deleteRequest } from '../../../Helpers'
+import { getRequest, putRequest, deleteRequest } from '../../../Helpers'
 import toast from 'react-hot-toast'
 
 const Th = ({ c }) => (
@@ -40,6 +40,73 @@ const Confirm = ({ onYes, onNo }) => (
   </div>
 )
 
+function EditCustomerModal({ customer, onClose, onSaved }) {
+  const [form, setForm] = useState({
+    name:    customer?.name    || '',
+    phone:   customer?.phone   || '',
+    email:   customer?.email   || '',
+    tier:    customer?.tier    || 'Regular',
+    address: customer?.address || '',
+    dob:     customer?.dob     ? customer.dob.slice(0,10) : '',
+  })
+  const [saving, setSaving] = useState(false)
+  const set = (k, v) => setForm(p => ({ ...p, [k]: v }))
+  const inp = { width:'100%', padding:'9px 12px', border:'1px solid #e5e7eb', borderRadius:8, fontSize:13, outline:'none', background:'#f9fafb', boxSizing:'border-box' }
+  const lbl = { display:'block', fontSize:11, fontWeight:700, color:'#374151', marginBottom:5, textTransform:'uppercase', letterSpacing:'0.4px' }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    if (!form.name.trim()) { toast.error('Name is required'); return }
+    setSaving(true)
+    try {
+      await putRequest({ url: `/franchise/customers/${customer._id}`, cred: form })
+      toast.success('Customer updated successfully')
+      onSaved()
+      onClose()
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Failed to update customer')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:1100, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
+      <div style={{ background:'#fff', borderRadius:14, width:'100%', maxWidth:500, boxShadow:'0 24px 64px rgba(0,0,0,0.18)', maxHeight:'90vh', overflow:'auto' }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'18px 22px', borderBottom:'1px solid #f3f4f6' }}>
+          <h3 style={{ margin:0, fontSize:16, fontWeight:700, color:'#111827' }}>Edit Customer</h3>
+          <button onClick={onClose} style={{ background:'#f3f4f6', border:'none', borderRadius:8, width:32, height:32, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>
+            <X size={15} color="#6b7280" />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit}>
+          <div style={{ padding:'20px 22px', display:'flex', flexDirection:'column', gap:14 }}>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+              <div><label style={lbl}>Full Name *</label><input value={form.name} onChange={e=>set('name',e.target.value)} placeholder="Full name" style={inp} /></div>
+              <div><label style={lbl}>Phone</label><input value={form.phone} onChange={e=>set('phone',e.target.value)} placeholder="10-digit mobile" style={inp} /></div>
+              <div><label style={lbl}>Email</label><input type="email" value={form.email} onChange={e=>set('email',e.target.value)} placeholder="email@example.com" style={inp} /></div>
+              <div>
+                <label style={lbl}>Tier</label>
+                <select value={form.tier} onChange={e=>set('tier',e.target.value)} style={{ ...inp, cursor:'pointer' }}>
+                  {['Regular','Silver','Gold','Platinum','Diamond'].map(t => <option key={t}>{t}</option>)}
+                </select>
+              </div>
+              <div><label style={lbl}>Date of Birth</label><input type="date" value={form.dob} onChange={e=>set('dob',e.target.value)} style={inp} /></div>
+            </div>
+            <div><label style={lbl}>Address</label><textarea value={form.address} onChange={e=>set('address',e.target.value)} rows={2} placeholder="Customer address" style={{ ...inp, resize:'vertical' }} /></div>
+          </div>
+          <div style={{ display:'flex', gap:10, justifyContent:'flex-end', padding:'14px 22px', borderTop:'1px solid #f3f4f6' }}>
+            <button type="button" onClick={onClose} style={{ padding:'9px 20px', borderRadius:8, border:'1px solid #e5e7eb', background:'#fff', fontSize:13, fontWeight:600, cursor:'pointer', color:'#374151' }}>Cancel</button>
+            <button type="submit" disabled={saving} style={{ padding:'9px 20px', borderRadius:8, border:'none', background:saving?'#94a3b8':'#0c3b73', fontSize:13, fontWeight:600, cursor:saving?'not-allowed':'pointer', color:'#fff', display:'flex', alignItems:'center', gap:6 }}>
+              <Save size={13} /> {saving ? 'Saving…' : 'Update Customer'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 export default function CustomerList() {
   const navigate = useNavigate()
   const [customers, setCustomers] = useState([])
@@ -52,6 +119,7 @@ export default function CustomerList() {
   const [totalPages, setTotalPages] = useState(1)
   const [loading, setLoading]   = useState(true)
   const [confirmId, setConfirmId] = useState(null)
+  const [editCustomer, setEditCustomer] = useState(null)
   const debounceRef = useRef()
   const PER_PAGE = 8
 
@@ -93,6 +161,7 @@ export default function CustomerList() {
   return (
     <div style={{ fontFamily: 'Inter, sans-serif', display: 'flex', flexDirection: 'column', gap: 18 }}>
       {confirmId && <Confirm onYes={() => handleDelete(confirmId)} onNo={() => setConfirmId(null)} />}
+      {editCustomer && <EditCustomerModal customer={editCustomer} onClose={() => setEditCustomer(null)} onSaved={fetchCustomers} />}
 
       <PageHeader icon={Users} title="Customer List" subtitle="Manage all your customers" color="#0c3b73">
         <button onClick={() => navigate('/franchise/customers/add')}
@@ -181,6 +250,10 @@ export default function CustomerList() {
                           <button onClick={() => go(c._id)}
                             style={{ padding: '4px 8px', border: 'none', borderRadius: 5, background: '#e0e7ff', color: '#0c3b73', fontSize: 11, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3 }}>
                             <Eye size={10} /> View
+                          </button>
+                          <button onClick={() => setEditCustomer(c)}
+                            style={{ padding: '4px 8px', border: 'none', borderRadius: 5, background: '#fffbeb', color: '#d97706', fontSize: 11, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3 }}>
+                            <Edit2 size={10} /> Edit
                           </button>
                           <button onClick={() => go(c._id, '/wallet')}
                             style={{ padding: '4px 7px', border: 'none', borderRadius: 5, background: '#f0fdf4', color: '#16a34a', fontSize: 10, cursor: 'pointer' }} title="Wallet">

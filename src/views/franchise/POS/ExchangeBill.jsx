@@ -28,8 +28,9 @@ export default function ExchangeBill() {
     if (!invoice.trim()) return
     setLoadingInv(true)
     try {
-      const res = await getRequest(`franchise/pos/sales/invoice-by-no/${encodeURIComponent(invoice.trim())}`)
-      const inv = res?.data
+      const res = await getRequest(`/franchise/pos/sales/invoice-by-no/${encodeURIComponent(invoice.trim())}`)
+      // apiResponse wrapper: res.data.data = invoice object
+      const inv = res?.data?.data || res?.data
       if (inv) {
         setDate(inv.invoiceDate ? new Date(inv.invoiceDate).toLocaleDateString('en-IN') : '')
         setReturnItems((inv.items || []).map(it => ({
@@ -54,9 +55,9 @@ export default function ExchangeBill() {
     if (!newSearch.trim()) return
     setLoadingSearch(true)
     try {
-      const res = await getRequest(`franchise/pos/medicines/search?q=${encodeURIComponent(newSearch.trim())}`)
-      // API returns { medicines: [...] } inside data
-      const list = res?.data?.medicines || res?.data || []
+      const res = await getRequest(`/franchise/pos/medicines/search?q=${encodeURIComponent(newSearch.trim())}`)
+      // apiResponse wrapper: res.data.data.medicines
+      const list = res?.data?.data?.medicines || res?.data?.medicines || res?.data || []
       setSearchResults(Array.isArray(list) ? list : [])
     } catch {
       toast.error('Search failed')
@@ -88,7 +89,7 @@ export default function ExchangeBill() {
     }
     setProcessing(true)
     try {
-      await postRequest({ url: 'franchise/pos/sales/exchange', cred: {
+      await postRequest({ url: '/franchise/pos/sales/exchange', cred: {
         originalInvoiceNo: invoice,
         exchangeType: exchType,
         upgradeType,

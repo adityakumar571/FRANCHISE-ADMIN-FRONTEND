@@ -19,7 +19,7 @@
 import {
   useState, useRef, useEffect, useCallback, useReducer,
 } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import {
   ScanLine, Search, User, Plus, Minus, Trash2,
   ShoppingCart, ChevronDown, X, CheckCircle2,
@@ -54,7 +54,8 @@ function cartReducer(state, action) {
   switch (action.type) {
     case 'ADD': {
       const med = action.payload
-      const key = `${med._id}_${med.batchId}`
+      const medId = med._id || med.id   // backend returns 'id', internal cart uses '_id'
+      const key = `${medId}_${med.batchId || medId}`
       const ex  = state.find(i => i._cartKey === key)
       if (ex) {
         return state.map(i => i._cartKey === key
@@ -64,8 +65,8 @@ function cartReducer(state, action) {
       }
       return [...state, {
         _cartKey:    key,
-        _id:         med._id,
-        batchId:     med.batchId     || med._id,
+        _id:         medId,
+        batchId:     med.batchId     || medId,
         name:        med.name,
         salt:        med.salt        || '',
         pack:        med.pack        || '',
@@ -108,10 +109,10 @@ function cartReducer(state, action) {
 ───────────────────────────────────────────────────────────────── */
 function calcBill(cart, extraDisc = 0) {
   const rows = cart.map(item => {
-    const gross    = item.mrp * item.qty
-    const itemDisc = gross * (item.discount / 100)
+    const gross    = Number(item.mrp || 0) * (item.qty || 1)
+    const itemDisc = gross * ((item.discount || 0) / 100)
     const net      = gross - itemDisc
-    const gstAmt   = net * (item.gst / 100)
+    const gstAmt   = net * ((item.gst || 0) / 100)
     return { gross, itemDisc, net, gstAmt }
   })
   const mrpTotal   = rows.reduce((s, r) => s + r.gross, 0)
@@ -158,6 +159,7 @@ const Pill = ({ color, bg, border, label }) => (
 ───────────────────────────────────────────────────────────────── */
 export default function NewBilling() {
   const navigate = useNavigate()
+  const location = useLocation()
 
   /* ── Cart ── */
   const [cart, dispatch] = useReducer(cartReducer, [])
@@ -228,6 +230,70 @@ export default function NewBilling() {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [cart])
 
+  /* ──────────────────────────────────────────────
+     RESUME HOLD BILL — from location.state
+  ────────────────────────────────────────────── */
+  /* ── Track which hold bill was resumed (to delete on payment) ── */
+  const [activeHoldBillId, setActiveHoldBillId] = useState(null)
+
+  useEffect(() => {
+    const hb = location.state?.resumeHoldBill
+    if (!hb || !hb.items) return
+
+    const cartItems = (hb.items || []).map((i, idx) => {
+      const medId   = i.medicineId
+        ? String(i.medicineId)
+        : (i._id || i.id || `manual_${idx}_${String(i.medicineName || i.name || '').replace(/\s+/g, '_')}`)
+      const batchId = i.batchId ? String(i.batchId) : medId
+      return {
+        _cartKey:   `${medId}_${batchId}`,
+        _id:        medId,
+        batchId,
+        name:       i.medicineName || i.name        || '',
+        salt:       i.salt                          || '',
+        pack:       i.pack                          || '',
+        batch:      i.batchNo      || i.batch       || '',
+        exp:        i.expiryDate
+          ? new Date(i.expiryDate).toLocaleDateString('en-IN', { month:'2-digit', year:'2-digit' })
+          : (i.exp || ''),
+        mrp:        Number(i.mrp                    || 0),
+        ptr:        Number(i.ptr       || i.mrp     || 0),
+        stock:      Number(i.stock                  || 999),
+        gst:        Number(i.gstPct    || i.gst     || 0),
+        discount:   Number(i.discountPct|| i.discount|| 0),
+        qty:        Number(i.qty                    || 1),
+        nearExpiry: false,
+      }
+    })
+
+    if (cartItems.length > 0) {
+      dispatch({ type: 'RESTORE', payload: cartItems })
+      toast.success(`Resumed: ${cartItems.length} item${cartItems.length !== 1 ? 's' : ''} loaded`, { icon: '🔄' })
+    } else {
+      toast('No items in this hold bill', { icon: '⚠️' })
+    }
+
+    if (hb.customerName) {
+      setCustomer({
+        _id:  hb.customerId || null,
+        id:   hb.customerId || null,
+        name: hb.customerName,
+      })
+    }
+
+    // Track hold bill ID so we can delete it after payment
+    if (hb.id) setActiveHoldBillId(hb.id)
+
+    // Delete hold bill from backend immediately on resume
+    if (hb.id) {
+      deleteRequest(`/franchise/pos/hold-bills/${hb.id}`).catch(() => {})
+    }
+
+    // Clean up location state
+    window.history.replaceState({ ...window.history.state, usr: null }, '')
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state?.resumeHoldBill])
+
   /* Barcode input on the main search box — detect rapid input */
   const handleSearchInput = (val) => {
     setQuery(val)
@@ -279,9 +345,11 @@ export default function NewBilling() {
 
   /* ── Customer Search ── */
   const fetchCustomers = useCallback(async (q) => {
-    if (!q || q.length < 2) { setCustSuggests([]); return }
     try {
-      const res = await getRequest(`/franchise/pos/customers/search?q=${encodeURIComponent(q)}&limit=8`)
+      const url = q && q.length >= 2
+        ? `/franchise/pos/customers/search?q=${encodeURIComponent(q)}&limit=8`
+        : `/franchise/pos/customers/search?q=&limit=8`
+      const res = await getRequest(url)
       setCustSuggests(res.data?.data?.customers || res.data?.data || [])
     } catch { setCustSuggests([]) }
   }, [])
@@ -290,6 +358,11 @@ export default function NewBilling() {
     const t = setTimeout(() => fetchCustomers(customerQuery), 300)
     return () => clearTimeout(t)
   }, [customerQuery, fetchCustomers])
+
+  // Load initial customers when dropdown opens
+  useEffect(() => {
+    if (showCustSearch) fetchCustomers(customerQuery)
+  }, [showCustSearch]) // eslint-disable-line
 
   /* ── Add medicine — check batches ── */
   const addMedToCart = (med) => {
@@ -327,8 +400,20 @@ export default function NewBilling() {
         url: '/franchise/pos/hold-bills',
         cred: {
           customerName: customer?.name || 'Walk-In',
-          customerId:   customer?._id  || null,
-          items:        cart.map(i => ({ medicineId: i._id, batchId: i.batchId, name: i.name, qty: i.qty, mrp: i.mrp, discount: i.discount })),
+          customerId:   customer?._id || customer?.id  || null,
+          items:        cart.map(i => ({
+            medicineId:   i._id,
+            medicineName: i.name,
+            batchId:      i.batchId,
+            batchNo:      i.batch  || '',
+            qty:          i.qty,
+            mrp:          i.mrp,
+            discountPct:  i.discount,
+            gstPct:       i.gst,
+            amount:       Number(i.mrp || 0) * (i.qty || 1) * (1 - (i.discount || 0) / 100),
+            exp:          i.exp    || '',
+            salt:         i.salt   || '',
+          })),
           subtotal:     bill.mrpTotal,
           totalAmt:     bill.total,
           note:         holdNote,
@@ -343,33 +428,53 @@ export default function NewBilling() {
 
   const resumeHoldBill = async (hb) => {
     try {
-      const items = (hb.items || []).map(i => ({
-        _cartKey: `${i.medicineId}_${i.batchId || i.medicineId}`,
-        _id:      i.medicineId,
-        batchId:  i.batchId || i.medicineId,
-        name:     i.name,
-        mrp:      i.mrp,
-        qty:      i.qty,
-        discount: i.discount || 0,
-        stock:    999,
-        gst:      i.gst || 0,
-        batch:    i.batch || '',
-        exp:      i.exp   || '',
-        salt:     i.salt  || '',
-        pack:     i.pack  || '',
-      }))
-      dispatch({ type:'RESTORE', payload: items })
-      if (hb.customerId) setCustomer({ _id: hb.customerId, name: hb.customerName })
-      await deleteRequest(`/franchise/pos/hold-bills/${hb._id}`)
+      // Fetch full hold bill with complete items array
+      const res = await getRequest(`/franchise/pos/hold-bills/${hb._id || hb.id}`)
+      const fullBill = res?.data?.data || res?.data
+      if (!fullBill) { toast.error('Could not load hold bill data'); return }
+
+      const cartItems = (fullBill.items || []).map((i, idx) => {
+        // medicineId may be absent in seeded/old hold bills — fall back to name+index
+        const medId   = i.medicineId || i._id || i.id || `manual_${idx}_${(i.medicineName || i.name || '').replace(/\s/g,'_')}`
+        const batchId = i.batchId || medId
+        return {
+          _cartKey:  `${medId}_${batchId}`,
+          _id:       medId,
+          batchId,
+          name:      i.medicineName || i.name || '',
+          mrp:       Number(i.mrp      || 0),
+          qty:       Number(i.qty      || 1),
+          discount:  Number(i.discountPct || i.discount || 0),
+          stock:     Number(i.stock    || 999),
+          gst:       Number(i.gstPct   || i.gst || 0),
+          batch:     i.batchNo  || i.batch || '',
+          exp:       i.exp      || '',
+          salt:      i.salt     || '',
+          pack:      i.pack     || '',
+          ptr:       Number(i.ptr || i.mrp || 0),
+          nearExpiry: false,
+        }
+      })
+
+      dispatch({ type:'RESTORE', payload: cartItems })
+      if (fullBill.customerId || fullBill.customerName) {
+        setCustomer({
+          _id:  fullBill.customerId || null,
+          id:   fullBill.customerId || null,
+          name: fullBill.customerName || 'Walk-In Customer',
+        })
+      }
+      await deleteRequest(`/franchise/pos/hold-bills/${fullBill._id || fullBill.id}`)
+      setActiveHoldBillId(null)   // already deleted above
       setShowHold(false)
-      toast.success('Bill resumed')
+      toast.success(`Bill resumed — ${cartItems.length} item${cartItems.length !== 1 ? 's' : ''} loaded`, { icon: '🔄' })
     } catch { toast.error('Failed to resume hold bill') }
   }
 
   const deleteHoldBill = async (id) => {
     try {
       await deleteRequest(`/franchise/pos/hold-bills/${id}`)
-      setHoldBills(p => p.filter(b => b._id !== id))
+      setHoldBills(p => p.filter(b => (b._id || b.id) !== id))
     } catch { toast.error('Failed to delete') }
   }
 
@@ -382,41 +487,49 @@ export default function NewBilling() {
         ? splitAmt.filter(s => s.amount && Number(s.amount) > 0).map(s => ({ mode: s.mode, amount: Number(s.amount) }))
         : [{ mode: payMode, amount: bill.total }]
 
+      const totalDiscountAmt = (bill.itemDiscTotal || 0) + (bill.extraDiscAmt || 0)
+      const paidAmt = payMode === 'Credit' ? 0 : bill.total
+      const dueAmt  = payMode === 'Credit' ? bill.total : 0
+
       const payload = {
-        customerId:     customer?._id    || null,
-        customerName:   customer?.name   || 'Walk-In Customer',
-        customerPhone:  customer?.phone  || '',
+        customerId:    customer?._id || customer?.id || null,
+        customerName:  customer?.name  || 'Walk-In Customer',
+        customerPhone: customer?.phone || '',
         items: cart.map(i => ({
-          medicineId: i._id,
-          batchId:    i.batchId,
-          name:       i.name,
-          qty:        i.qty,
-          mrp:        i.mrp,
-          ptr:        i.ptr,
-          discount:   i.discount,
-          gst:        i.gst,
-          amount:     i.mrp * i.qty * (1 - i.discount / 100),
+          medicineId:  i._id,
+          batchId:     i.batchId,
+          medicineName: i.name,          // ← schema field name
+          batchNo:     i.batch || '',
+          qty:         i.qty,
+          mrp:         i.mrp,
+          ptr:         i.ptr,
+          discountPct: i.discount,       // ← schema field name
+          gstPct:      i.gst,            // ← schema field name
+          amount:      Number(i.mrp || 0) * (i.qty || 1) * (1 - (i.discount || 0) / 100),
         })),
-        subtotal:       bill.mrpTotal,
-        itemDiscount:   bill.itemDiscTotal,
-        extraDiscount:  bill.extraDiscAmt,
-        taxable:        bill.taxable,
-        gstAmount:      bill.gstTotal,
-        roundOff:       bill.roundOff,
-        netAmount:      bill.total,
-        paymentMode:    payMode,
-        paymentDetails,
-        cashReceived:   payMode === 'Cash' ? Number(received || bill.total) : null,
-        change:         payMode === 'Cash' ? Math.max(0, Number(received || 0) - bill.total) : 0,
+        subtotal:    bill.mrpTotal,
+        discountAmt: totalDiscountAmt,   // ← schema field name
+        gstAmt:      bill.gstTotal,      // ← schema field name
+        roundOff:    bill.roundOff,
+        totalAmt:    bill.total,         // ← REQUIRED field in schema
+        paymentMode: payMode,
+        paidAmt,                         // ← schema field
+        dueAmt,                          // ← schema field
+        notes: paymentDetails?.length > 1
+          ? paymentDetails.map(p => `${p.mode}: ₹${p.amount}`).join(', ')
+          : undefined,
       }
 
       const res = await postRequest({ url: '/franchise/pos/sales/invoice', cred: payload })
       const inv = res.data?.data
+      // normalize: backend returns invoiceId, schema uses _id
+      const invoiceObj = { ...inv, _id: inv?.invoiceId || inv?._id, netAmount: bill.total }
 
-      setInvoice(inv)
+      setInvoice(invoiceObj)
       dispatch({ type:'CLEAR' })
       setCustomer(null); setExtraDisc(0); setShowPay(false)
-      toast.success(`Invoice ${inv?.invoiceNo || ''} created!`, { duration: 3000, icon: '🧾' })
+      setActiveHoldBillId(null)   // resumed hold bill fully paid — clear tracking
+      toast.success(`Invoice ${invoiceObj?.invoiceNo || ''} created!`, { duration: 3000, icon: '🧾' })
 
     } catch (err) {
       toast.error(err?.response?.data?.message || 'Payment failed')
@@ -623,11 +736,11 @@ export default function NewBilling() {
                 : holdBills.length === 0
                   ? <p style={{ textAlign:'center', color:'#9ca3af', padding:'20px 0', fontSize:13 }}>No held bills today</p>
                   : holdBills.map(hb => (
-                    <div key={hb._id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'12px 14px', background:'#f9fafb', borderRadius:10, marginBottom:8, border:'1px solid #e5e7eb' }}>
+                    <div key={hb._id || hb.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'12px 14px', background:'#f9fafb', borderRadius:10, marginBottom:8, border:'1px solid #e5e7eb' }}>
                       <div>
-                        <p style={{ margin:0, fontSize:13, fontWeight:700, color:'#111827' }}>{hb.customerName || 'Walk-In'}</p>
+                        <p style={{ margin:0, fontSize:13, fontWeight:700, color:'#111827' }}>{hb.customerName || hb.name || 'Walk-In'}</p>
                         <p style={{ margin:'2px 0 0', fontSize:11, color:'#9ca3af' }}>
-                          {hb.items?.length || 0} items · ₹{Number(hb.totalAmt||0).toFixed(2)}
+                          {typeof hb.items === 'number' ? hb.items : (hb.items?.length || 0)} items · ₹{Number(hb.totalAmt || hb.amount || 0).toFixed(2)}
                           {hb.note && ` · ${hb.note}`}
                         </p>
                       </div>
@@ -636,7 +749,7 @@ export default function NewBilling() {
                           style={{ display:'flex', alignItems:'center', gap:4, padding:'6px 12px', border:'none', borderRadius:7, background:'#0c3b73', color:'#fff', fontSize:12, fontWeight:600, cursor:'pointer' }}>
                           <Play size={11}/> Resume
                         </button>
-                        <button onClick={() => deleteHoldBill(hb._id)}
+                        <button onClick={() => deleteHoldBill(hb._id || hb.id)}
                           style={{ padding:'6px 8px', border:'none', borderRadius:7, background:'#fee2e2', cursor:'pointer' }}>
                           <Trash2 size={13} color="#dc2626"/>
                         </button>
@@ -770,17 +883,17 @@ export default function NewBilling() {
               </button>
 
               {showCustSearch && (
-                <div style={{ position:'absolute', top:'100%', left:0, width:280, background:'#fff', border:'1px solid #e5e7eb', borderRadius:10, boxShadow:'0 12px 32px rgba(0,0,0,0.14)', zIndex:200, marginTop:4, padding:'10px', overflow:'hidden' }}>
+                <div style={{ position:'absolute', top:'100%', left:0, width:280, background:'#fff', border:'1px solid #e5e7eb', borderRadius:10, boxShadow:'0 12px 32px rgba(0,0,0,0.14)', zIndex:200, marginTop:4, padding:'10px', overflowY:'auto', maxHeight:300 }}>
                   <input value={customerQuery} onChange={e => setCustQuery(e.target.value)} placeholder="Search customer name / phone..."
                     autoFocus
                     style={{ width:'100%', padding:'8px 12px', border:'1px solid #e5e7eb', borderRadius:7, fontSize:13, outline:'none', background:'#f9fafb', boxSizing:'border-box', marginBottom:6 }} />
                   {custSuggests.map(c => (
-                    <div key={c._id} onClick={() => { setCustomer(c); setCustQuery(''); setCustSuggests([]); setShowCustSearch(false) }}
+                    <div key={c._id || c.id} onClick={() => { setCustomer(c); setCustQuery(''); setCustSuggests([]); setShowCustSearch(false) }}
                       style={{ padding:'8px 10px', borderRadius:7, cursor:'pointer', transition:'background 0.08s' }}
                       onMouseEnter={e => e.currentTarget.style.background = '#f0f9ff'}
                       onMouseLeave={e => e.currentTarget.style.background = ''}>
                       <p style={{ margin:0, fontSize:12, fontWeight:600, color:'#111827' }}>{c.name}</p>
-                      <p style={{ margin:0, fontSize:10, color:'#9ca3af' }}>{c.phone} · {c.id}</p>
+                      <p style={{ margin:0, fontSize:10, color:'#9ca3af' }}>{c.phone} · {c.customerId || c.id}</p>
                     </div>
                   ))}
                   <div style={{ borderTop:'1px solid #f3f4f6', marginTop:6, paddingTop:6 }}>
@@ -846,7 +959,7 @@ export default function NewBilling() {
                   </thead>
                   <tbody>
                     {cart.map((item, idx) => {
-                      const itemTotal = item.mrp * item.qty * (1 - item.discount / 100)
+                      const itemTotal = Number(item.mrp || 0) * (item.qty || 1) * (1 - (item.discount || 0) / 100)
                       const expDate   = item.exp ? new Date(item.exp) : null
                       const daysLeft  = expDate ? Math.ceil((expDate - new Date()) / 86400000) : null
                       const isNearExp = daysLeft !== null && daysLeft <= 90
@@ -868,7 +981,7 @@ export default function NewBilling() {
                             </span>
                           </Td>
                           <Td style={{ fontSize:11, fontWeight:600, color: item.stock <= 10 ? '#dc2626' : '#374151' }}>{item.stock}</Td>
-                          <Td style={{ fontWeight:700, color:'#374151' }}>₹{item.mrp.toFixed(2)}</Td>
+                          <Td style={{ fontWeight:700, color:'#374151' }}>₹{Number(item.mrp || 0).toFixed(2)}</Td>
                           <Td>
                             <div style={{ display:'flex', alignItems:'center', gap:3 }}>
                               <button onClick={() => dispatch({ type:'QTY', key:item._cartKey, qty: item.qty - 1 })}

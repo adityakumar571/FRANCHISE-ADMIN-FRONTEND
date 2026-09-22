@@ -31,25 +31,69 @@ export default function Outstanding() {
     (async () => {
       setLoading(true)
       try {
-        // Get all suppliers with outstanding balance
-        const res = await getRequest('/franchise/suppliers?status=Active&page=1&limit=50')
+        // Use dedicated outstanding endpoint per supplier
+        const res = await getRequest('/franchise/suppliers?status=Active&page=1&limit=100')
         const sups = res.data?.data?.suppliers || []
-        const outstandingList = sups
-          .filter(s => s.outstanding > 0)
-          .map(s => ({
-            name:         s.name,
-            supplierId:   s._id,
-            totalPayable: s.outstanding,
-            overdueAmt:   s.outstanding > 10000 ? s.outstanding * 0.3 : 0,
-            currentDue:   s.outstanding,
-            dueToday:     s.outstanding > 10000 ? s.outstanding * 0.2 : 0,
-            dueWeek:      s.outstanding * 0.5,
-            status:       s.outstanding > 10000 ? 'Overdue' : 'Due',
-          }))
+
+        // For suppliers with outstanding balance, fetch actual outstanding details
+        const outstandingList = await Promise.all(
+          sups.filter(s => s.outstanding > 0).map(async (s) => {
+            try {
+              const outRes = await getRequest(`/franchise/suppliers/${s._id}/outstanding`)
+              const data = outRes.data?.data
+              const unpaidInvoices = data?.invoices || []
+              // Calculate real overdue (invoices > 30 days old)
+              const now = new Date()
+              const overdueAmt = unpaidInvoices
+                .filter(inv => {
+                  const invDate = new Date(inv.date)
+                  const ageDays = (now - invDate) / (1000 * 60 * 60 * 24)
+                  return ageDays > 30
+                })
+                .reduce((sum, inv) => sum + (inv.due || 0), 0)
+              const dueToday = unpaidInvoices
+                .filter(inv => {
+                  const invDate = new Date(inv.date)
+                  const ageDays = (now - invDate) / (1000 * 60 * 60 * 24)
+                  return ageDays > 45
+                })
+                .reduce((sum, inv) => sum + (inv.due || 0), 0)
+              const dueWeek = unpaidInvoices
+                .filter(inv => {
+                  const invDate = new Date(inv.date)
+                  const ageDays = (now - invDate) / (1000 * 60 * 60 * 24)
+                  return ageDays > 15
+                })
+                .reduce((sum, inv) => sum + (inv.due || 0), 0)
+              return {
+                name:         s.name,
+                supplierId:   s._id,
+                totalPayable: s.outstanding,
+                overdueAmt,
+                currentDue:   s.outstanding,
+                dueToday,
+                dueWeek,
+                status:       overdueAmt > 0 ? 'Overdue' : 'Due',
+              }
+            } catch {
+              // Fallback: use outstanding as-is
+              return {
+                name:         s.name,
+                supplierId:   s._id,
+                totalPayable: s.outstanding,
+                overdueAmt:   0,
+                currentDue:   s.outstanding,
+                dueToday:     0,
+                dueWeek:      s.outstanding,
+                status:       'Due',
+              }
+            }
+          })
+        )
         setData(outstandingList.length > 0 ? outstandingList : FALLBACK)
       } catch {
         setData(FALLBACK)
-        toast.error('Using demo data')
+        toast.error('Using demo data — API unavailable')
       } finally {
         setLoading(false)
       }

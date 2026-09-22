@@ -32,10 +32,12 @@ const SalesReturns = () => {
   const fetchReturns = async () => {
     setLoading(true)
     try {
-      const res = await getRequest(`franchise/pos/sales/returns?page=${page}&limit=20`)
-      // API returns array in data, total in total field
-      setReturns(res?.data || [])
-      setTotal(res?.total || (res?.data?.length ?? 0))
+      const res = await getRequest(`/franchise/pos/sales/returns?page=${page}&limit=20`)
+      // apiResponse wrapper: res.data.data = { returns: [...], total }
+      const payload = res?.data?.data || res?.data || {}
+      const list    = payload?.returns || (Array.isArray(payload) ? payload : [])
+      setReturns(list)
+      setTotal(payload?.total ?? list.length)
     } catch {
       setReturns([])
     } finally {
@@ -54,7 +56,7 @@ const SalesReturns = () => {
     if (!billRef.trim()) { toast.error('Bill reference required'); return }
     setSaving(true)
     try {
-      await postRequest({ url: 'franchise/pos/sales/returns', cred: {
+      await postRequest({ url: '/franchise/pos/sales/returns', cred: {
         originalInvoiceNo: billRef,
         customerName: customer,
         items: items.map(it => ({
@@ -78,14 +80,13 @@ const SalesReturns = () => {
   }
 
   const columns = [
-    { title: 'Return No.', key: '_id',      render: (v) => <span style={{ fontWeight: 700, color: '#d97706' }}>{v}</span> },
-    { title: 'Bill Ref.',  key: 'billRef' },
-    { title: 'Customer',   key: 'customerName' },
-    { title: 'Items',      key: 'items',   render: (v) => Array.isArray(v) ? v.length : v, align: 'center' },
-    { title: 'Amount',     key: 'totalRefund', render: (v) => `₹${(v||0).toFixed(2)}` },
-    { title: 'Reason',     key: 'reason' },
-    { title: 'Date',       key: 'createdAt', render: (v) => v ? new Date(v).toLocaleDateString('en-IN') : '' },
-    { title: 'Status',     key: 'status',  render: (v) => <StatusBadge status={v || 'completed'} /> },
+    { title: 'Return No.',  key: 'invoiceNo',    render: (v) => <span style={{ fontWeight: 700, color: '#d97706' }}>{v || '—'}</span> },
+    { title: 'Customer',    key: 'customerName' },
+    { title: 'Items',       key: 'items',        render: (v) => v ?? 0, align: 'center' },
+    { title: 'Amount',      key: 'amount',       render: (v) => `₹${Number(v||0).toFixed(2)}` },
+    { title: 'Reason',      key: 'reason' },
+    { title: 'Date',        key: 'returnDate',   render: (v) => v ? new Date(v).toLocaleDateString('en-IN') : '' },
+    { title: 'Status',      key: 'status',       render: (v) => <StatusBadge status={v || 'Returned'} /> },
   ]
 
   return (

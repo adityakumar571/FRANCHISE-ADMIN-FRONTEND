@@ -42,8 +42,14 @@ export default function SalesReport() {
   return (
     <div style={{ fontFamily: 'Inter, sans-serif', display: 'flex', flexDirection: 'column', gap: 18 }}>
       <PageHeader icon={FileText} title="Sales Report" subtitle="Detailed sales analysis by date range" color="#0c3b73">
-        <button style={{ padding: '7px 14px', border: '1px solid #e5e7eb', borderRadius: 8, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, fontSize: 12 }}>
-          <Download size={12} /> Export
+        <button onClick={() => {
+          const invoices = report?.invoices || []
+          const rows = invoices.map(i => `"${i.invoiceNo}","${i.date}","${i.customer||'Walk-in'}",${i.gross||0},${i.discount||0},${i.net||0},"${i.payment||''}"`)
+          const csv = `Invoice No.,Date,Customer,Gross,Discount,Net,Payment Mode\n${rows.join('\n')}`
+          const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download=`sales_report_${from||'all'}.csv`; a.click()
+          toast.success(`Exported ${invoices.length} invoices`)
+        }} style={{ padding:'7px 14px', border:'1px solid #e5e7eb', borderRadius:8, background:'#fff', cursor:'pointer', display:'flex', alignItems:'center', gap:5, fontSize:12 }}>
+          <Download size={12} /> Export CSV
         </button>
       </PageHeader>
 
