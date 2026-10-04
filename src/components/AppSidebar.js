@@ -1,9 +1,11 @@
 /* eslint-disable prettier/prettier */
 import React, { useContext, useMemo } from 'react'
 import { useSelector } from 'react-redux'
+import { useLocation } from 'react-router-dom'
 import { CSidebar, CSidebarBrand, CSidebarHeader } from '@coreui/react'
 import { AppSidebarNav } from './AppSidebarNav'
 import useNav from '../_nav'
+import supplierNav from '../_supplierNav'
 import { FranchiseContext } from '../Context/FranchiseContext'
 import logo from '../assets/PharmaNexus.png'
 
@@ -46,7 +48,10 @@ const filterNavByAccess = (items, hasAccess, role) => {
 }
 
 const AppSidebar = () => {
-  const navigation    = useNav()
+  const location = useLocation()
+  const isSupplierPortal = location.pathname.startsWith('/supplier')
+  
+  const navigation    = isSupplierPortal ? supplierNav : useNav()
   const sidebarShow   = useSelector((state) => state.sidebarShow)
   const { franchiseInfo, franchiseUser, hasAccess } = useContext(FranchiseContext)
 

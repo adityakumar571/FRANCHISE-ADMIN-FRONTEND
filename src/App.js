@@ -27,10 +27,18 @@ function DistributorAuth({ children }) {
   return children
 }
 
+/** Guard for supplier-only routes — checks supplierToken cookie */
+function SupplierAuth({ children }) {
+  const token = Cookies.get('supplierToken')
+  if (!token) return <Navigate to="/supplier/login" replace />
+  return children
+}
+
 // ── Layouts ──────────────────────────────────────────────────────────────────
 const DefaultLayout      = React.lazy(() => import('./layout/DefaultLayout'))
 const DistributorLayout  = React.lazy(() => import('./views/distributor/layout/DistributorLayout'))
 const SuperAdminLayout   = React.lazy(() => import('./layout/SuperAdminLayout'))
+const SupplierLayout     = React.lazy(() => import('./layout/SupplierLayout'))
 
 // ── Public / Auth Pages ───────────────────────────────────────────────────────
 const FranchiseLogin     = React.lazy(() => import('./views/pages/FranchiseLogin/FranchiseLogin'))
@@ -47,6 +55,7 @@ const SASubscriptions= React.lazy(() => import('./views/superadmin/Subscriptions
 const SAMedicines    = React.lazy(() => import('./views/superadmin/Medicine/GlobalMedicineMaster'))
 const SADistributors = React.lazy(() => import('./views/superadmin/Distributors/DistributorManagement'))
 const SASupplierAssign= React.lazy(() => import('./views/superadmin/Suppliers/SupplierAssignment'))
+const SASupplierManage = React.lazy(() => import('./views/superadmin/Suppliers/SupplierManagement'))
 const SAReports      = React.lazy(() => import('./views/superadmin/Reports/SuperAdminReports'))
 const SAAuditLogs    = React.lazy(() => import('./views/superadmin/AuditLogs/SuperAdminAuditLogs'))
 const SASettings     = React.lazy(() => import('./views/superadmin/Settings/SuperAdminSettings'))
@@ -63,6 +72,15 @@ const DistPayments      = React.lazy(() => import('./views/distributor/screens/D
 const DistReports       = React.lazy(() => import('./views/distributor/screens/DistReports'))
 const DistNotifications = React.lazy(() => import('./views/distributor/screens/DistNotifications'))
 const DistSettings      = React.lazy(() => import('./views/distributor/screens/DistSettings'))
+
+// ── Supplier Screens ──────────────────────────────────────────────────────────
+const SupplierLogin        = React.lazy(() => import('./views/supplier/SupplierLogin'))
+const SupplierAutoLogin    = React.lazy(() => import('./views/supplier/AutoLogin'))
+const SupplierDashboard    = React.lazy(() => import('./views/supplier/SupplierDashboard'))
+const SupplierOrders       = React.lazy(() => import('./views/supplier/SupplierOrders'))
+const SupplierOrderDetails = React.lazy(() => import('./views/supplier/SupplierOrderDetails'))
+const SupplierInventory    = React.lazy(() => import('./views/supplier/SupplierInventory'))
+const SupplierReports      = React.lazy(() => import('./views/supplier/reports/SupplierReports'))
 
 const Spinner = (
   <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
@@ -95,6 +113,7 @@ const App = () => (
             <Route path="medicines"              element={<SAMedicines />} />
             <Route path="distributors"           element={<SADistributors />} />
             <Route path="supplier-assignment"    element={<SASupplierAssign />} />
+            <Route path="suppliers"               element={<SASupplierManage />} />
             <Route path="reports"                element={<SAReports />} />
             <Route path="audit"                  element={<SAAuditLogs />} />
             <Route path="settings"               element={<SASettings />} />
@@ -114,6 +133,24 @@ const App = () => (
             <Route path="reports"               element={<DistReports />} />
             <Route path="notifications"         element={<DistNotifications />} />
             <Route path="settings"              element={<DistSettings />} />
+          </Route>
+
+          {/* ── Supplier Portal ── */}
+          <Route path="/supplier/login"      element={<SupplierLogin />} />
+          <Route path="/supplier/auto-login" element={<SupplierAutoLogin />} />
+          
+          {/* Supplier routes with layout */}
+          <Route path="/supplier" element={<SupplierLayout />}>
+            <Route path="dashboard"       element={<SupplierDashboard />} />
+            <Route path="orders"          element={<SupplierOrders />} />
+            <Route path="orders/:id"      element={<SupplierOrderDetails />} />
+            <Route path="inventory"       element={<SupplierInventory />} />
+            <Route path="inventory/add"   element={<SupplierInventory />} />
+            <Route path="reports"         element={<SupplierReports />} />
+            <Route path="reports/sales"   element={<SupplierReports />} />
+            <Route path="reports/franchise" element={<SupplierReports />} />
+            <Route path="reports/products"  element={<SupplierReports />} />
+            <Route path="reports/analytics" element={<SupplierReports />} />
           </Route>
 
           {/* Franchise portal — DefaultLayout handles auth guard */}

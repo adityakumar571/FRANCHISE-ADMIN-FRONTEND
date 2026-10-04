@@ -92,6 +92,13 @@ const Outstanding       = l(() => import('./views/franchise/Suppliers/Outstandin
 const SupplierTxnLedger = l(() => import('./views/franchise/Suppliers/SupplierLedger'))
 const PaymentHistory    = l(() => import('./views/franchise/Suppliers/PaymentHistory'))
 
+// ── Supplier Portal ───────────────────────────────────────────────────────────
+const SupplierLogin           = l(() => import('./views/supplier/SupplierLogin'))
+const SupplierAutoLogin       = l(() => import('./views/supplier/AutoLogin'))
+const SupplierDashboard       = l(() => import('./views/supplier/SupplierDashboard'))
+const SupplierMedicines       = l(() => import('./views/supplier/MedicineManagement'))
+const SupplierOrders          = l(() => import('./views/supplier/OrderManagement'))
+
 // ── B2B Orders ────────────────────────────────────────────────────────────────
 const B2BOrders = l(() => import('./views/franchise/B2BOrders/B2BOrders'))
 
@@ -310,6 +317,19 @@ const routes = [
   { path: '/franchise/attendance',    element: Attendance,   accessKey: 'staff_list'    },
   { path: '/franchise/activity-logs', element: ActivityLogs, accessKey: 'audit_logs'    },
   { path: '/franchise/profile',       element: Profile                                   },
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     SUPPLIER PORTAL ROUTES (Public + Protected)
+  ══════════════════════════════════════════════════════════════════════════ */
+  
+  /* ── Supplier Public Routes ── */
+  { path: '/supplier/login',      element: SupplierLogin     }, // Public login page
+  { path: '/supplier/auto-login', element: SupplierAutoLogin }, // Auto-login with token
+  
+  /* ── Supplier Protected Routes ── */
+  { path: '/supplier/dashboard', element: SupplierDashboard }, // Supplier dashboard
+  { path: '/supplier/medicines', element: SupplierMedicines }, // Medicine inventory
+  { path: '/supplier/orders',    element: SupplierOrders    }, // Order management
 ]
 
 export default routes

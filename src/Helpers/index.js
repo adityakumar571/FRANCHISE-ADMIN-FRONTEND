@@ -26,10 +26,20 @@ export const getTenant = () => {
 
 // ── Build common headers ──────────────────────────────────────────────────────
 const getHeaders = () => {
-  const token    = Cookies.get('LMS')
-  const tenantId = getTenant()
-  const headers  = { 'x-tenant-id': tenantId }
-  if (token) headers['Authorization'] = `Bearer ${token}`   // ← Bearer prefix added
+  // Check both regular user token and supplier token
+  const token = Cookies.get('LMS') || Cookies.get('supplierToken')
+  const supplierToken = Cookies.get('supplierToken')
+  
+  // If supplier session, don't send tenant header
+  const headers = {}
+  
+  if (!supplierToken) {
+    // Only add tenant header for franchise users, not suppliers
+    const tenantId = getTenant()
+    headers['x-tenant-id'] = tenantId
+  }
+  
+  if (token) headers['Authorization'] = `Bearer ${token}`
   return headers
 }
 

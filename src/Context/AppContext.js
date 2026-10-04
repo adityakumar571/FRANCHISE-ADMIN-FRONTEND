@@ -41,8 +41,16 @@ export const AppProvider = ({ children }) => {
   /**
    * Fetch fresh user profile from the API.
    * Keeps clerkId / user._id always up to date.
+   * Skips for supplier portal (checks supplierToken cookie)
    */
   const refreshUserProfile = useCallback(async () => {
+    // Skip profile refresh for supplier portal
+    const supplierToken = Cookies.get('supplierToken')
+    if (supplierToken) {
+      console.log('[AppContext] Supplier session detected - skipping user profile refresh')
+      return
+    }
+
     const token     = Cookies.get('LMS')
     const subdomain = getSubdomain()
     if (!token || !subdomain) return
@@ -67,8 +75,16 @@ export const AppProvider = ({ children }) => {
    * Fetch fresh tenant details from the API.
    * Called on app mount + exposed so any component can trigger a refresh.
    * NOTE: Only runs when a subdomain is detected — safe for franchise portal.
+   * Skips for supplier portal (checks supplierToken cookie)
    */
   const refreshTenantDetails = useCallback(async () => {
+    // Skip tenant refresh for supplier portal
+    const supplierToken = Cookies.get('supplierToken')
+    if (supplierToken) {
+      console.log('[AppContext] Supplier session detected - skipping tenant details refresh')
+      return
+    }
+
     const subdomain = getSubdomain()
     if (!subdomain) return
     try {
