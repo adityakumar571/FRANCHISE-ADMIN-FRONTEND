@@ -78,9 +78,6 @@ const PlanCard = ({ plan, onEdit, onToggle }) => (
         <span style={{ fontSize: 26, fontWeight: 900, color: C.primary }}>₹{Number(plan.price).toLocaleString()}</span>
         <span style={{ fontSize: 12, color: '#6b7280' }}>/{plan.billingCycle === 'Monthly' ? 'mo' : 'yr'}</span>
       </div>
-      <p style={{ fontSize: 11, color: '#6b7280', margin: '4px 0 0' }}>
-        {plan.studentLimit ? `Up to ${plan.studentLimit} franchises` : 'Unlimited franchises'}
-      </p>
     </div>
     <div style={{ padding: '14px 20px' }}>
       <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 7 }}>
@@ -111,7 +108,7 @@ const PlanCard = ({ plan, onEdit, onToggle }) => (
   </div>
 )
 
-const EMPTY_PLAN_FORM = { name: '', description: '', price: '', cycle: 'Monthly', limit: '', features: [], statusOn: true }
+const EMPTY_PLAN_FORM = { name: '', description: '', price: '', cycle: 'Monthly', features: [], statusOn: true }
 
 export default function SubscriptionManagement() {
   const [activeTab, setActiveTab]         = useState('Plans')
@@ -193,7 +190,6 @@ export default function SubscriptionManagement() {
       description: plan.description || '',
       price:       String(plan.price ?? ''),
       cycle:       plan.billingCycle || 'Monthly',
-      limit:       plan.studentLimit ? String(plan.studentLimit) : '',
       features:    plan.features    || [],
       statusOn:    plan.isActive !== false,
     })
@@ -213,7 +209,6 @@ export default function SubscriptionManagement() {
         description:  planForm.description,
         price:        Number(planForm.price),
         billingCycle: planForm.cycle,
-        studentLimit: planForm.limit ? Number(planForm.limit) : 999999,
         features:     planForm.features,
         isActive:     planForm.statusOn,
       }
@@ -579,13 +574,9 @@ export default function SubscriptionManagement() {
                     <option>Yearly</option>
                   </select>
                 </div>
-                <div>
-                  <label style={labelStyle}>Franchise Limit (blank = unlimited)</label>
-                  <input type="number" value={planForm.limit} onChange={e => setPlanForm(f => ({ ...f, limit: e.target.value }))}
-                    placeholder="e.g. 25 (or blank)" style={{ ...inputStyle, width: '100%' }} />
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 18 }}>
-                  <label style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>Active</label>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 18, marginBottom: 14 }}>
+                <label style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>Active</label>
                   <button onClick={() => setPlanForm(f => ({ ...f, statusOn: !f.statusOn }))}
                     style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
                     {planForm.statusOn

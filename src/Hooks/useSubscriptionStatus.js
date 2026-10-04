@@ -7,25 +7,19 @@
  *
  * Returns:
  *  {
- *    loading          : boolean
- *    hasSubscription  : boolean
- *    status           : string          — ACTIVE | TRIAL | EXPIRED | CANCELLED | PENDING
- *    planName         : string
- *    billingCycle     : string
- *    endDate          : string | null
- *    daysLeft         : number | null
- *    totalStudentLimit: number
- *    usedStudents     : number
- *    remaining        : number | "unlimited"
- *    usagePercent     : number          — 0-100
- *    paidStatus       : string          — PAID | UNPAID | PENDING | OVERDUE
- *    dueDate          : string | null
- *    warnings         : string[]        — EXPIRING_SOON | EXPIRED | LIMIT_CRITICAL |
- *                                         LIMIT_WARNING | PAYMENT_OVERDUE | PAYMENT_UNPAID |
- *                                         SESSION_BILLING_OVERDUE | ADMISSIONS_RESTRICTED |
- *                                         REGISTRATION_RESTRICTED | TRIAL_EXPIRING_SOON |
- *                                         NO_SUBSCRIPTION
- *    refresh          : () => void
+ *    loading         : boolean
+ *    hasSubscription : boolean
+ *    status          : string   — ACTIVE | TRIAL | EXPIRED | CANCELLED | PENDING
+ *    planName        : string
+ *    billingCycle    : string
+ *    endDate         : string | null
+ *    daysLeft        : number | null
+ *    totalAmount     : number
+ *    paidStatus      : string   — PAID | UNPAID | PENDING | OVERDUE
+ *    dueDate         : string | null
+ *    warnings        : string[] — EXPIRING_SOON | EXPIRED | PAYMENT_OVERDUE |
+ *                                  PAYMENT_UNPAID | TRIAL_EXPIRING_SOON | NO_SUBSCRIPTION
+ *    refresh         : () => void
  *  }
  */
 
@@ -47,7 +41,7 @@ export const useSubscriptionStatus = () => {
       if (!payload || payload.hasSubscription === false) {
         setData({ hasSubscription: false, warnings: ['NO_SUBSCRIPTION'] })
       } else {
-        // Merge warnings from header (header may include session billing flags)
+        // Merge warnings from header
         const headerWarnings = res?.headers?.['x-subscription-warnings']
         const extraWarnings  = headerWarnings
           ? headerWarnings.split(',').map((w) => w.trim()).filter(Boolean)
@@ -71,19 +65,16 @@ export const useSubscriptionStatus = () => {
 
   return {
     loading,
-    hasSubscription:   data?.hasSubscription  ?? null,
-    status:            data?.status           ?? null,
-    planName:          data?.planName         ?? null,
-    billingCycle:      data?.billingCycle     ?? null,
-    endDate:           data?.endDate          ?? null,
-    daysLeft:          data?.daysLeft         ?? null,
-    totalStudentLimit: data?.totalStudentLimit ?? 0,
-    usedStudents:      data?.usedStudents     ?? 0,
-    remaining:         data?.remaining        ?? 0,
-    usagePercent:      data?.usagePercent     ?? 0,
-    paidStatus:        data?.paidStatus       ?? null,
-    dueDate:           data?.dueDate          ?? null,
-    warnings:          data?.warnings         ?? [],
-    refresh:           fetchStatus,
+    hasSubscription: data?.hasSubscription ?? null,
+    status:          data?.status          ?? null,
+    planName:        data?.planName        ?? null,
+    billingCycle:    data?.billingCycle    ?? null,
+    endDate:         data?.endDate         ?? null,
+    daysLeft:        data?.daysLeft        ?? null,
+    totalAmount:     data?.totalAmount     ?? 0,
+    paidStatus:      data?.paidStatus      ?? null,
+    dueDate:         data?.dueDate         ?? null,
+    warnings:        data?.warnings        ?? [],
+    refresh:         fetchStatus,
   }
 }

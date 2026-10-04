@@ -128,7 +128,7 @@ const AssignModal = ({ school, packages, onClose, onSuccess }) => {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontWeight: 600 }}>{pkg.name}</span>
                   <span style={{ fontSize: 11, color: '#6b7280', marginLeft: 8 }}>
-                    {pkg.durationDays}d · {pkg.studentLimit} students
+                    {pkg.durationDays}d
                   </span>
                 </div>
               </Option>
@@ -151,8 +151,8 @@ const AssignModal = ({ school, packages, onClose, onSuccess }) => {
                 <div style={{ fontSize: 13, fontWeight: 600, color: '#111' }}>{chosen.durationDays} Days</div>
               </div>
               <div>
-                <div style={{ fontSize: 10, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Student Limit</div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: '#111' }}>{chosen.studentLimit?.toLocaleString('en-IN')}</div>
+                <div style={{ fontSize: 10, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Duration</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#111' }}>{chosen.durationDays} days</div>
               </div>
               <div>
                 <div style={{ fontSize: 10, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Eligible Once</div>
