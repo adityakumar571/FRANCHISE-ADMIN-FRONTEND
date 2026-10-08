@@ -123,16 +123,17 @@ const MODULES = [
       { key: 'medicines_barcode', label: 'Barcode & Label' },
     ],
   },
-  {
-    key: 'suppliers', label: 'Suppliers', icon: '🚚',
-    items: [
-      { key: 'suppliers_list',        label: 'Supplier List' },
-      { key: 'suppliers_add',         label: 'Add Supplier' },
-      { key: 'suppliers_outstanding', label: 'Outstanding' },
-      { key: 'suppliers_ledger',      label: 'Supplier Ledger' },
-      { key: 'suppliers_payments',    label: 'Payment History' },
-    ],
-  },
+  // ❌ REMOVED: Tenant supplier menu items
+  // {
+  //   key: 'suppliers', label: 'Suppliers', icon: '🚚',
+  //   items: [
+  //     { key: 'suppliers_list',        label: 'Supplier List' },
+  //     { key: 'suppliers_add',         label: 'Add Supplier' },
+  //     { key: 'suppliers_outstanding', label: 'Outstanding' },
+  //     { key: 'suppliers_ledger',      label: 'Supplier Ledger' },
+  //     { key: 'suppliers_payments',    label: 'Payment History' },
+  //   ],
+  // },
   {
     key: 'customers', label: 'Customers', icon: '👥',
     items: [
@@ -249,7 +250,7 @@ const ROLE_DEFAULTS = {
     'purchase','purchase_dashboard','purchase_orders','purchase_grn','purchase_returns',
     'inventory','inventory_dashboard','inventory_stock','inventory_nearexpiry','inventory_rack',
     'medicines','medicines_list','medicines_rack',
-    'suppliers','suppliers_list','suppliers_outstanding',
+    // ❌ REMOVED: 'suppliers','suppliers_list','suppliers_outstanding',
     'reports','reports_sales','reports_purchase','reports_stock',
     'staff','staff_list',
   ]),

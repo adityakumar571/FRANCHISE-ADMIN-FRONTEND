@@ -210,18 +210,21 @@ const franchiseNav = [
   },
 
   /* 12 ── Suppliers (group) ── */
-  {
-    component: CNavGroup,
-    name: 'Suppliers',
-    to: '/franchise/suppliers',
-    icon: ic(Truck),
-    accessKey: 'suppliers',
-    items: [
-      { component: CNavItem, name: 'Supplier List', to: '/franchise/suppliers',             icon: ic(List),        accessKey: 'suppliers_list'        },
-      { component: CNavItem, name: 'Add Supplier',  to: '/franchise/suppliers/add',         icon: ic(Plus),        accessKey: 'suppliers_add'         },
-      { component: CNavItem, name: 'Outstanding',   to: '/franchise/suppliers/outstanding', icon: ic(IndianRupee), accessKey: 'suppliers_outstanding' },
-    ],
-  },
+  // ❌ REMOVED: Tenant supplier management
+  // Suppliers are now global - managed through Supplier Portal
+  // Franchises can view suppliers through Live Rates section
+  // {
+  //   component: CNavGroup,
+  //   name: 'Suppliers',
+  //   to: '/franchise/suppliers',
+  //   icon: ic(Truck),
+  //   accessKey: 'suppliers',
+  //   items: [
+  //     { component: CNavItem, name: 'Supplier List', to: '/franchise/suppliers',             icon: ic(List),        accessKey: 'suppliers_list'        },
+  //     { component: CNavItem, name: 'Add Supplier',  to: '/franchise/suppliers/add',         icon: ic(Plus),        accessKey: 'suppliers_add'         },
+  //     { component: CNavItem, name: 'Outstanding',   to: '/franchise/suppliers/outstanding', icon: ic(IndianRupee), accessKey: 'suppliers_outstanding' },
+  //   ],
+  // },
 
   /* 13 ── Accounts (group) ── */
   {

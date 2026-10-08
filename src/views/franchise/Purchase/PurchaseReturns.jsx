@@ -52,7 +52,7 @@ function MedicineCell({ value, onSelect, cellStyle }) {
             <div key={m.id||m._id} onMouseDown={()=>handleSelect(m)}
               style={{ padding:'7px 12px', cursor:'pointer', fontSize:12, borderBottom:'1px solid #f3f4f6' }}
               onMouseEnter={e=>e.currentTarget.style.background='#f0f4ff'}
-              onMouseLeave={e=>e.currentTarget.style.background=>''}>
+              onMouseLeave={e=>e.currentTarget.style.background=''}>
               <p style={{ margin:0, fontWeight:600, color:'#111827' }}>{m.name}</p>
               <p style={{ margin:0, fontSize:10, color:'#9ca3af' }}>{m.company} · Stock: {m.stock}</p>
             </div>

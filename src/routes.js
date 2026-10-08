@@ -85,12 +85,14 @@ const GenericMapping       = l(() => import('./views/franchise/Medicines/Generic
 const AlternativeMedicines = l(() => import('./views/franchise/Medicines/AlternativeMedicines'))
 
 // ── Suppliers ─────────────────────────────────────────────────────────────────
-const SupplierList      = l(() => import('./views/franchise/Suppliers/SupplierList'))
-const SupplierDetails   = l(() => import('./views/franchise/Suppliers/SupplierDetails'))
-const AddSupplier       = l(() => import('./views/franchise/Suppliers/AddSupplier'))
-const Outstanding       = l(() => import('./views/franchise/Suppliers/Outstanding'))
-const SupplierTxnLedger = l(() => import('./views/franchise/Suppliers/SupplierLedger'))
-const PaymentHistory    = l(() => import('./views/franchise/Suppliers/PaymentHistory'))
+// ❌ REMOVED: Tenant supplier management - using global suppliers only
+// Franchises can only view global suppliers through Live Rates
+// const SupplierList      = l(() => import('./views/franchise/Suppliers/SupplierList'))
+// const SupplierDetails   = l(() => import('./views/franchise/Suppliers/SupplierDetails'))
+// const AddSupplier       = l(() => import('./views/franchise/Suppliers/AddSupplier'))
+// const Outstanding       = l(() => import('./views/franchise/Suppliers/Outstanding'))
+// const SupplierTxnLedger = l(() => import('./views/franchise/Suppliers/SupplierLedger'))
+// const PaymentHistory    = l(() => import('./views/franchise/Suppliers/PaymentHistory'))
 
 // ── Supplier Portal ───────────────────────────────────────────────────────────
 const SupplierLogin           = l(() => import('./views/supplier/SupplierLogin'))
@@ -240,13 +242,14 @@ const routes = [
   { path: '/franchise/medicines/:id/alternatives', element: AlternativeMedicines, accessKey: 'medicines_list'    },
 
   /* ── Suppliers ── */
-  { path: '/franchise/suppliers',              element: SupplierList,      accessKey: 'suppliers_list'        },
-  { path: '/franchise/suppliers/add',          element: AddSupplier,       accessKey: 'suppliers_add'         },
-  { path: '/franchise/suppliers/outstanding',  element: Outstanding,       accessKey: 'suppliers_outstanding' },
-  { path: '/franchise/suppliers/:id',          element: SupplierDetails,   accessKey: 'suppliers_list'        },
-  { path: '/franchise/suppliers/:id/edit',     element: AddSupplier,       accessKey: 'suppliers_add'         },
-  { path: '/franchise/suppliers/:id/ledger',   element: SupplierTxnLedger, accessKey: 'suppliers_ledger'      },
-  { path: '/franchise/suppliers/:id/payments', element: PaymentHistory,    accessKey: 'suppliers_payments'    },
+  // ❌ REMOVED: Tenant supplier routes - using global suppliers only
+  // { path: '/franchise/suppliers',              element: SupplierList,      accessKey: 'suppliers_list'        },
+  // { path: '/franchise/suppliers/add',          element: AddSupplier,       accessKey: 'suppliers_add'         },
+  // { path: '/franchise/suppliers/outstanding',  element: Outstanding,       accessKey: 'suppliers_outstanding' },
+  // { path: '/franchise/suppliers/:id',          element: SupplierDetails,   accessKey: 'suppliers_list'        },
+  // { path: '/franchise/suppliers/:id/edit',     element: AddSupplier,       accessKey: 'suppliers_add'         },
+  // { path: '/franchise/suppliers/:id/ledger',   element: SupplierTxnLedger, accessKey: 'suppliers_ledger'      },
+  // { path: '/franchise/suppliers/:id/payments', element: PaymentHistory,    accessKey: 'suppliers_payments'    },
 
   /* ── B2B Orders ── */
   { path: '/franchise/b2b-orders', element: B2BOrders, accessKey: 'b2b_orders' },

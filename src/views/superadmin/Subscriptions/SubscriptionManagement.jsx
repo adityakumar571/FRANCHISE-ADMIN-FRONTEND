@@ -577,13 +577,12 @@ export default function SubscriptionManagement() {
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 18, marginBottom: 14 }}>
                 <label style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>Active</label>
-                  <button onClick={() => setPlanForm(f => ({ ...f, statusOn: !f.statusOn }))}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                    {planForm.statusOn
-                      ? <ToggleRight size={28} color={C.success} />
-                      : <ToggleLeft  size={28} color="#9ca3af" />}
-                  </button>
-                </div>
+                <button onClick={() => setPlanForm(f => ({ ...f, statusOn: !f.statusOn }))}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                  {planForm.statusOn
+                    ? <ToggleRight size={28} color={C.success} />
+                    : <ToggleLeft  size={28} color="#9ca3af" />}
+                </button>
               </div>
 
               {/* Features */}

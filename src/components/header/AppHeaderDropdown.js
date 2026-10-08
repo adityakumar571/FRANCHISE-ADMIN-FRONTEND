@@ -6,6 +6,7 @@ import CIcon from '@coreui/icons-react'
 import { MdArrowDropDown } from 'react-icons/md'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { FranchiseContext } from '../../Context/FranchiseContext'
+import { logoutSupplier } from '../../utils/supplierAuth'
 
 const AppHeaderDropdown = () => {
   const navigate = useNavigate()
@@ -15,17 +16,23 @@ const AppHeaderDropdown = () => {
   // Detect if we're in supplier portal
   const isSupplierPortal = location.pathname.startsWith('/supplier')
 
-  const handleLogout = (e) => {
+  const handleLogout = async (e) => {
     e.preventDefault()
+    
     if (isSupplierPortal) {
-      // Supplier logout
-      localStorage.removeItem('supplierToken')
-      localStorage.removeItem('supplierName')
-      localStorage.removeItem('supplierEmail')
-      localStorage.removeItem('supplierCode')
-      localStorage.removeItem('supplierId')
-      localStorage.removeItem('tenantId')
-      navigate('/supplier/login', { replace: true })
+      // Supplier logout using utility function
+      try {
+        await logoutSupplier()
+        // Redirect to login page
+        navigate('/supplier/login', { replace: true })
+        // Force reload to ensure all state is cleared
+        window.location.reload()
+      } catch (error) {
+        console.error('Logout failed:', error)
+        // Force redirect anyway
+        navigate('/supplier/login', { replace: true })
+        window.location.reload()
+      }
     } else {
       // Franchise logout
       logoutFranchise()

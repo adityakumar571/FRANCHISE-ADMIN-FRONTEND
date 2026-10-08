@@ -3,7 +3,7 @@ import { Card, Form, Input, Button, Tabs, message, Modal } from 'antd'
 import { UserOutlined, LockOutlined, MailOutlined, PhoneOutlined, HomeOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
-import Cookies from 'js-cookie'
+import { isSupplierLoggedIn, saveSupplierSession } from '../../utils/supplierAuth'
 
 const { TabPane } = Tabs
 const { TextArea } = Input
@@ -18,8 +18,7 @@ const SupplierLogin = () => {
 
   useEffect(() => {
     // Check if supplier is already logged in
-    const token = Cookies.get('supplierToken')
-    if (token) {
+    if (isSupplierLoggedIn()) {
       navigate('/supplier/dashboard')
     }
   }, [navigate])
@@ -29,19 +28,15 @@ const SupplierLogin = () => {
     try {
       console.log('🔍 Login attempt:', values.email)
       
-      // Get tenant ID from environment
-      const tenantId = localStorage.getItem('x-tenant-id') || import.meta.env.VITE_TENANT_ID || 'register'
-      console.log('🏢 Tenant ID:', tenantId)
-      
-      // Use TENANT-BASED supplier API with tenant header
+      // ✅ Use GLOBAL supplier API (not tenant-based)
       const response = await axios({
         method: 'POST',
-        url: `${API_BASE_URL}franchise/suppliers/login`,
+        url: `${API_BASE_URL}suppliers/auth/login`,
         data: values,
         headers: {
-          'Content-Type': 'application/json',
-          'x-tenant-id': tenantId  // Add tenant header
-        }
+          'Content-Type': 'application/json'
+        },
+        withCredentials: true // Send cookies
       })
       
       console.log('✅ Login response:', response.data)
@@ -53,14 +48,8 @@ const SupplierLogin = () => {
         
         console.log('📦 Supplier data:', supplier)
         
-        // Store token in cookie
-        Cookies.set('supplierToken', token, { expires: 7 })
-        
-        // Store supplier info
-        localStorage.setItem('supplierId', supplier._id)
-        localStorage.setItem('supplierName', supplier.name)
-        localStorage.setItem('supplierEmail', supplier.email)
-        localStorage.setItem('supplierTenantId', supplier.tenantId || tenantId)
+        // Use utility function to save session
+        saveSupplierSession(token, supplier)
         
         console.log('🚀 Navigating to supplier dashboard')
         navigate('/supplier/dashboard')
@@ -68,7 +57,7 @@ const SupplierLogin = () => {
     } catch (error) {
       console.error('❌ Login error:', error)
       console.error('❌ Error response:', error?.response?.data)
-      message.error(error?.response?.data?.message || 'Login failed')
+      message.error(error?.response?.data?.message || 'Login failed. Please check your credentials.')
     } finally {
       setLoginLoading(false)
     }
