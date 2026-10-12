@@ -1,0 +1,11 @@
+.medicine-suggestion-item {
+  transition: background-color 0.2s ease;
+}
+
+.medicine-suggestion-item:hover {
+  background-color: #f8f9fa;
+}
+
+.medicine-suggestion-item:active {
+  background-color: #e9ecef;
+}

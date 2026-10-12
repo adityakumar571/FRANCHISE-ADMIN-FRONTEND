@@ -118,7 +118,7 @@ function AdminDashboard() {
       const [sumRes, ratesRes, trendRes, alertsRes, topRes, expiryRes, salesRes, purchaseRes, stockRes] =
         await Promise.allSettled([
           getRequest('/franchise/dashboard/summary'),
-          getRequest('/franchise/dashboard/live-rates?medicine=Clavm+625+Tablet'),
+          getRequest('/franchise-suppliers/medicines/compare/Clavm 625'),
           getRequest('/franchise/dashboard/price-trend?medicine=Clavm+625+Tablet&days=7'),
           getRequest('/franchise/dashboard/rate-alerts'),
           getRequest('/franchise/dashboard/top-moving?period=month&limit=5'),
@@ -129,7 +129,43 @@ function AdminDashboard() {
         ])
 
       if (sumRes.status === 'fulfilled')      setSummary(sumRes.value.data?.data)
-      if (ratesRes.status === 'fulfilled')    setLiveRates(ratesRes.value.data?.data || { medicine: {}, rates: [] })
+      
+      // Transform main supplier API response to match dashboard format
+      if (ratesRes.status === 'fulfilled') {
+        const supplierData = ratesRes.value.data?.data
+        if (supplierData && supplierData.suppliers && supplierData.suppliers.length > 0) {
+          const transformedRates = {
+            medicine: {
+              name: 'Clavm 625',
+              salt: 'Amoxicillin + Clavulanic Acid',
+              packSize: '10 tablets',
+              mrp: supplierData.suppliers[0]?.medicine?.mrp || 0,
+              lastPurchaseRate: null, // Not available from supplier API
+              bestRateToday: supplierData.comparison.lowestPrice || 0,
+              availableWholesalers: supplierData.comparison.count || 0
+            },
+            rates: supplierData.suppliers.map((item, index) => ({
+              rank: index + 1,
+              name: item.supplierInfo.companyName,
+              verified: item.supplierInfo.rating >= 4,
+              rating: item.supplierInfo.rating || 0,
+              basic: item.medicine.supplierPrice || 0,
+              scheme: item.medicine.scheme || 'No Scheme',
+              gst: item.medicine.gst || 0,
+              other: 0, // Not in supplier API
+              effective: item.medicine.effectiveRate || 0,
+              stock: item.medicine.stock || 0,
+              delivery: item.medicine.deliveryEstimate || 'Next Day',
+              best: item.isBestPrice || false
+            })),
+            updatedAt: new Date().toISOString()
+          }
+          setLiveRates(transformedRates)
+        } else {
+          setLiveRates({ medicine: { availableWholesalers: 0 }, rates: [] })
+        }
+      }
+      
       if (trendRes.status === 'fulfilled')    setPriceTrend(trendRes.value.data?.data)
       if (alertsRes.status === 'fulfilled')   setRateAlerts(alertsRes.value.data?.data || [])
       if (topRes.status === 'fulfilled')      setTopMoving(topRes.value.data?.data || [])

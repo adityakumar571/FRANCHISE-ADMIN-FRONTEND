@@ -2,15 +2,16 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { 
   Package, TrendingUp, AlertCircle, ShoppingCart, 
-  Eye, ArrowUp, ArrowDown, CheckCircle, Clock, 
-  Truck, XCircle, DollarSign, BarChart3, PackageCheck,
-  PackageX, PackageOpen, Boxes
+  Eye, ArrowUpRight, ArrowDownRight, CheckCircle, Clock, 
+  Truck, IndianRupee, BarChart2, Activity,
+  RefreshCw, Calendar, Loader2, Store
 } from 'lucide-react'
 import { getRequest } from '../../Helpers'
 
 const SupplierDashboard = () => {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
+  const [refreshKey, setRefreshKey] = useState(0)
   const [stats, setStats] = useState({
     currentMonth: { orders: 0, revenue: 0 },
     growth: { orders: 0, revenue: 0 },
@@ -24,7 +25,7 @@ const SupplierDashboard = () => {
 
   useEffect(() => {
     fetchDashboardData()
-  }, [])
+  }, [refreshKey])
 
   const fetchDashboardData = async () => {
     setLoading(true)
@@ -38,7 +39,7 @@ const SupplierDashboard = () => {
       }
       
       console.log('Fetching dashboard data for supplierId:', supplierId)
-      const response = await getRequest(`/suppliers/dashboard/stats`)  // No /api/ prefix
+      const response = await getRequest(`/suppliers/dashboard/stats`)
       
       console.log('Dashboard response:', response)
       
@@ -55,17 +56,18 @@ const SupplierDashboard = () => {
   const getStatusColor = (status) => {
     const colors = {
       pending: '#f59e0b',
-      confirmed: '#3b82f6',
-      processing: '#8b5cf6',
-      dispatched: '#10b981',
+      confirmed: '#0c3b73',
+      processing: '#7c3aed',
+      dispatched: '#16a34a',
       delivered: '#059669',
-      cancelled: '#ef4444',
+      cancelled: '#dc2626',
     }
     return colors[status] || '#6b7280'
   }
 
-  const formatCurrency = (amount) => {
-    return `₹${Number(amount || 0).toLocaleString('en-IN')}`
+  const fmt = (amount) => {
+    if (amount == null) return '₹0'
+    return '₹' + Number(amount).toLocaleString('en-IN')
   }
 
   const formatDate = (date) => {
@@ -76,510 +78,337 @@ const SupplierDashboard = () => {
     })
   }
 
-  if (loading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ 
-            width: '48px', 
-            height: '48px', 
-            border: '4px solid #f3f4f6', 
-            borderTop: '4px solid #d97706', 
-            borderRadius: '50%', 
-            animation: 'spin 1s linear infinite',
-            margin: '0 auto 16px'
-          }} />
-          <p style={{ color: '#6b7280', margin: 0 }}>Loading dashboard...</p>
-        </div>
-      </div>
-    )
-  }
-
   const totalOrders = stats.pending + stats.confirmed + stats.processing + stats.dispatched + stats.delivered
   const completionRate = totalOrders > 0 ? ((stats.delivered / totalOrders) * 100).toFixed(1) : 0
 
   const supplierName = localStorage.getItem('supplierName') || 'Supplier'
   const supplierEmail = localStorage.getItem('supplierEmail') || ''
 
+  const now = new Date()
+  const dateStr = now.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+
+  /* ─── Reusable Card Component ─── */
+  const Card = ({ children, style = {} }) => (
+    <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', ...style }}>{children}</div>
+  )
+
+  const CardHeader = ({ title, action, onAction, badge }) => (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderBottom: '1px solid #f3f4f6' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>{title}</span>
+        {badge && <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 20, background: '#e11d4818', color: '#e11d48', border: '1px solid #fecdd3' }}>{badge}</span>}
+      </div>
+      {action && <button onClick={onAction} style={{ fontSize: 12, color: '#0c3b73', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer' }}>{action}</button>}
+    </div>
+  )
+
+  /* ─── KPI Card ─── */
+  const KpiCard = ({ icon: Icon, label, value, change, up, color, loading }) => (
+    <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', padding: '14px 16px', flex: '1 1 150px', minWidth: 140 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+        <span style={{ fontSize: 11, color: '#6b7280', fontWeight: 500 }}>{label}</span>
+        <div style={{ width: 32, height: 32, borderRadius: 8, background: color + '18', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Icon size={15} color={color} />
+        </div>
+      </div>
+      {loading
+        ? <div style={{ height: 28, background: '#f3f4f6', borderRadius: 6, animation: 'pulse 1.5s infinite' }} />
+        : <p style={{ fontSize: 20, fontWeight: 800, color: '#111827', margin: '0 0 4px' }}>{value}</p>
+      }
+      {!loading && change != null && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+          {up ? <ArrowUpRight size={11} color="#16a34a" /> : <ArrowDownRight size={11} color="#dc2626" />}
+          <span style={{ fontSize: 11, color: up ? '#16a34a' : '#dc2626', fontWeight: 500 }}>{Math.abs(change)}%</span>
+          <span style={{ fontSize: 11, color: '#9ca3af' }}>vs Last Month</span>
+        </div>
+      )}
+    </div>
+  )
+
   return (
-    <div style={{ fontFamily: 'Inter, sans-serif', padding: '24px', background: '#f9fafb', minHeight: '100vh' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, fontFamily: 'Inter, -apple-system, sans-serif', fontSize: 13 }}>
       <style>{`
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.5; }
+        }
         @keyframes spin {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
         }
       `}</style>
 
-      {/* Top Header */}
-      <div style={{ 
-        background: '#fff', 
-        borderRadius: '12px', 
-        padding: '24px 28px', 
-        marginBottom: '24px',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-        border: '1px solid #e5e7eb'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
-          <div>
-            <h2 style={{ fontSize: '24px', fontWeight: 700, color: '#111827', margin: '0 0 6px 0' }}>
-              {supplierName}
-            </h2>
-            <p style={{ fontSize: '14px', color: '#6b7280', margin: 0 }}>
-              {supplierEmail}
-            </p>
-          </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button
-              onClick={() => navigate('/supplier/orders')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '10px 18px',
-                background: '#d97706',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '8px',
-                fontSize: '14px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                transition: 'all 0.2s'
-              }}
-              onMouseOver={e => e.currentTarget.style.background = '#b45309'}
-              onMouseOut={e => e.currentTarget.style.background = '#d97706'}
-            >
-              <ShoppingCart size={16} />
-              View All Orders
-            </button>
-          </div>
+      {/* ─── Page heading ─── */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+        <div>
+          <h1 style={{ fontSize: 18, fontWeight: 800, color: '#111827', margin: 0 }}>Supplier Dashboard</h1>
+          <p style={{ fontSize: 12, color: '#9ca3af', margin: '2px 0 0' }}>
+            {supplierName} &nbsp;&bull;&nbsp; {supplierEmail || 'Supplier Portal'} &nbsp;&bull;&nbsp; {dateStr}
+          </p>
         </div>
-      </div>
-
-      {/* Status Cards Row */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-        {[
-          { label: 'Pending Orders', value: stats.pending, icon: Clock, color: '#f59e0b', bg: '#fef3c7' },
-          { label: 'Processing', value: stats.processing, icon: Package, color: '#8b5cf6', bg: '#ede9fe' },
-          { label: 'Dispatched', value: stats.dispatched, icon: Truck, color: '#10b981', bg: '#d1fae5' },
-          { label: 'Delivered', value: stats.delivered, icon: CheckCircle, color: '#059669', bg: '#a7f3d0' },
-        ].map((stat, idx) => (
-          <div
-            key={idx}
-            style={{
-              background: '#fff',
-              border: '1px solid #e5e7eb',
-              borderLeft: `4px solid ${stat.color}`,
-              borderRadius: '12px',
-              padding: '20px',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-              transition: 'transform 0.2s, box-shadow 0.2s',
-              cursor: 'pointer'
-            }}
-            onMouseOver={e => {
-              e.currentTarget.style.transform = 'translateY(-2px)'
-              e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)'
-            }}
-            onMouseOut={e => {
-              e.currentTarget.style.transform = 'translateY(0)'
-              e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)'
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-              <div style={{ 
-                width: '44px', 
-                height: '44px', 
-                borderRadius: '10px', 
-                background: stat.bg, 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                flexShrink: 0
-              }}>
-                <stat.icon size={22} color={stat.color} />
-              </div>
-            </div>
-            <div style={{ fontSize: '28px', fontWeight: 700, color: '#111827', marginBottom: '4px' }}>
-              {stat.value}
-            </div>
-            <div style={{ fontSize: '13px', color: '#6b7280', fontWeight: 500 }}>
-              {stat.label}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Revenue & Orders Row */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-        {/* Monthly Revenue Card */}
-        <div style={{
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-          borderRadius: '12px',
-          padding: '28px',
-          color: '#fff',
-          boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)',
-          position: 'relative',
-          overflow: 'hidden'
-        }}>
-          <div style={{ position: 'absolute', top: '-20px', right: '-20px', opacity: 0.15 }}>
-            <DollarSign size={120} />
-          </div>
-          <div style={{ position: 'relative', zIndex: 1 }}>
-            <div style={{ fontSize: '14px', opacity: 0.9, marginBottom: '8px', fontWeight: 500 }}>
-              Monthly Revenue
-            </div>
-            <div style={{ fontSize: '36px', fontWeight: 700, marginBottom: '16px' }}>
-              {formatCurrency(stats.currentMonth.revenue)}
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              {stats.growth.revenue >= 0 ? (
-                <>
-                  <div style={{ 
-                    padding: '4px 10px', 
-                    borderRadius: '6px', 
-                    background: 'rgba(255,255,255,0.2)', 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    gap: '4px',
-                    fontSize: '13px',
-                    fontWeight: 600
-                  }}>
-                    <ArrowUp size={14} />
-                    {stats.growth.revenue}%
-                  </div>
-                  <span style={{ fontSize: '13px', opacity: 0.9 }}>vs last month</span>
-                </>
-              ) : (
-                <>
-                  <div style={{ 
-                    padding: '4px 10px', 
-                    borderRadius: '6px', 
-                    background: 'rgba(255,255,255,0.2)', 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    gap: '4px',
-                    fontSize: '13px',
-                    fontWeight: 600
-                  }}>
-                    <ArrowDown size={14} />
-                    {Math.abs(stats.growth.revenue)}%
-                  </div>
-                  <span style={{ fontSize: '13px', opacity: 0.9 }}>vs last month</span>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Orders & Completion */}
-        <div style={{
-          background: '#fff',
-          border: '1px solid #e5e7eb',
-          borderRadius: '12px',
-          padding: '28px',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
-            <div>
-              <div style={{ fontSize: '14px', color: '#6b7280', marginBottom: '8px', fontWeight: 500 }}>
-                This Month Orders
-              </div>
-              <div style={{ fontSize: '36px', fontWeight: 700, color: '#111827' }}>
-                {stats.currentMonth.orders}
-              </div>
-            </div>
-            <div style={{ 
-              padding: '6px 12px', 
-              borderRadius: '8px', 
-              background: stats.growth.orders >= 0 ? '#d1fae5' : '#fee2e2',
-              color: stats.growth.orders >= 0 ? '#059669' : '#dc2626',
-              fontSize: '13px',
-              fontWeight: 600,
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px'
-            }}>
-              {stats.growth.orders >= 0 ? <ArrowUp size={14} /> : <ArrowDown size={14} />}
-              {Math.abs(stats.growth.orders)}%
-            </div>
-          </div>
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-              <span style={{ fontSize: '13px', color: '#6b7280', fontWeight: 500 }}>Completion Rate</span>
-              <span style={{ fontSize: '16px', fontWeight: 700, color: '#059669' }}>
-                {completionRate}%
-              </span>
-            </div>
-            <div style={{ 
-              width: '100%', 
-              height: '8px', 
-              background: '#f3f4f6', 
-              borderRadius: '4px', 
-              overflow: 'hidden' 
-            }}>
-              <div style={{ 
-                width: `${completionRate}%`, 
-                height: '100%', 
-                background: '#059669',
-                borderRadius: '4px',
-                transition: 'width 0.3s ease'
-              }} />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Quick Actions */}
-      <div style={{
-        background: '#fff',
-        border: '1px solid #e5e7eb',
-        borderRadius: '12px',
-        padding: '24px',
-        marginBottom: '24px',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-      }}>
-        <h3 style={{ 
-          fontSize: '16px', 
-          fontWeight: 600, 
-          color: '#111827', 
-          marginBottom: '16px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px'
-        }}>
-          <BarChart3 size={20} color="#d97706" />
-          Quick Actions
-        </h3>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-          {[
-            { label: 'Manage Inventory', icon: Package, color: '#3b82f6', path: '/supplier/inventory' },
-            { label: 'View Reports', icon: TrendingUp, color: '#059669', path: '/supplier/reports' },
-            { label: 'Low Stock Items', icon: AlertCircle, color: '#f59e0b', path: '/supplier/inventory?filter=low-stock' },
-          ].map((action, idx) => (
-            <button
-              key={idx}
-              onClick={() => navigate(action.path)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '10px 18px',
-                background: '#fff',
-                color: action.color,
-                border: `1px solid ${action.color}`,
-                borderRadius: '8px',
-                fontSize: '14px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                transition: 'all 0.2s'
-              }}
-              onMouseOver={e => {
-                e.currentTarget.style.background = action.color
-                e.currentTarget.style.color = '#fff'
-              }}
-              onMouseOut={e => {
-                e.currentTarget.style.background = '#fff'
-                e.currentTarget.style.color = action.color
-              }}
-            >
-              <action.icon size={16} />
-              {action.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Recent Orders */}
-      <div style={{
-        background: '#fff',
-        border: '1px solid #e5e7eb',
-        borderRadius: '12px',
-        overflow: 'hidden',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-      }}>
-        <div style={{ 
-          padding: '20px 24px', 
-          borderBottom: '1px solid #e5e7eb',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center'
-        }}>
-          <h3 style={{ 
-            fontSize: '16px', 
-            fontWeight: 600, 
-            color: '#111827', 
-            margin: 0,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px'
-          }}>
-            <ShoppingCart size={20} color="#d97706" />
-            Recent Orders
-          </h3>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 12, color: '#6b7280' }}>
+            <Calendar size={13} style={{ verticalAlign: 'middle', marginRight: 4 }} />
+            {now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', weekday: 'long' })}
+          </span>
           <button
-            onClick={() => navigate('/supplier/orders')}
-            style={{
-              padding: '6px 14px',
-              background: '#d97706',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '6px',
-              fontSize: '13px',
-              fontWeight: 600,
-              cursor: 'pointer'
-            }}
+            onClick={() => setRefreshKey(k => k + 1)}
+            style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#f3f4f6', border: '1px solid #e5e7eb', borderRadius: 7, padding: '6px 12px', fontSize: 12, fontWeight: 600, color: '#374151', cursor: 'pointer' }}
           >
-            View All
+            {loading ? <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> : <RefreshCw size={12} />} Refresh
           </button>
         </div>
+      </div>
+
+      {/* ─── KPI Strip ─── */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+        {[
+          { icon: IndianRupee, label: "Month's Revenue",   value: fmt(stats.currentMonth.revenue), change: stats.growth.revenue, up: stats.growth.revenue >= 0, color: '#0c3b73' },
+          { icon: ShoppingCart, label: "Month's Orders",    value: stats.currentMonth.orders,       change: stats.growth.orders,  up: stats.growth.orders >= 0,  color: '#d97706' },
+          { icon: TrendingUp,   label: 'Completion Rate',   value: `${completionRate}%`,            change: null,                 up: null,                       color: '#16a34a' },
+          { icon: Clock,        label: 'Pending Orders',    value: stats.pending,                   change: null,                 up: null,                       color: '#f59e0b' },
+          { icon: Activity,     label: 'Processing',        value: stats.processing,                change: null,                 up: null,                       color: '#7c3aed' },
+          { icon: CheckCircle,  label: 'Delivered',         value: stats.delivered,                 change: null,                 up: null,                       color: '#059669' },
+        ].map((k) => <KpiCard key={k.label} {...k} loading={loading} />)}
+      </div>
+
+      {/* ─── ROW 2: Order Status Cards + Quick Actions ─── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
         
-        {stats.recentOrders && stats.recentOrders.length > 0 ? (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ background: '#f9fafb' }}>
-                  {['Order ID', 'Franchise', 'Date', 'Items', 'Amount', 'Status', 'Action'].map((header) => (
-                    <th key={header} style={{ 
-                      padding: '12px 16px', 
-                      textAlign: 'left', 
-                      fontSize: '12px', 
-                      fontWeight: 700, 
-                      color: '#6b7280',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.5px',
-                      borderBottom: '1px solid #e5e7eb'
-                    }}>
-                      {header}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {stats.recentOrders.map((order, idx) => (
-                  <tr 
-                    key={order._id} 
-                    style={{ 
-                      borderBottom: idx < stats.recentOrders.length - 1 ? '1px solid #f3f4f6' : 'none',
-                      transition: 'background 0.2s'
-                    }}
-                    onMouseOver={e => e.currentTarget.style.background = '#fafafa'}
-                    onMouseOut={e => e.currentTarget.style.background = '#fff'}
-                  >
-                    <td style={{ padding: '14px 16px' }}>
-                      <span style={{ 
-                        fontFamily: 'monospace', 
-                        fontSize: '13px', 
-                        fontWeight: 600,
-                        color: '#d97706',
-                        background: '#fef3c7',
-                        padding: '4px 8px',
-                        borderRadius: '4px'
-                      }}>
-                        {order.orderId}
-                      </span>
-                    </td>
-                    <td style={{ padding: '14px 16px' }}>
-                      <div style={{ fontSize: '14px', fontWeight: 600, color: '#111827', marginBottom: '2px' }}>
-                        {order.franchiseName}
-                      </div>
-                      <div style={{ fontSize: '12px', color: '#6b7280' }}>
-                        {order.franchiseCode}
-                      </div>
-                    </td>
-                    <td style={{ padding: '14px 16px', fontSize: '13px', color: '#6b7280' }}>
-                      {formatDate(order.createdAt)}
-                    </td>
-                    <td style={{ padding: '14px 16px' }}>
-                      <span style={{ 
-                        fontSize: '12px', 
-                        fontWeight: 600,
-                        color: '#374151',
-                        background: '#f3f4f6',
-                        padding: '4px 10px',
-                        borderRadius: '12px'
-                      }}>
-                        {order.products?.length || 0} items
-                      </span>
-                    </td>
-                    <td style={{ padding: '14px 16px', fontSize: '14px', fontWeight: 700, color: '#059669' }}>
-                      {formatCurrency(order.totalAmount)}
-                    </td>
-                    <td style={{ padding: '14px 16px' }}>
-                      <span style={{ 
-                        fontSize: '11px', 
-                        fontWeight: 700,
-                        padding: '5px 12px',
-                        borderRadius: '12px',
-                        background: `${getStatusColor(order.status)}20`,
-                        color: getStatusColor(order.status),
-                        textTransform: 'capitalize'
-                      }}>
-                        {order.status}
-                      </span>
-                    </td>
-                    <td style={{ padding: '14px 16px' }}>
-                      <button
-                        onClick={() => navigate(`/supplier/orders/${order._id}`)}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          padding: '6px 12px',
-                          background: '#eff6ff',
-                          color: '#3b82f6',
-                          border: 'none',
-                          borderRadius: '6px',
-                          fontSize: '12px',
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                          transition: 'all 0.2s'
-                        }}
-                        onMouseOver={e => {
-                          e.currentTarget.style.background = '#3b82f6'
-                          e.currentTarget.style.color = '#fff'
-                        }}
-                        onMouseOut={e => {
-                          e.currentTarget.style.background = '#eff6ff'
-                          e.currentTarget.style.color = '#3b82f6'
-                        }}
-                      >
-                        <Eye size={13} />
-                        View
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div style={{ padding: '60px 24px', textAlign: 'center' }}>
-            <div style={{ marginBottom: '16px' }}>
-              <ShoppingCart size={64} style={{ opacity: 0.2, color: '#6b7280' }} />
+        {/* Order Status Breakdown */}
+        <Card>
+          <CardHeader title="Order Status Overview" />
+          <div style={{ padding: '12px 16px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              {[
+                { label: 'Pending', value: stats.pending, icon: Clock, color: '#f59e0b' },
+                { label: 'Confirmed', value: stats.confirmed, icon: CheckCircle, color: '#0c3b73' },
+                { label: 'Processing', value: stats.processing, icon: Activity, color: '#7c3aed' },
+                { label: 'Dispatched', value: stats.dispatched, icon: Truck, color: '#16a34a' },
+              ].map((item) => (
+                <div key={item.label} style={{ background: '#fafafa', borderRadius: 8, padding: '12px 14px', border: '1px solid #f3f4f6' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    <div style={{ width: 28, height: 28, borderRadius: 6, background: item.color + '18', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <item.icon size={14} color={item.color} />
+                    </div>
+                    <span style={{ fontSize: 11, color: '#6b7280', fontWeight: 600 }}>{item.label}</span>
+                  </div>
+                  <p style={{ fontSize: 22, fontWeight: 800, color: '#111827', margin: 0 }}>{item.value}</p>
+                </div>
+              ))}
             </div>
-            <h4 style={{ fontSize: '16px', fontWeight: 600, color: '#6b7280', marginBottom: '8px' }}>
-              No recent orders
+            <div style={{ marginTop: 12, padding: '12px 14px', background: '#f0fdf4', borderRadius: 8, border: '1px solid #dcfce7' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 11, color: '#166534', fontWeight: 600 }}>Total Orders</span>
+                <span style={{ fontSize: 18, fontWeight: 800, color: '#16a34a' }}>{totalOrders}</span>
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        {/* Quick Actions */}
+        <Card>
+          <CardHeader title="Quick Actions" />
+          <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {[
+              { label: 'Manage Inventory', desc: 'Add or update medicines', icon: Package, color: '#0c3b73', path: '/supplier/inventory' },
+              { label: 'View All Orders', desc: 'Track and manage orders', icon: ShoppingCart, color: '#d97706', path: '/supplier/orders' },
+              { label: 'Sales Reports', desc: 'View performance analytics', icon: BarChart2, color: '#16a34a', path: '/supplier/reports' },
+              { label: 'Low Stock Alert', desc: 'Check inventory levels', icon: AlertCircle, color: '#dc2626', path: '/supplier/inventory?filter=low-stock' },
+            ].map((action) => (
+              <div
+                key={action.label}
+                onClick={() => navigate(action.path)}
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: 12, 
+                  padding: '12px 14px', 
+                  border: '1px solid #e5e7eb', 
+                  borderRadius: 8,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  background: '#fff'
+                }}
+                onMouseOver={e => {
+                  e.currentTarget.style.background = '#fafafa'
+                  e.currentTarget.style.borderColor = action.color
+                }}
+                onMouseOut={e => {
+                  e.currentTarget.style.background = '#fff'
+                  e.currentTarget.style.borderColor = '#e5e7eb'
+                }}
+              >
+                <div style={{ width: 36, height: 36, borderRadius: 8, background: action.color + '18', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <action.icon size={18} color={action.color} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: '#111827', margin: '0 0 2px' }}>{action.label}</p>
+                  <p style={{ fontSize: 11, color: '#6b7280', margin: 0 }}>{action.desc}</p>
+                </div>
+                <ArrowUpRight size={16} color="#9ca3af" />
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
+
+      {/* ─── Recent Orders Table ─── */}
+      <Card>
+        <CardHeader title="Recent Orders" action="View All" onAction={() => navigate('/supplier/orders')} badge={stats.recentOrders?.length ? `${stats.recentOrders.length} orders` : null} />
+        
+        {loading ? (
+          <div style={{ padding: '40px', textAlign: 'center' }}>
+            <div style={{ 
+              width: '48px', 
+              height: '48px', 
+              border: '4px solid #f3f4f6', 
+              borderTop: '4px solid #0c3b73', 
+              borderRadius: '50%', 
+              animation: 'spin 1s linear infinite',
+              margin: '0 auto 16px'
+            }} />
+            <p style={{ color: '#6b7280', margin: 0, fontSize: 12 }}>Loading orders...</p>
+          </div>
+        ) : stats.recentOrders && stats.recentOrders.length > 0 ? (
+          <>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ background: '#f9fafb' }}>
+                    {['Order ID', 'Franchise', 'Date', 'Items', 'Amount', 'Status', 'Action'].map(h => (
+                      <th key={h} style={{ padding: '8px 10px', fontSize: 10, color: '#6b7280', fontWeight: 700, textTransform: 'uppercase', textAlign: 'left', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {stats.recentOrders.map((order, idx) => (
+                    <tr 
+                      key={order._id} 
+                      style={{ 
+                        background: '#fff',
+                        borderBottom: idx < stats.recentOrders.length - 1 ? '1px solid #f3f4f6' : 'none'
+                      }}
+                    >
+                      <td style={{ padding: '9px 10px' }}>
+                        <span style={{ 
+                          fontFamily: 'monospace', 
+                          fontSize: 11, 
+                          fontWeight: 600,
+                          color: '#d97706',
+                          background: '#fef3c7',
+                          padding: '3px 7px',
+                          borderRadius: 4,
+                          border: '1px solid #fde68a'
+                        }}>
+                          {order.orderId}
+                        </span>
+                      </td>
+                      <td style={{ padding: '9px 10px' }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: '#111827', marginBottom: 2 }}>
+                          {order.franchiseName}
+                        </div>
+                        <div style={{ fontSize: 10, color: '#6b7280' }}>
+                          {order.franchiseCode}
+                        </div>
+                      </td>
+                      <td style={{ padding: '9px 10px', fontSize: 12, color: '#6b7280' }}>
+                        {formatDate(order.createdAt)}
+                      </td>
+                      <td style={{ padding: '9px 10px' }}>
+                        <span style={{ 
+                          fontSize: 11, 
+                          fontWeight: 600,
+                          color: '#374151',
+                          background: '#f3f4f6',
+                          padding: '3px 8px',
+                          borderRadius: 10
+                        }}>
+                          {order.products?.length || 0} items
+                        </span>
+                      </td>
+                      <td style={{ padding: '9px 10px', fontSize: 13, fontWeight: 700, color: '#0c3b73' }}>
+                        {fmt(order.totalAmount)}
+                      </td>
+                      <td style={{ padding: '9px 10px' }}>
+                        <span style={{ 
+                          fontSize: 10, 
+                          fontWeight: 700,
+                          padding: '4px 10px',
+                          borderRadius: 10,
+                          background: `${getStatusColor(order.status)}18`,
+                          color: getStatusColor(order.status),
+                          textTransform: 'capitalize',
+                          border: `1px solid ${getStatusColor(order.status)}30`
+                        }}>
+                          {order.status}
+                        </span>
+                      </td>
+                      <td style={{ padding: '9px 10px' }}>
+                        <button
+                          onClick={() => navigate(`/supplier/orders/${order._id}`)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 4,
+                            padding: '5px 10px',
+                            background: '#0c3b73',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: 5,
+                            fontSize: 11,
+                            fontWeight: 600,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <Eye size={12} />
+                          View
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div style={{ padding: '10px 16px', background: '#fafafa', borderTop: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: 11, color: '#6b7280' }}>Showing {stats.recentOrders.length} recent orders</span>
+              <button
+                onClick={() => navigate('/supplier/orders')}
+                style={{ fontSize: 12, color: '#0c3b73', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
+              >
+                View All Orders <ArrowUpRight size={12} />
+              </button>
+            </div>
+          </>
+        ) : (
+          <div style={{ padding: '50px 24px', textAlign: 'center' }}>
+            <div style={{ marginBottom: 16 }}>
+              <ShoppingCart size={48} style={{ opacity: 0.2, color: '#6b7280' }} />
+            </div>
+            <h4 style={{ fontSize: 14, fontWeight: 600, color: '#6b7280', marginBottom: 6 }}>
+              No orders yet
             </h4>
-            <p style={{ fontSize: '14px', color: '#9ca3af', marginBottom: '20px' }}>
+            <p style={{ fontSize: 12, color: '#9ca3af', marginBottom: 16 }}>
               Orders from franchises will appear here
             </p>
             <button
-              onClick={() => navigate('/supplier/orders')}
+              onClick={() => navigate('/supplier/inventory')}
               style={{
-                padding: '10px 24px',
-                background: '#d97706',
+                padding: '8px 18px',
+                background: '#0c3b73',
                 color: '#fff',
                 border: 'none',
-                borderRadius: '8px',
-                fontSize: '14px',
+                borderRadius: 7,
+                fontSize: 12,
                 fontWeight: 600,
                 cursor: 'pointer'
               }}
             >
-              View All Orders
+              Manage Inventory
             </button>
           </div>
         )}
-      </div>
+      </Card>
     </div>
   )
 }

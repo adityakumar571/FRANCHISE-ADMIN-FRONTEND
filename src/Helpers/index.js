@@ -66,10 +66,18 @@ api.interceptors.response.use(
   (res) => res,
   (err) => {
     if (err?.response?.status === 401) {
-      deleteCookie('LMS')
-      deleteCookie('accessToken')
-      deleteCookie('supplierToken')
-      console.warn('[api] 401 — tokens cleared')
+      // Don't clear cookie for supplier comparison API (may not need auth)
+      const url = err?.config?.url || '';
+      const isSupplierAPI = url.includes('/franchise-suppliers/') || url.includes('/master-medicines/');
+      
+      if (!isSupplierAPI) {
+        deleteCookie('LMS')
+        deleteCookie('accessToken')
+        deleteCookie('supplierToken')
+        console.warn('[api] 401 — tokens cleared')
+      } else {
+        console.warn('[api] 401 on supplier API — cookie preserved (may not require auth)')
+      }
     }
     return Promise.reject(err)
   }

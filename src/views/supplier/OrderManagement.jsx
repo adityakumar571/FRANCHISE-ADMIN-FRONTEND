@@ -1,472 +1,704 @@
-import React, { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { 
-  ShoppingCart, Search, Eye, CheckCircle, 
-  XCircle, Package, Truck, Calendar, Filter
-} from 'lucide-react'
-import { 
-  Card, Table, Button, Input, Space, Tag, Modal, 
-  Descriptions, Select, message, Timeline, Badge
-} from 'antd'
-import { getRequest, putRequest } from '../../Helpers'
-import Cookies from 'js-cookie'
-import moment from 'moment'
-
-const { Option } = Select
+/* eslint-disable prettier/prettier */
+/**
+ * Supplier Order Management - View and manage purchase orders from franchises
+ */
+import { useState, useEffect, useCallback } from 'react'
+import { Package, Search, Eye, Check, X, Truck } from 'lucide-react'
+import { getRequest, postRequest, putRequest } from '../../Helpers'
+import toast from 'react-hot-toast'
 
 const OrderManagement = () => {
-  const navigate = useNavigate()
   const [orders, setOrders] = useState([])
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
+  const [limit] = useState(20)
   const [selectedOrder, setSelectedOrder] = useState(null)
-  const [detailsModalVisible, setDetailsModalVisible] = useState(false)
-  const [statusFilter, setStatusFilter] = useState('all')
-  const [searchText, setSearchText] = useState('')
+  const [showDetailModal, setShowDetailModal] = useState(false)
+  const [showDispatchModal, setShowDispatchModal] = useState(false)
 
-  useEffect(() => {
-    // Check authentication
-    const token = Cookies.get('supplierToken')
-    if (!token) {
-      navigate('/supplier/login')
-      return
-    }
-    
-    fetchOrders()
-  }, [navigate, statusFilter])
-
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async () => {
     setLoading(true)
     try {
-      const params = new URLSearchParams({
-        search: searchText,
-        ...(statusFilter !== 'all' && { status: statusFilter })
-      })
-      
-      const response = await getRequest(`/suppliers/orders?${params}`)
-      if (response.data.success) {
-        setOrders(response.data.data.orders || [])
-      }
-    } catch (error) {
-      message.error('Failed to fetch orders')
+      const res = await getRequest(`/suppliers/orders?search=${encodeURIComponent(search)}&status=${statusFilter}&page=${page}&limit=${limit}`)
+      console.log('📦 Supplier orders:', res.data)
+      setOrders(res.data?.data?.orders || res.data?.orders || [])
+      setTotal(res.data?.data?.total || res.data?.total || 0)
+    } catch (err) {
+      console.error('Failed to fetch orders:', err)
+      toast.error('Failed to load orders')
     } finally {
       setLoading(false)
     }
-  }
+  }, [search, statusFilter, page, limit])
 
-  const handleViewDetails = async (orderId) => {
+  useEffect(() => {
+    fetchOrders()
+  }, [fetchOrders])
+
+  const handleAccept = async (orderId) => {
     try {
-      const response = await getRequest(`/suppliers/orders/${orderId}`)
-      if (response.data.success) {
-        setSelectedOrder(response.data.data)
-        setDetailsModalVisible(true)
-      }
-    } catch (error) {
-      message.error('Failed to fetch order details')
+      await putRequest({ 
+        url: `/suppliers/orders/${orderId}/status`, 
+        cred: { status: 'accepted' } 
+      })
+      toast.success('Order accepted successfully!')
+      fetchOrders()
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Failed to accept order')
     }
   }
 
-  const handleUpdateStatus = async (orderId, newStatus) => {
-    Modal.confirm({
-      title: `Confirm Status Update`,
-      content: `Are you sure you want to mark this order as "${newStatus}"?`,
-      onOk: async () => {
-        try {
-          await putRequest({
-            url: `/suppliers/orders/${orderId}/status`,
-            cred: { status: newStatus }
-          })
-          message.success(`Order status updated to ${newStatus}`)
-          fetchOrders()
-          if (selectedOrder && selectedOrder._id === orderId) {
-            handleViewDetails(orderId)
-          }
-        } catch (error) {
-          message.error('Failed to update order status')
-        }
-      }
-    })
+  const handleReject = async (orderId) => {
+    const reason = prompt('Rejection reason (optional):')
+    try {
+      await putRequest({ 
+        url: `/suppliers/orders/${orderId}/status`, 
+        cred: { status: 'rejected', rejectionReason: reason } 
+      })
+      toast.success('Order rejected')
+      fetchOrders()
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Failed to reject order')
+    }
+  }
+
+  const handleDispatch = async (dispatchData) => {
+    try {
+      await postRequest({ 
+        url: `/suppliers/orders/${selectedOrder._id}/dispatch`, 
+        cred: dispatchData 
+      })
+      toast.success('Order marked as dispatched!')
+      setShowDispatchModal(false)
+      fetchOrders()
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Failed to dispatch order')
+    }
   }
 
   const getStatusColor = (status) => {
     const colors = {
-      pending: 'gold',
-      confirmed: 'blue',
-      processing: 'cyan',
-      shipped: 'purple',
-      delivered: 'green',
-      cancelled: 'red'
+      pending: '#f59e0b',
+      accepted: '#3b82f6',
+      rejected: '#ef4444',
+      dispatched: '#8b5cf6',
+      completed: '#10b981',
+      cancelled: '#6b7280'
     }
-    return colors[status] || 'default'
+    return colors[status] || '#6b7280'
   }
-
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case 'pending': return <Calendar size={14} />
-      case 'confirmed': return <CheckCircle size={14} />
-      case 'processing': return <Package size={14} />
-      case 'shipped': return <Truck size={14} />
-      case 'delivered': return <CheckCircle size={14} />
-      case 'cancelled': return <XCircle size={14} />
-      default: return null
-    }
-  }
-
-  const columns = [
-    {
-      title: 'Order ID',
-      dataIndex: 'orderCode',
-      key: 'orderCode',
-      render: (text) => <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{text}</span>
-    },
-    {
-      title: 'Franchise',
-      dataIndex: 'franchiseName',
-      key: 'franchiseName',
-      render: (name, record) => (
-        <div>
-          <div style={{ fontWeight: 600 }}>{name}</div>
-          <div style={{ fontSize: 12, color: '#666' }}>{record.franchiseCity}</div>
-        </div>
-      )
-    },
-    {
-      title: 'Order Date',
-      dataIndex: 'orderDate',
-      key: 'orderDate',
-      render: (date) => moment(date).format('DD MMM YYYY, hh:mm A')
-    },
-    {
-      title: 'Items',
-      dataIndex: 'items',
-      key: 'items',
-      render: (items) => `${items?.length || 0} items`
-    },
-    {
-      title: 'Total Amount',
-      dataIndex: 'totalAmount',
-      key: 'totalAmount',
-      render: (amount) => (
-        <span style={{ fontWeight: 600, fontSize: 15 }}>
-          ₹{amount?.toLocaleString()}
-        </span>
-      )
-    },
-    {
-      title: 'Status',
-      dataIndex: 'status',
-      key: 'status',
-      render: (status) => (
-        <Tag color={getStatusColor(status)} icon={getStatusIcon(status)}>
-          {status.toUpperCase()}
-        </Tag>
-      )
-    },
-    {
-      title: 'Actions',
-      key: 'actions',
-      render: (_, record) => (
-        <Space>
-          <Button 
-            type="link" 
-            icon={<Eye size={14} />}
-            onClick={() => handleViewDetails(record._id)}
-          >
-            View
-          </Button>
-          {record.status === 'pending' && (
-            <>
-              <Button 
-                type="link"
-                style={{ color: '#52c41a' }}
-                onClick={() => handleUpdateStatus(record._id, 'confirmed')}
-              >
-                Confirm
-              </Button>
-              <Button 
-                type="link"
-                danger
-                onClick={() => handleUpdateStatus(record._id, 'cancelled')}
-              >
-                Reject
-              </Button>
-            </>
-          )}
-          {record.status === 'confirmed' && (
-            <Button 
-              type="link"
-              onClick={() => handleUpdateStatus(record._id, 'shipped')}
-            >
-              Mark Shipped
-            </Button>
-          )}
-        </Space>
-      )
-    }
-  ]
 
   return (
-    <div style={{ padding: '24px', background: '#f5f5f5', minHeight: '100vh' }}>
+    <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
       {/* Header */}
-      <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 28, fontWeight: 700, color: '#1a1a1a', margin: 0 }}>
-          Order Management
-        </h1>
-        <p style={{ fontSize: 14, color: '#666', marginTop: 4 }}>
-          Manage orders from all franchises
+      <div style={{ marginBottom: '24px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+          <Package size={28} color="#0c3b73" />
+          <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 700, color: '#111827' }}>Purchase Orders</h1>
+        </div>
+        <p style={{ margin: 0, fontSize: '14px', color: '#6b7280' }}>
+          Manage orders from franchises
         </p>
       </div>
 
       {/* Filters */}
-      <Card 
-        bordered={false} 
-        style={{ borderRadius: 12, marginBottom: 16 }}
-      >
-        <Space size="middle" wrap>
-          <Input
-            placeholder="Search by order ID or franchise..."
-            prefix={<Search size={16} />}
-            style={{ width: 300 }}
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            onPressEnter={fetchOrders}
+      <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', flexWrap: 'wrap' }}>
+        <div style={{ position: 'relative', flex: '1 1 300px' }}>
+          <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
+          <input
+            type="text"
+            placeholder="Search PO number, franchise..."
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(1) }}
+            style={{
+              width: '100%',
+              height: '40px',
+              paddingLeft: '40px',
+              paddingRight: '12px',
+              border: '1px solid #e5e7eb',
+              borderRadius: '8px',
+              fontSize: '14px',
+              outline: 'none'
+            }}
           />
-          
-          <Select
-            value={statusFilter}
-            onChange={setStatusFilter}
-            style={{ width: 150 }}
-            placeholder="Filter by status"
-          >
-            <Option value="all">All Orders</Option>
-            <Option value="pending">Pending</Option>
-            <Option value="confirmed">Confirmed</Option>
-            <Option value="processing">Processing</Option>
-            <Option value="shipped">Shipped</Option>
-            <Option value="delivered">Delivered</Option>
-            <Option value="cancelled">Cancelled</Option>
-          </Select>
+        </div>
+        <select
+          value={statusFilter}
+          onChange={(e) => { setStatusFilter(e.target.value); setPage(1) }}
+          style={{
+            height: '40px',
+            padding: '0 12px',
+            border: '1px solid #e5e7eb',
+            borderRadius: '8px',
+            fontSize: '14px',
+            outline: 'none',
+            cursor: 'pointer',
+            minWidth: '150px'
+          }}
+        >
+          <option value="">All Status</option>
+          <option value="pending">Pending</option>
+          <option value="accepted">Accepted</option>
+          <option value="rejected">Rejected</option>
+          <option value="dispatched">Dispatched</option>
+          <option value="completed">Completed</option>
+        </select>
+      </div>
 
-          <Button 
-            type="primary"
-            icon={<Search size={16} />}
-            onClick={fetchOrders}
-          >
-            Search
-          </Button>
-        </Space>
-      </Card>
+      {/* Orders List */}
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: '60px', color: '#9ca3af' }}>Loading orders...</div>
+      ) : orders.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '60px', color: '#9ca3af' }}>
+          <Package size={48} style={{ margin: '0 auto 16px', opacity: 0.3 }} />
+          <p style={{ margin: 0 }}>No orders found</p>
+        </div>
+      ) : (
+        <>
+          <div style={{ display: 'grid', gap: '16px' }}>
+            {orders.map((order) => (
+              <div
+                key={order._id}
+                style={{
+                  background: '#fff',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '12px',
+                  padding: '20px',
+                  display: 'grid',
+                  gridTemplateColumns: 'auto 1fr auto',
+                  gap: '20px',
+                  alignItems: 'center'
+                }}
+              >
+                {/* Status Indicator */}
+                <div
+                  style={{
+                    width: '4px',
+                    height: '60px',
+                    borderRadius: '2px',
+                    background: getStatusColor(order.status)
+                  }}
+                />
 
-      {/* Orders Table */}
-      <Card bordered={false} style={{ borderRadius: 12 }}>
-        <Table
-          columns={columns}
-          dataSource={orders}
-          loading={loading}
-          rowKey="_id"
-          pagination={{
-            pageSize: 10,
-            showSizeChanger: true,
-            showTotal: (total) => `Total ${total} orders`
+                {/* Order Info */}
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+                    <span style={{ fontSize: '18px', fontWeight: 700, color: '#0c3b73' }}>
+                      {order.poNo}
+                    </span>
+                    <span
+                      style={{
+                        padding: '4px 12px',
+                        borderRadius: '12px',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        background: `${getStatusColor(order.status)}20`,
+                        color: getStatusColor(order.status),
+                        textTransform: 'uppercase'
+                      }}
+                    >
+                      {order.status}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', gap: '20px', fontSize: '14px', color: '#6b7280' }}>
+                    <span><strong>Franchise:</strong> {order.franchiseName}</span>
+                    <span><strong>Items:</strong> {order.items}</span>
+                    <span><strong>Amount:</strong> ₹{order.totalAmount.toLocaleString('en-IN')}</span>
+                    <span><strong>Date:</strong> {order.createdAt}</span>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <button
+                    onClick={() => {
+                      setSelectedOrder(order)
+                      setShowDetailModal(true)
+                    }}
+                    style={{
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      border: '1px solid #e5e7eb',
+                      background: '#fff',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      fontSize: '14px',
+                      fontWeight: 600,
+                      color: '#374151'
+                    }}
+                  >
+                    <Eye size={16} />
+                    View
+                  </button>
+
+                  {order.status === 'pending' && (
+                    <>
+                      <button
+                        onClick={() => handleAccept(order._id)}
+                        style={{
+                          padding: '8px 12px',
+                          borderRadius: '8px',
+                          border: 'none',
+                          background: '#10b981',
+                          color: '#fff',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          fontSize: '14px',
+                          fontWeight: 600
+                        }}
+                      >
+                        <Check size={16} />
+                        Accept
+                      </button>
+                      <button
+                        onClick={() => handleReject(order._id)}
+                        style={{
+                          padding: '8px 12px',
+                          borderRadius: '8px',
+                          border: 'none',
+                          background: '#ef4444',
+                          color: '#fff',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          fontSize: '14px',
+                          fontWeight: 600
+                        }}
+                      >
+                        <X size={16} />
+                        Reject
+                      </button>
+                    </>
+                  )}
+
+                  {order.status === 'accepted' && (
+                    <button
+                      onClick={() => {
+                        setSelectedOrder(order)
+                        setShowDispatchModal(true)
+                      }}
+                      style={{
+                        padding: '8px 12px',
+                        borderRadius: '8px',
+                        border: 'none',
+                        background: '#8b5cf6',
+                        color: '#fff',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        fontSize: '14px',
+                        fontWeight: 600
+                      }}
+                    >
+                      <Truck size={16} />
+                      Dispatch
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Pagination */}
+          <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'center', gap: '8px' }}>
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+              style={{
+                padding: '8px 16px',
+                borderRadius: '8px',
+                border: '1px solid #e5e7eb',
+                background: page === 1 ? '#f3f4f6' : '#fff',
+                cursor: page === 1 ? 'not-allowed' : 'pointer',
+                fontSize: '14px',
+                fontWeight: 600
+              }}
+            >
+              Previous
+            </button>
+            <span style={{ padding: '8px 16px', fontSize: '14px', color: '#6b7280' }}>
+              Page {page} of {Math.ceil(total / limit) || 1}
+            </span>
+            <button
+              onClick={() => setPage(p => p + 1)}
+              disabled={page >= Math.ceil(total / limit)}
+              style={{
+                padding: '8px 16px',
+                borderRadius: '8px',
+                border: '1px solid #e5e7eb',
+                background: page >= Math.ceil(total / limit) ? '#f3f4f6' : '#fff',
+                cursor: page >= Math.ceil(total / limit) ? 'not-allowed' : 'pointer',
+                fontSize: '14px',
+                fontWeight: 600
+              }}
+            >
+              Next
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* Detail Modal */}
+      {showDetailModal && selectedOrder && (
+        <OrderDetailModal
+          order={selectedOrder}
+          onClose={() => {
+            setShowDetailModal(false)
+            setSelectedOrder(null)
           }}
         />
-      </Card>
+      )}
 
-      {/* Order Details Modal */}
-      <Modal
-        title={
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <ShoppingCart size={20} />
-            <span>Order Details</span>
-          </div>
-        }
-        open={detailsModalVisible}
-        onCancel={() => setDetailsModalVisible(false)}
-        footer={null}
-        width={900}
+      {/* Dispatch Modal */}
+      {showDispatchModal && selectedOrder && (
+        <DispatchModal
+          order={selectedOrder}
+          onClose={() => {
+            setShowDispatchModal(false)
+            setSelectedOrder(null)
+          }}
+          onDispatch={handleDispatch}
+        />
+      )}
+    </div>
+  )
+}
+
+// Order Detail Modal Component
+const OrderDetailModal = ({ order, onClose }) => {
+  const [details, setDetails] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchDetails = async () => {
+      try {
+        const res = await getRequest(`/suppliers/orders/${order._id}`)
+        setDetails(res.data?.data || res.data)
+      } catch (err) {
+        toast.error('Failed to load order details')
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchDetails()
+  }, [order._id])
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0,0,0,0.5)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 9999,
+        padding: '20px'
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          background: '#fff',
+          borderRadius: '12px',
+          padding: '24px',
+          maxWidth: '600px',
+          width: '100%',
+          maxHeight: '80vh',
+          overflowY: 'auto'
+        }}
+        onClick={(e) => e.stopPropagation()}
       >
-        {selectedOrder && (
-          <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 700 }}>Order Details - {order.poNo}</h2>
+          <button
+            onClick={onClose}
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: '4px',
+              display: 'flex',
+              alignItems: 'center'
+            }}
+          >
+            <X size={24} color="#6b7280" />
+          </button>
+        </div>
+
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '40px', color: '#9ca3af' }}>Loading...</div>
+        ) : details ? (
+          <>
             {/* Order Info */}
-            <Descriptions 
-              bordered 
-              column={2}
-              size="small"
-              style={{ marginBottom: 24 }}
-            >
-              <Descriptions.Item label="Order ID" span={1}>
-                <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>
-                  {selectedOrder.orderCode}
-                </span>
-              </Descriptions.Item>
-              <Descriptions.Item label="Status" span={1}>
-                <Tag color={getStatusColor(selectedOrder.status)}>
-                  {selectedOrder.status.toUpperCase()}
-                </Tag>
-              </Descriptions.Item>
-              <Descriptions.Item label="Franchise Name" span={2}>
-                {selectedOrder.franchiseName}
-              </Descriptions.Item>
-              <Descriptions.Item label="Contact Person" span={1}>
-                {selectedOrder.contactPerson}
-              </Descriptions.Item>
-              <Descriptions.Item label="Phone" span={1}>
-                {selectedOrder.contactPhone}
-              </Descriptions.Item>
-              <Descriptions.Item label="Delivery Address" span={2}>
-                {selectedOrder.deliveryAddress}
-              </Descriptions.Item>
-              <Descriptions.Item label="Order Date" span={1}>
-                {moment(selectedOrder.orderDate).format('DD MMM YYYY, hh:mm A')}
-              </Descriptions.Item>
-              <Descriptions.Item label="Expected Delivery" span={1}>
-                {selectedOrder.expectedDelivery 
-                  ? moment(selectedOrder.expectedDelivery).format('DD MMM YYYY')
-                  : 'Not specified'
-                }
-              </Descriptions.Item>
-            </Descriptions>
-
-            {/* Order Items */}
-            <Card 
-              title="Order Items" 
-              bordered={false}
-              style={{ marginBottom: 24 }}
-            >
-              <Table
-                columns={[
-                  {
-                    title: 'Medicine',
-                    dataIndex: 'medicineName',
-                    key: 'medicineName',
-                  },
-                  {
-                    title: 'Batch No',
-                    dataIndex: 'batchNo',
-                    key: 'batchNo',
-                    render: (text) => text || 'N/A'
-                  },
-                  {
-                    title: 'Unit Price',
-                    dataIndex: 'unitPrice',
-                    key: 'unitPrice',
-                    render: (price) => `₹${price.toFixed(2)}`
-                  },
-                  {
-                    title: 'Quantity',
-                    dataIndex: 'quantity',
-                    key: 'quantity',
-                  },
-                  {
-                    title: 'Subtotal',
-                    key: 'subtotal',
-                    render: (_, record) => (
-                      `₹${(record.unitPrice * record.quantity).toFixed(2)}`
-                    )
-                  }
-                ]}
-                dataSource={selectedOrder.items}
-                pagination={false}
-                rowKey="_id"
-                size="small"
-              />
-            </Card>
-
-            {/* Price Breakdown */}
-            <Card 
-              title="Price Breakdown" 
-              bordered={false}
-              style={{ marginBottom: 24 }}
-            >
-              <Descriptions column={1} size="small">
-                <Descriptions.Item label="Subtotal">
-                  ₹{selectedOrder.subtotal?.toFixed(2)}
-                </Descriptions.Item>
-                <Descriptions.Item label="GST">
-                  ₹{selectedOrder.gstAmount?.toFixed(2)}
-                </Descriptions.Item>
-                <Descriptions.Item label="Delivery Charges">
-                  ₹{selectedOrder.deliveryCharges?.toFixed(2) || '0.00'}
-                </Descriptions.Item>
-                <Descriptions.Item label={
-                  <span style={{ fontSize: 16, fontWeight: 700 }}>Total Amount</span>
-                }>
-                  <span style={{ fontSize: 18, fontWeight: 700, color: '#52c41a' }}>
-                    ₹{selectedOrder.totalAmount?.toLocaleString()}
+            <div style={{ marginBottom: '20px', padding: '16px', background: '#f9fafb', borderRadius: '8px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '14px' }}>
+                <div>
+                  <span style={{ color: '#6b7280' }}>Status:</span>
+                  <span style={{ marginLeft: '8px', fontWeight: 600, textTransform: 'uppercase' }}>
+                    {details.status}
                   </span>
-                </Descriptions.Item>
-              </Descriptions>
-            </Card>
-
-            {/* Order Timeline */}
-            {selectedOrder.statusHistory && selectedOrder.statusHistory.length > 0 && (
-              <Card title="Order Timeline" bordered={false}>
-                <Timeline>
-                  {selectedOrder.statusHistory.map((history, index) => (
-                    <Timeline.Item 
-                      key={index}
-                      color={getStatusColor(history.status)}
-                    >
-                      <div>
-                        <Tag color={getStatusColor(history.status)}>
-                          {history.status.toUpperCase()}
-                        </Tag>
-                        <span style={{ marginLeft: 8, color: '#666' }}>
-                          {moment(history.date).format('DD MMM YYYY, hh:mm A')}
-                        </span>
-                      </div>
-                      {history.remarks && (
-                        <div style={{ marginTop: 4, color: '#666', fontSize: 12 }}>
-                          {history.remarks}
-                        </div>
-                      )}
-                    </Timeline.Item>
-                  ))}
-                </Timeline>
-              </Card>
-            )}
-
-            {/* Action Buttons */}
-            <div style={{ marginTop: 24, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-              {selectedOrder.status === 'pending' && (
-                <>
-                  <Button 
-                    type="primary"
-                    onClick={() => {
-                      handleUpdateStatus(selectedOrder._id, 'confirmed')
-                      setDetailsModalVisible(false)
-                    }}
-                  >
-                    Confirm Order
-                  </Button>
-                  <Button 
-                    danger
-                    onClick={() => {
-                      handleUpdateStatus(selectedOrder._id, 'cancelled')
-                      setDetailsModalVisible(false)
-                    }}
-                  >
-                    Reject Order
-                  </Button>
-                </>
+                </div>
+                <div>
+                  <span style={{ color: '#6b7280' }}>Total Amount:</span>
+                  <span style={{ marginLeft: '8px', fontWeight: 600 }}>
+                    ₹{details.totalAmount?.toLocaleString('en-IN')}
+                  </span>
+                </div>
+                <div>
+                  <span style={{ color: '#6b7280' }}>Expected Date:</span>
+                  <span style={{ marginLeft: '8px', fontWeight: 600 }}>
+                    {details.expectedDate || 'Not specified'}
+                  </span>
+                </div>
+                <div>
+                  <span style={{ color: '#6b7280' }}>Created:</span>
+                  <span style={{ marginLeft: '8px', fontWeight: 600 }}>
+                    {new Date(details.createdAt).toLocaleDateString()}
+                  </span>
+                </div>
+              </div>
+              {details.notes && (
+                <div style={{ marginTop: '12px' }}>
+                  <span style={{ color: '#6b7280' }}>Notes:</span>
+                  <p style={{ margin: '4px 0 0', fontSize: '14px' }}>{details.notes}</p>
+                </div>
               )}
-              {selectedOrder.status === 'confirmed' && (
-                <Button 
-                  type="primary"
-                  onClick={() => {
-                    handleUpdateStatus(selectedOrder._id, 'shipped')
-                    setDetailsModalVisible(false)
-                  }}
-                >
-                  Mark as Shipped
-                </Button>
-              )}
-              <Button onClick={() => setDetailsModalVisible(false)}>
-                Close
-              </Button>
             </div>
+
+            {/* Items */}
+            <div>
+              <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '12px' }}>Order Items</h3>
+              <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden' }}>
+                <table style={{ width: '100%', fontSize: '14px' }}>
+                  <thead>
+                    <tr style={{ background: '#f9fafb' }}>
+                      <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600 }}>Medicine</th>
+                      <th style={{ padding: '12px', textAlign: 'center', fontWeight: 600 }}>Qty</th>
+                      <th style={{ padding: '12px', textAlign: 'right', fontWeight: 600 }}>PTR</th>
+                      <th style={{ padding: '12px', textAlign: 'right', fontWeight: 600 }}>Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {details.items?.map((item, idx) => (
+                      <tr key={idx} style={{ borderTop: '1px solid #e5e7eb' }}>
+                        <td style={{ padding: '12px' }}>
+                          <div>
+                            <div style={{ fontWeight: 600 }}>{item.medicineName}</div>
+                            {item.salt && (
+                              <div style={{ fontSize: '12px', color: '#6b7280' }}>{item.salt}</div>
+                            )}
+                          </div>
+                        </td>
+                        <td style={{ padding: '12px', textAlign: 'center' }}>{item.qty}</td>
+                        <td style={{ padding: '12px', textAlign: 'right' }}>₹{item.ptr}</td>
+                        <td style={{ padding: '12px', textAlign: 'right', fontWeight: 600 }}>
+                          ₹{item.amount?.toLocaleString('en-IN')}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div style={{ textAlign: 'center', padding: '40px', color: '#ef4444' }}>
+            Failed to load order details
           </div>
         )}
-      </Modal>
+      </div>
+    </div>
+  )
+}
+
+// Dispatch Modal Component
+const DispatchModal = ({ order, onClose, onDispatch }) => {
+  const [formData, setFormData] = useState({
+    trackingNumber: '',
+    courierName: '',
+    expectedDelivery: '',
+    notes: ''
+  })
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    if (!formData.trackingNumber || !formData.courierName) {
+      toast.error('Please fill in tracking number and courier name')
+      return
+    }
+    onDispatch(formData)
+  }
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0,0,0,0.5)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 9999,
+        padding: '20px'
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          background: '#fff',
+          borderRadius: '12px',
+          padding: '24px',
+          maxWidth: '500px',
+          width: '100%'
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 700 }}>Dispatch Order - {order.poNo}</h2>
+          <button
+            onClick={onClose}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}
+          >
+            <X size={24} color="#6b7280" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '14px', fontWeight: 600, marginBottom: '6px' }}>
+                Tracking Number *
+              </label>
+              <input
+                type="text"
+                value={formData.trackingNumber}
+                onChange={(e) => setFormData({ ...formData, trackingNumber: e.target.value })}
+                placeholder="Enter tracking number"
+                required
+                style={{
+                  width: '100%',
+                  height: '40px',
+                  padding: '0 12px',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  outline: 'none'
+                }}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '14px', fontWeight: 600, marginBottom: '6px' }}>
+                Courier Name *
+              </label>
+              <input
+                type="text"
+                value={formData.courierName}
+                onChange={(e) => setFormData({ ...formData, courierName: e.target.value })}
+                placeholder="e.g., BlueDart, DTDC"
+                required
+                style={{
+                  width: '100%',
+                  height: '40px',
+                  padding: '0 12px',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  outline: 'none'
+                }}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '14px', fontWeight: 600, marginBottom: '6px' }}>
+                Expected Delivery
+              </label>
+              <input
+                type="date"
+                value={formData.expectedDelivery}
+                onChange={(e) => setFormData({ ...formData, expectedDelivery: e.target.value })}
+                style={{
+                  width: '100%',
+                  height: '40px',
+                  padding: '0 12px',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  outline: 'none'
+                }}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '14px', fontWeight: 600, marginBottom: '6px' }}>
+                Notes
+              </label>
+              <textarea
+                value={formData.notes}
+                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                placeholder="Additional dispatch notes"
+                rows={3}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  outline: 'none',
+                  resize: 'vertical'
+                }}
+              />
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '12px', marginTop: '24px', justifyContent: 'flex-end' }}>
+            <button
+              type="button"
+              onClick={onClose}
+              style={{
+                padding: '10px 20px',
+                borderRadius: '8px',
+                border: '1px solid #e5e7eb',
+                background: '#fff',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: 600
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              style={{
+                padding: '10px 20px',
+                borderRadius: '8px',
+                border: 'none',
+                background: '#8b5cf6',
+                color: '#fff',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+            >
+              <Truck size={16} />
+              Mark as Dispatched
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   )
 }

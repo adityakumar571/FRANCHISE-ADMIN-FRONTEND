@@ -42,8 +42,9 @@ const AppContent = () => {
             // Role-based access check (existing logic)
             const roleAllowed = !route.roles || route.roles.length === 0 || route.roles.includes(role)
 
-            // Menu access check
-            const menuAllowed = !route.accessKey || hasAccess(route.accessKey)
+            // Menu access check - DISABLED for Admin/SuperAdmin/Franchise Owner
+            const isAdminRole = ['Admin', 'SuperAdmin', 'Franchise Owner'].includes(role)
+            const menuAllowed = isAdminRole || !route.accessKey || hasAccess(route.accessKey)
 
             // Force remount on billing route when navigating with state (hold bill resume)
             const isBillingRoute = REMOUNT_PATHS.includes(route.path)

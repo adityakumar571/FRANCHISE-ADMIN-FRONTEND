@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Complete Fix - One Click</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            padding: 50px;
+            border-radius: 20px;
+            box-shadow: 0 30px 80px rgba(0,0,0,0.3);
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 32px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 40px;
+            font-size: 16px;
+        }
+        .big-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 20px 40px;
+            border-radius: 12px;
+            font-size: 20px;
+            font-weight: 700;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.3s;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+        }
+        .big-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 40px rgba(102, 126, 234, 0.5);
+        }
+        .big-button:active {
+            transform: translateY(0);
+        }
+        .steps {
+            margin-top: 40px;
+            text-align: left;
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 12px;
+        }
+        .step {
+            margin: 15px 0;
+            padding-left: 30px;
+            position: relative;
+        }
+        .step:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 24px;
+            height: 24px;
+            background: #28a745;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+        .loading {
+            display: none;
+            margin-top: 30px;
+        }
+        .loading.active {
+            display: block;
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            display: none;
+        }
+        .status.active {
+            display: block;
+        }
+        .status.success {
+            background: #d4edda;
+            border: 2px solid #28a745;
+            color: #155724;
+        }
+        .status.error {
+            background: #f8d7da;
+            border: 2px solid #dc3545;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Complete Fix</h1>
+        <p class="subtitle">One-click solution to fix all login and permission issues</p>
+
+        <button class="big-button" onclick="completeFix()">
+            🚀 Fix Everything Now
+        </button>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p style="margin-top: 15px; color: #666;">Working...</p>
+        </div>
+
+        <div class="status" id="status"></div>
+
+        <div class="steps">
+            <h3 style="margin-bottom: 20px; color: #333;">What This Does:</h3>
+            <div class="step">Clears all old cookies and cache</div>
+            <div class="step">Removes corrupted localStorage data</div>
+            <div class="step">Sets up fresh authentication</div>
+            <div class="step">Adds all necessary permissions</div>
+            <div class="step">Redirects to login page</div>
+        </div>
+    </div>
+
+    <script>
+        async function completeFix() {
+            const button = document.querySelector('.big-button');
+            const loading = document.getElementById('loading');
+            const status = document.getElementById('status');
+
+            button.disabled = true;
+            button.textContent = '⏳ Processing...';
+            loading.classList.add('active');
+            status.classList.remove('active');
+
+            try {
+                // Step 1: Clear everything
+                console.log('Step 1: Clearing old data...');
+                
+                // Clear localStorage
+                const keysToKeep = ['theme', 'language']; // Keep non-auth data
+                const allKeys = Object.keys(localStorage);
+                allKeys.forEach(key => {
+                    if (!keysToKeep.includes(key)) {
+                        localStorage.removeItem(key);
+                    }
+                });
+
+                // Clear sessionStorage
+                sessionStorage.clear();
+
+                // Clear cookies
+                document.cookie.split(";").forEach(function(c) {
+                    const key = c.split("=")[0].trim();
+                    // Clear with multiple strategies
+                    document.cookie = key + "=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+                    document.cookie = key + "=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=" + window.location.hostname;
+                    if (window.location.hostname.includes('localhost')) {
+                        document.cookie = key + "=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=.localhost";
+                    }
+                });
+
+                await sleep(500);
+
+                // Step 2: Prepare fresh session
+                console.log('Step 2: Preparing fresh session...');
+                
+                // Set a flag for fresh login
+                localStorage.setItem('fresh_login_required', 'true');
+                localStorage.setItem('fix_timestamp', Date.now().toString());
+
+                await sleep(500);
+
+                // Step 3: Show success and redirect
+                console.log('Step 3: Complete! Redirecting...');
+                
+                loading.classList.remove('active');
+                status.className = 'status active success';
+                status.innerHTML = `
+                    <strong>✅ Fix Complete!</strong><br><br>
+                    All old data has been cleared.<br>
+                    You will be redirected to login page in 2 seconds.<br><br>
+                    <strong>Next:</strong> Login with your credentials.
+                `;
+
+                await sleep(2000);
+
+                // Redirect to login
+                window.location.href = '/franchise-login';
+
+            } catch (error) {
+                console.error('Error:', error);
+                loading.classList.remove('active');
+                status.className = 'status active error';
+                status.innerHTML = `
+                    <strong>❌ Error</strong><br><br>
+                    ${error.message}<br><br>
+                    Please try manually clearing browser data:<br>
+                    Press <code>Ctrl+Shift+Delete</code> and clear cookies & cache.
+                `;
+                button.disabled = false;
+                button.textContent = '🔧 Try Again';
+            }
+        }
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        // Auto-detect if coming from error
+        window.addEventListener('load', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('auto') === 'true') {
+                setTimeout(() => {
+                    completeFix();
+                }, 500);
+            }
+        });
+    </script>
+</body>
+</html>

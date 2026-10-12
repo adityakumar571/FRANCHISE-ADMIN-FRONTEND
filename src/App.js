@@ -56,6 +56,8 @@ const SAMedicines    = React.lazy(() => import('./views/superadmin/Medicine/Glob
 const SADistributors = React.lazy(() => import('./views/superadmin/Distributors/DistributorManagement'))
 const SASupplierAssign= React.lazy(() => import('./views/superadmin/Suppliers/SupplierAssignment'))
 const SASupplierManage = React.lazy(() => import('./views/superadmin/Suppliers/SupplierManagement'))
+const SASupplierMedicines = React.lazy(() => import('./views/superadmin/Suppliers/SupplierMedicineManagement'))
+const SABulkMedicineAssign = React.lazy(() => import('./views/superadmin/Suppliers/BulkMedicineAssignment'))
 const SAReports      = React.lazy(() => import('./views/superadmin/Reports/SuperAdminReports'))
 const SAAuditLogs    = React.lazy(() => import('./views/superadmin/AuditLogs/SuperAdminAuditLogs'))
 const SASettings     = React.lazy(() => import('./views/superadmin/Settings/SuperAdminSettings'))
@@ -77,7 +79,7 @@ const DistSettings      = React.lazy(() => import('./views/distributor/screens/D
 const SupplierLogin        = React.lazy(() => import('./views/supplier/SupplierLogin'))
 const SupplierAutoLogin    = React.lazy(() => import('./views/supplier/AutoLogin'))
 const SupplierDashboard    = React.lazy(() => import('./views/supplier/SupplierDashboard'))
-const SupplierOrders       = React.lazy(() => import('./views/supplier/SupplierOrders'))
+const SupplierOrders       = React.lazy(() => import('./views/supplier/OrderManagement'))
 const SupplierOrderDetails = React.lazy(() => import('./views/supplier/SupplierOrderDetails'))
 const SupplierInventory    = React.lazy(() => import('./views/supplier/SupplierInventory'))
 const SupplierReports      = React.lazy(() => import('./views/supplier/reports/SupplierReports'))
@@ -114,6 +116,8 @@ const App = () => (
             <Route path="distributors"           element={<SADistributors />} />
             <Route path="supplier-assignment"    element={<SASupplierAssign />} />
             <Route path="suppliers"               element={<SASupplierManage />} />
+            <Route path="supplier-medicines"      element={<SASupplierMedicines />} />
+            <Route path="bulk-medicine-assignment" element={<SABulkMedicineAssign />} />
             <Route path="reports"                element={<SAReports />} />
             <Route path="audit"                  element={<SAAuditLogs />} />
             <Route path="settings"               element={<SASettings />} />

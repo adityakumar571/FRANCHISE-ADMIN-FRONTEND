@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emergency Login Bypass</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            padding: 20px;
+        }
+        .card {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 500px;
+            width: 100%;
+        }
+        h1 {
+            color: #333;
+            margin: 0 0 10px 0;
+        }
+        .subtitle {
+            color: #666;
+            margin: 0 0 30px 0;
+            font-size: 14px;
+        }
+        .warning {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            color: #856404;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        button {
+            width: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin: 10px 0;
+            transition: transform 0.2s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+        }
+        button.secondary {
+            background: #6c757d;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        .success {
+            background: #d4edda;
+            border: 2px solid #28a745;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            border: 2px solid #dc3545;
+            color: #721c24;
+        }
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            margin-bottom: 15px;
+            box-sizing: border-box;
+        }
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>🚨 Emergency Access</h1>
+        <p class="subtitle">Temporary login bypass for development/testing</p>
+
+        <div class="warning">
+            <strong>⚠️ Warning:</strong> This is a development tool. Use only for testing when normal login fails.
+        </div>
+
+        <form onsubmit="handleLogin(event)">
+            <label>User ID / Email</label>
+            <input type="text" id="userId" placeholder="Enter your user ID or email" required>
+
+            <label>Password</label>
+            <input type="password" id="password" placeholder="Enter your password" required>
+
+            <button type="submit" id="loginBtn">🔐 Emergency Login</button>
+        </form>
+
+        <button class="secondary" onclick="setTestCookie()">
+            🧪 Set Test Cookie (Skip Auth)
+        </button>
+
+        <button class="secondary" onclick="window.location.href='/debug-auth.html'">
+            🔍 Debug Authentication
+        </button>
+
+        <div id="result"></div>
+    </div>
+
+    <script>
+        async function handleLogin(e) {
+            e.preventDefault();
+            
+            const userId = document.getElementById('userId').value;
+            const password = document.getElementById('password').value;
+            const resultDiv = document.getElementById('result');
+            const loginBtn = document.getElementById('loginBtn');
+
+            loginBtn.textContent = '⏳ Logging in...';
+            loginBtn.disabled = true;
+
+            try {
+                // Get subdomain
+                const hostname = window.location.hostname;
+                const parts = hostname.split('.');
+                const subdomain = parts[0];
+
+                const response = await fetch('/api/franchise/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-tenant-id': subdomain
+                    },
+                    body: JSON.stringify({ userId, password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.data && data.data.token) {
+                    const { token, user, franchise } = data.data;
+
+                    // Set cookie with multiple strategies
+                    // Strategy 1: Standard cookie
+                    document.cookie = `LMS=${token}; path=/; max-age=${30*24*60*60}; SameSite=Lax`;
+                    
+                    // Strategy 2: Domain-specific for localhost
+                    if (hostname.includes('localhost')) {
+                        document.cookie = `LMS=${token}; domain=.localhost; path=/; max-age=${30*24*60*60}; SameSite=Lax`;
+                    }
+
+                    // Set localStorage
+                    localStorage.setItem('franchise_user', JSON.stringify(user));
+                    localStorage.setItem('franchise_context', JSON.stringify(franchise));
+                    localStorage.setItem('franchise_subdomain', subdomain);
+
+                    // Set permissions
+                    const allPerms = {
+                        dashboard: true, dashboard_main: true,
+                        liverates: true, liverates_dashboard: true, liverates_compare: true,
+                        liverates_stock: true, liverates_scheme: true, liverates_bestdeal: true,
+                        liverates_cart: true, liverates_order: true, liverates_tracking: true,
+                        purchase: true, purchase_dashboard: true, purchase_liverates: true,
+                        pos: true, pos_billing: true, inventory: true, medicines: true,
+                        customers: true, accounts: true, reports: true, staff: true
+                    };
+                    localStorage.setItem(`franchise_menu_access_${user._id}`, JSON.stringify(allPerms));
+
+                    resultDiv.innerHTML = `
+                        <div class="result success">
+                            <strong>✅ Login Successful!</strong><br>
+                            Welcome ${user.name}!<br><br>
+                            Redirecting to dashboard in 2 seconds...
+                        </div>
+                    `;
+
+                    setTimeout(() => {
+                        window.location.href = '/franchise/dashboard';
+                    }, 2000);
+
+                } else {
+                    throw new Error(data.message || 'Login failed');
+                }
+
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="result error">
+                        <strong>❌ Login Failed</strong><br>
+                        ${error.message}
+                    </div>
+                `;
+                loginBtn.textContent = '🔐 Emergency Login';
+                loginBtn.disabled = false;
+            }
+        }
+
+        function setTestCookie() {
+            const resultDiv = document.getElementById('result');
+            
+            // Generate a test token
+            const testToken = 'TEST_TOKEN_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            
+            // Set cookie
+            document.cookie = `LMS=${testToken}; path=/; max-age=${30*24*60*60}; SameSite=Lax`;
+            
+            // Also try with domain
+            const hostname = window.location.hostname;
+            if (hostname.includes('localhost')) {
+                document.cookie = `LMS=${testToken}; domain=.localhost; path=/; max-age=${30*24*60*60}; SameSite=Lax`;
+            }
+
+            // Create test user data
+            const testUser = {
+                _id: 'test_user_' + Date.now(),
+                name: 'Test User',
+                email: 'test@example.com',
+                role: 'Admin',
+                userId: 'testuser'
+            };
+
+            const testFranchise = {
+                _id: 'test_franchise_' + Date.now(),
+                franchiseName: 'Test Pharmacy',
+                subdomain: hostname.split('.')[0]
+            };
+
+            localStorage.setItem('franchise_user', JSON.stringify(testUser));
+            localStorage.setItem('franchise_context', JSON.stringify(testFranchise));
+
+            // Set all permissions
+            const allPerms = {};
+            const allKeys = [
+                'dashboard', 'dashboard_main', 'liverates', 'liverates_dashboard', 
+                'liverates_compare', 'liverates_stock', 'liverates_scheme', 
+                'liverates_bestdeal', 'liverates_cart', 'liverates_order', 
+                'liverates_tracking', 'purchase', 'purchase_dashboard', 'purchase_liverates',
+                'pos', 'pos_billing', 'inventory', 'medicines', 'customers', 
+                'accounts', 'reports', 'staff'
+            ];
+            allKeys.forEach(key => allPerms[key] = true);
+            localStorage.setItem(`franchise_menu_access_${testUser._id}`, JSON.stringify(allPerms));
+
+            resultDiv.innerHTML = `
+                <div class="result success">
+                    <strong>✅ Test Cookie Set!</strong><br>
+                    Cookie: ${testToken.substring(0, 30)}...<br>
+                    User: Test User (Admin)<br><br>
+                    <strong>⚠️ Note:</strong> This is a test cookie. Backend API calls may still fail with 401 errors.<br><br>
+                    Redirecting to dashboard in 2 seconds...
+                </div>
+            `;
+
+            setTimeout(() => {
+                window.location.href = '/franchise/dashboard';
+            }, 2000);
+        }
+    </script>
+</body>
+</html>
