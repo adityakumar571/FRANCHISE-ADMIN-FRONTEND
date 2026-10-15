@@ -222,7 +222,7 @@ const CreatePOModal = ({ open, onClose, onSaved, prefilledSupplier = null, prefi
           </div>
 
           {/* Items table */}
-          <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', marginBottom: 14 }}>
+          <div style={{ flex: 1, minHeight: '400px', maxHeight: '500px', display: 'flex', flexDirection: 'column', marginBottom: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
               <label style={{ fontSize: 13, fontWeight: 700, color: '#374151' }}>
                 Order Items ({items.length})
@@ -249,7 +249,7 @@ const CreatePOModal = ({ open, onClose, onSaved, prefilledSupplier = null, prefi
               </button>
             </div>
 
-            <div style={{ flex: 1, overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: 8 }}>
+            <div style={{ flex: 1, overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: 8, minHeight: 0 }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
                   <tr style={{ background: '#f9fafb' }}>
@@ -509,7 +509,7 @@ const MedicineRow = ({ index, item, supplier, onChange, onDelete, canDelete }) =
               boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
               maxHeight: 200,
               overflowY: 'auto',
-              zIndex: 1000,
+              zIndex: 10000,  // ✅ Increased from 1000 to 10000 to appear above table
             }}>
               {loadingSuggestions ? (
                 <div style={{ padding: '8px 10px', fontSize: 11, color: '#9ca3af', textAlign: 'center' }}>

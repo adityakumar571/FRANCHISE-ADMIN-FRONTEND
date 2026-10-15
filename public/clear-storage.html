@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Clear All Storage</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      background: #f5f6f8;
+    }
+    .container {
+      background: white;
+      padding: 40px;
+      border-radius: 12px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+      text-align: center;
+      max-width: 400px;
+    }
+    button {
+      background: #0c3b73;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 20px;
+    }
+    button:hover {
+      background: #1e40af;
+    }
+    .status {
+      margin-top: 20px;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 13px;
+    }
+    .success {
+      background: #f0fdf4;
+      color: #16a34a;
+      border: 1px solid #bbf7d0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1 style="color: #0c3b73; margin: 0 0 10px;">🧹 Clear All Storage</h1>
+    <p style="color: #6b7280; margin: 0 0 20px; font-size: 14px;">
+      This will clear all cookies, localStorage, and sessionStorage for this domain.
+    </p>
+    
+    <button onclick="clearAll()">Clear Everything</button>
+    
+    <div id="status"></div>
+  </div>
+
+  <script>
+    function clearAll() {
+      // Clear all cookies
+      document.cookie.split(";").forEach(function(c) {
+        document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+      });
+      
+      // Clear localStorage
+      localStorage.clear();
+      
+      // Clear sessionStorage
+      sessionStorage.clear();
+      
+      // Show success
+      const status = document.getElementById('status');
+      status.className = 'status success';
+      status.innerHTML = '✅ All storage cleared successfully!<br><br>You can now close this page and go to <a href="/superadmin/login">Login Page</a>';
+      
+      console.log('✅ Cleared all cookies:', document.cookie);
+      console.log('✅ Cleared localStorage');
+      console.log('✅ Cleared sessionStorage');
+    }
+    
+    // Auto-clear on page load
+    window.addEventListener('load', () => {
+      clearAll();
+    });
+  </script>
+</body>
+</html>

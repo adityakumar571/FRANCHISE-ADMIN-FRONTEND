@@ -26,19 +26,30 @@ import { AppHeaderDropdown } from '../components/header'
 const SupplierLayout = () => {
   const navigate = useNavigate()
   const [sidebarShow, setSidebarShow] = useState(true)
+  const [supplierInfo, setSupplierInfo] = useState({
+    name: 'Supplier',
+    email: '',
+    code: 'SUP-001'
+  })
 
   useEffect(() => {
     // Check supplier authentication
     const token = Cookies.get('supplierToken')
     if (!token) {
       navigate('/supplier/login', { replace: true })
+      return
     }
+
+    // Load supplier info from localStorage
+    const name = localStorage.getItem('supplierName') || 'Supplier'
+    const email = localStorage.getItem('supplierEmail') || ''
+    const code = localStorage.getItem('supplierCode') || 'SUP-001'
+    
+    setSupplierInfo({ name, email, code })
+    console.log('📦 Supplier info loaded:', { name, email, code })
   }, [navigate])
 
-  // Get supplier info from localStorage
-  const supplierName = localStorage.getItem('supplierName') || 'Supplier'
-  const supplierCode = localStorage.getItem('supplierCode') || 'SUP-001'
-  const initials = supplierName.slice(0, 2).toUpperCase()
+  const initials = supplierInfo.name.slice(0, 2).toUpperCase()
 
   return (
     <div>
@@ -66,7 +77,7 @@ const SupplierLayout = () => {
             </div>
             <div style={{ overflow: 'hidden' }}>
               <p style={{ color: '#fff', fontWeight: 700, fontSize: 13, margin: 0, lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 140 }}>
-                {supplierName}
+                {supplierInfo.name}
               </p>
               <p style={{ color: '#fabf22', fontSize: 10, margin: 0, fontWeight: 600 }}>
                 Supplier Portal
@@ -102,11 +113,11 @@ const SupplierLayout = () => {
           </CContainer>
         </CHeader>
 
-        <div className="body flex-grow-1 px-3">
-          <CContainer lg>
+        <div className="body flex-grow-1">
+          <div style={{ backgroundColor: '#f8fafc', padding: '20px', minHeight: 'calc(100vh - 52px)' }}>
             {/* Supplier pages will render here */}
             <Outlet />
-          </CContainer>
+          </div>
         </div>
 
         <AppFooter />

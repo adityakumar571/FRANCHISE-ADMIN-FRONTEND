@@ -30,24 +30,63 @@ const SupplierDashboard = () => {
   const fetchDashboardData = async () => {
     setLoading(true)
     try {
-      const supplierId = localStorage.getItem('supplierId')
+      console.log('📊 Fetching supplier dashboard stats...')
+      const response = await getRequest('/franchise/suppliers/dashboard/stats')
       
-      if (!supplierId) {
-        console.error('No supplierId found in localStorage')
-        setLoading(false)
-        return
-      }
+      console.log('📊 Dashboard API response:', response)
       
-      console.log('Fetching dashboard data for supplierId:', supplierId)
-      const response = await getRequest(`/suppliers/dashboard/stats`)
-      
-      console.log('Dashboard response:', response)
-      
-      if (response.success) {
-        setStats(response.data)
+      if (response?.success && response?.data) {
+        const data = response.data
+        setStats({
+          currentMonth: {
+            orders: data.currentMonth?.orders || 0,
+            revenue: data.currentMonth?.revenue || 0
+          },
+          growth: {
+            orders: data.growth?.orders || 0,
+            revenue: data.growth?.revenue || 0
+          },
+          pending: data.pendingOrders || 0,
+          confirmed: data.acceptedOrders || 0,
+          processing: 0,
+          dispatched: data.dispatchedOrders || 0,
+          delivered: data.completedOrders || 0,
+          recentOrders: data.recentOrders || []
+        })
+        console.log('✅ Dashboard stats loaded successfully:', {
+          pending: data.pendingOrders,
+          accepted: data.acceptedOrders,
+          dispatched: data.dispatchedOrders,
+          recentCount: data.recentOrders?.length || 0
+        })
+      } else {
+        console.warn('⚠️ Dashboard API returned unexpected format:', response)
+        // Set default values if API fails
+        setStats({
+          currentMonth: { orders: 0, revenue: 0 },
+          growth: { orders: 0, revenue: 0 },
+          pending: 0,
+          confirmed: 0,
+          processing: 0,
+          dispatched: 0,
+          delivered: 0,
+          recentOrders: []
+        })
       }
     } catch (error) {
-      console.error('Failed to fetch dashboard data:', error)
+      console.error('❌ Failed to fetch dashboard data:', error)
+      console.error('Error details:', error.response?.data || error.message)
+      // Set default values on error
+      setStats({
+        currentMonth: { orders: 0, revenue: 0 },
+        growth: { orders: 0, revenue: 0 },
+        pending: 0,
+        confirmed: 0,
+        processing: 0,
+        dispatched: 0,
+        delivered: 0,
+        recentOrders: []
+      })
     } finally {
       setLoading(false)
     }

@@ -83,6 +83,7 @@ const SupplierOrders       = React.lazy(() => import('./views/supplier/OrderMana
 const SupplierOrderDetails = React.lazy(() => import('./views/supplier/SupplierOrderDetails'))
 const SupplierInventory    = React.lazy(() => import('./views/supplier/SupplierInventory'))
 const SupplierReports      = React.lazy(() => import('./views/supplier/reports/SupplierReports'))
+const SupplierProfile      = React.lazy(() => import('./views/supplier/SupplierProfile'))
 
 const Spinner = (
   <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
@@ -155,6 +156,7 @@ const App = () => (
             <Route path="reports/franchise" element={<SupplierReports />} />
             <Route path="reports/products"  element={<SupplierReports />} />
             <Route path="reports/analytics" element={<SupplierReports />} />
+            <Route path="profile"         element={<SupplierProfile />} />
           </Route>
 
           {/* Franchise portal — DefaultLayout handles auth guard */}

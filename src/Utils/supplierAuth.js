@@ -116,6 +116,8 @@ export const logoutSupplier = async () => {
  * @param {Object} supplier - Supplier data
  */
 export const saveSupplierSession = (token, supplier) => {
+  console.log('💾 Saving supplier session:', supplier)
+  
   // Store token in cookie (7 days expiry)
   Cookies.set('supplierToken', token, { 
     expires: 7,
@@ -123,16 +125,24 @@ export const saveSupplierSession = (token, supplier) => {
     sameSite: 'strict'
   })
   
-  // Store supplier info in localStorage
-  localStorage.setItem('supplierId', supplier._id)
-  localStorage.setItem('supplierName', supplier.companyName || supplier.name)
-  localStorage.setItem('supplierEmail', supplier.email)
+  // Store comprehensive supplier info in localStorage
+  localStorage.setItem('supplierId', supplier._id || supplier.id)
+  localStorage.setItem('supplierName', supplier.companyName || supplier.name || 'Supplier')
+  localStorage.setItem('supplierEmail', supplier.email || '')
+  localStorage.setItem('supplierPhone', supplier.phone || '')
+  localStorage.setItem('supplierContactPerson', supplier.contactPerson || '')
+  localStorage.setItem('supplierAddress', supplier.address?.street || supplier.address || '')
+  localStorage.setItem('supplierCity', supplier.address?.city || '')
+  localStorage.setItem('supplierState', supplier.address?.state || '')
+  localStorage.setItem('supplierGST', supplier.gstNumber || '')
+  localStorage.setItem('supplierPAN', supplier.panNumber || '')
+  localStorage.setItem('supplierBusinessType', supplier.businessType || '')
   
   if (supplier.supplierCode) {
     localStorage.setItem('supplierCode', supplier.supplierCode)
   }
   
-  console.log('✅ Supplier session saved')
+  console.log('✅ Supplier session saved with full data')
 }
 
 /**
