@@ -106,13 +106,13 @@ const FranchiseLayout = () => {
   const { franchiseUser, franchiseInfo, logoutFranchise } = useFranchise()
   const [sidebarOpen, setSidebarOpen] = useState(true)
 
-  /* Auth guard */
+  /* Auth guard — only check LMS cookie (franchiseUser loads sync from localStorage) */
   useEffect(() => {
     const token = Cookies.get('LMS')
-    if (!token || !franchiseUser) {
+    if (!token) {
       navigate('/franchise-login', { replace: true })
     }
-  }, [])
+  }, [navigate])
 
   const handleLogout = () => {
     logoutFranchise()

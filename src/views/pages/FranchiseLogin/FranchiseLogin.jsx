@@ -68,26 +68,12 @@ const FranchiseLogin = () => {
 
       const { token, user, franchise } = res?.data?.data
 
-      // Set cookie with proper domain and security settings
-      const cookieOptions = {
-        expires: 30,           // 30 days
-        path: '/',             // Available on all paths
-        sameSite: 'Lax',       // CSRF protection
-        secure: false          // Set to true in production with HTTPS
-      }
-      
-      // Set for both root domain and subdomain
-      Cookies.set('LMS', token, cookieOptions)
-      
-      // Also set on .localhost domain for subdomain access
-      if (window.location.hostname.includes('localhost')) {
-        Cookies.set('LMS', token, { ...cookieOptions, domain: '.localhost' })
-      }
-      
-      console.log('✅ Cookie set:', {
-        token: token.substring(0, 20) + '...',
-        expires: '30 days',
-        domain: window.location.hostname
+      // Set cookie with 30 day expiry — persists across browser refreshes
+      Cookies.set('LMS', token, {
+        expires: 30,
+        path: '/',
+        sameSite: 'Lax',
+        secure: false,
       })
 
       setFranchiseUser(user)

@@ -1,7 +1,7 @@
 import { CNavGroup, CNavItem } from '@coreui/react'
 import {
   LayoutDashboard, Package, ShoppingCart,
-  User, BarChart2, Warehouse
+  User, BarChart2, Warehouse, BookOpen
 } from 'lucide-react'
 
 const C = '#fff' // White color for dark sidebar theme (matching franchise)
@@ -31,6 +31,14 @@ const supplierNav = [
     name: 'Inventory',
     to: '/supplier/inventory',
     icon: ic(Warehouse),
+  },
+
+  /* Medicine Masters */
+  {
+    component: CNavItem,
+    name: 'Medicine Masters',
+    to: '/supplier/masters',
+    icon: ic(BookOpen),
   },
 
   /* Reports */

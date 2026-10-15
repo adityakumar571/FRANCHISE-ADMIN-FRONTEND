@@ -83,6 +83,7 @@ const BarcodeLabel         = l(() => import('./views/franchise/Medicines/Barcode
 const MedicineImages       = l(() => import('./views/franchise/Medicines/MedicineImages'))
 const GenericMapping       = l(() => import('./views/franchise/Medicines/GenericMapping'))
 const AlternativeMedicines = l(() => import('./views/franchise/Medicines/AlternativeMedicines'))
+const FranchiseMedicineMasters = l(() => import('./views/franchise/Medicines/MedicineMasters'))
 
 // ── Suppliers ─────────────────────────────────────────────────────────────────
 // ❌ REMOVED: Tenant supplier management - using global suppliers only
@@ -230,16 +231,17 @@ const routes = [
   { path: '/franchise/live-rates/supplier-rating',   element: SupplierRating,     accessKey: 'liverates_stock'    },
 
   /* ── Medicines ── */
-  { path: '/franchise/medicines',                  element: MedicineList,         accessKey: 'medicines_list'    },
-  { path: '/franchise/medicines/add',              element: AddMedicine,          accessKey: 'medicines_add'     },
-  { path: '/franchise/medicines/racks',            element: RackManagement,       accessKey: 'medicines_rack'    },
-  { path: '/franchise/medicines/:id',              element: MedicineDetails,      accessKey: 'medicines_list'    },
-  { path: '/franchise/medicines/:id/edit',         element: EditMedicine,         accessKey: 'medicines_edit'    },
-  { path: '/franchise/medicines/:id/batches',      element: BatchDetails,         accessKey: 'medicines_list'    },
-  { path: '/franchise/medicines/:id/barcode',      element: BarcodeLabel,         accessKey: 'medicines_barcode' },
-  { path: '/franchise/medicines/:id/images',       element: MedicineImages,       accessKey: 'medicines_list'    },
-  { path: '/franchise/medicines/:id/generic',      element: GenericMapping,       accessKey: 'medicines_list'    },
-  { path: '/franchise/medicines/:id/alternatives', element: AlternativeMedicines, accessKey: 'medicines_list'    },
+  { path: '/franchise/medicines',                  element: MedicineList,             accessKey: 'medicines_list'    },
+  { path: '/franchise/medicines/add',              element: AddMedicine,              accessKey: 'medicines_add'     },
+  { path: '/franchise/medicines/masters',          element: FranchiseMedicineMasters, accessKey: 'medicines_masters' },
+  { path: '/franchise/medicines/racks',            element: RackManagement,           accessKey: 'medicines_rack'    },
+  { path: '/franchise/medicines/:id',              element: MedicineDetails,          accessKey: 'medicines_list'    },
+  { path: '/franchise/medicines/:id/edit',         element: EditMedicine,             accessKey: 'medicines_edit'    },
+  { path: '/franchise/medicines/:id/batches',      element: BatchDetails,             accessKey: 'medicines_list'    },
+  { path: '/franchise/medicines/:id/barcode',      element: BarcodeLabel,             accessKey: 'medicines_barcode' },
+  { path: '/franchise/medicines/:id/images',       element: MedicineImages,           accessKey: 'medicines_list'    },
+  { path: '/franchise/medicines/:id/generic',      element: GenericMapping,           accessKey: 'medicines_list'    },
+  { path: '/franchise/medicines/:id/alternatives', element: AlternativeMedicines,     accessKey: 'medicines_list'    },
 
   /* ── Suppliers ── */
   // ❌ REMOVED: Tenant supplier routes - using global suppliers only
