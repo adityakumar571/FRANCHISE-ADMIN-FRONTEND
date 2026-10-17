@@ -205,7 +205,7 @@ const franchiseNav = [
       { component: CNavItem, name: 'Purchase History',  to: '/franchise/customers',   icon: ic(History), accessKey: 'customers_history',   badge: { color: 'light', text: 'Select customer first' } },
       { component: CNavItem, name: 'Medicine Reminder', to: '/franchise/customers',   icon: ic(Bell),    accessKey: 'customers_reminder',  badge: { color: 'light', text: 'Select customer first' } },
       { component: CNavItem, name: 'Membership',        to: '/franchise/customers',   icon: ic(Crown),   accessKey: 'customers_membership',badge: { color: 'light', text: 'Select customer first' } },
-      { component: CNavItem, name: 'Loyalty',           to: '/franchise/customers',   icon: ic(Star),    accessKey: 'customers_loyalty',   badge: { color: 'light', text: 'Select customer first' } },
+      // { component: CNavItem, name: 'Loyalty',           to: '/franchise/customers',   icon: ic(Star),    accessKey: 'customers_loyalty',   badge: { color: 'light', text: 'Select customer first' } },
       { component: CNavItem, name: 'CareCoin',          to: '/franchise/customers',   icon: ic(Award),   accessKey: 'customers_carecoin',  badge: { color: 'light', text: 'Select customer first' } },
     ],
   },
@@ -266,13 +266,13 @@ const franchiseNav = [
   },
 
   /* 15 ── CRM & Loyalty ── */
-  {
-    component: CNavItem,
-    name: 'CRM & Loyalty',
-    to: '/franchise/customers',
-    icon: ic(Star),
-    accessKey: 'customers_loyalty',
-  },
+  // {
+  //   component: CNavItem,
+  //   name: 'CRM & Loyalty',
+  //   to: '/franchise/customers',
+  //   icon: ic(Star),
+  //   accessKey: 'customers_loyalty',
+  // },
 
   /* 16 ── Staff & Users ── */
   {

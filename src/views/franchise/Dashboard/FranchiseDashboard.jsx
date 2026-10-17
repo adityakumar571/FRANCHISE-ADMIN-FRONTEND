@@ -104,7 +104,7 @@ function AdminDashboard() {
   const [topMoving, setTopMoving]       = useState([])
   const [expiryAlerts, setExpiryAlerts] = useState([])
   const [recentSales, setRecentSales]   = useState([])
-  const [recentPurchases, setRecentPurchases] = useState([])
+  // const [recentPurchases, setRecentPurchases] = useState([]) // COMMENTED: Recent Purchases
   const [lowStock, setLowStock]         = useState([])
   const [searchMed, setSearchMed]       = useState('')
 
@@ -115,7 +115,7 @@ function AdminDashboard() {
   const fetchAll = useCallback(async () => {
     setLoading(true)
     try {
-      const [sumRes, ratesRes, trendRes, alertsRes, topRes, expiryRes, salesRes, purchaseRes, stockRes] =
+      const [sumRes, ratesRes, trendRes, alertsRes, topRes, expiryRes, salesRes, /* purchaseRes, */ stockRes] =
         await Promise.allSettled([
           getRequest('/franchise/dashboard/summary'),
           getRequest('/franchise-suppliers/medicines/compare/Clavm 625'),
@@ -124,7 +124,7 @@ function AdminDashboard() {
           getRequest('/franchise/dashboard/top-moving?period=month&limit=5'),
           getRequest('/franchise/dashboard/expiry-alerts?days=60'),
           getRequest('/franchise/sales/recent?limit=5'),
-          getRequest('/franchise/purchase/recent?limit=5'),
+          // getRequest('/franchise/purchase/recent?limit=5'), // COMMENTED: Recent Purchases
           getRequest('/franchise/inventory/low-stock?limit=5'),
         ])
 
@@ -171,7 +171,7 @@ function AdminDashboard() {
       if (topRes.status === 'fulfilled')      setTopMoving(topRes.value.data?.data || [])
       if (expiryRes.status === 'fulfilled')   setExpiryAlerts(expiryRes.value.data?.data || [])
       if (salesRes.status === 'fulfilled')    setRecentSales(salesRes.value.data?.data || [])
-      if (purchaseRes.status === 'fulfilled') setRecentPurchases(purchaseRes.value.data?.data || [])
+      // if (purchaseRes.status === 'fulfilled') setRecentPurchases(purchaseRes.value.data?.data || []) // COMMENTED
       if (stockRes.status === 'fulfilled')    setLowStock(stockRes.value.data?.data || [])
     } catch (err) {
       toast.error('Failed to load dashboard data')
@@ -515,8 +515,8 @@ function AdminDashboard() {
         </Card>
       </div>
 
-      {/* ─── ROW 3: Recent Sales + Recent Purchases + Low Stock ─── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }}>
+      {/* ─── ROW 3: Recent Sales + Low Stock (Recent Purchases COMMENTED) ─── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
 
         {/* Recent Sales */}
         <Card>
@@ -562,8 +562,8 @@ function AdminDashboard() {
           </div>
         </Card>
 
-        {/* Recent Purchases */}
-        <Card>
+        {/* Recent Purchases - COMMENTED */}
+        {/* <Card>
           <CardHeader title="Recent Purchases" action="View All" onAction={() => navigate('/franchise/purchase/dashboard')} />
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -606,7 +606,7 @@ function AdminDashboard() {
               </tbody>
             </table>
           </div>
-        </Card>
+        </Card> */}
 
         {/* Low Stock Alert */}
         <Card>
