@@ -1,102 +1,247 @@
 /* eslint-disable prettier/prettier */
 /**
- * Screen 14 — Add New Medicine (API-connected)
+ * AddMedicine — Production-Level Medicine Entry
+ * Complete with validation, batch tracking, and rack location
  */
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FlaskConical, ArrowLeft, Save, Upload } from 'lucide-react'
+import { FlaskConical, ArrowLeft, Save, Plus, Trash2, QrCode, MapPin, Package } from 'lucide-react'
 import toast from 'react-hot-toast'
 import PageHeader from '../components/PageHeader'
 import { postRequest, getRequest } from '../../../Helpers'
 
-const FL = ({ label, required, children, hint }) => (
-  <div>
-    <label style={{ fontSize: 11, fontWeight: 700, color: '#374151', display: 'block', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.4px' }}>
-      {label}{required && <span style={{ color: '#dc2626', marginLeft: 2 }}>*</span>}
+// Reusable Components
+const FL = ({ label, required, children }) => (
+  <div style={{ marginBottom: 14 }}>
+    <label style={{ fontSize: 11, fontWeight: 700, color: '#374151', display: 'block', marginBottom: 5 }}>
+      {label}{required && <span style={{ color: '#dc2626' }}>*</span>}
     </label>
-    {hint && <p style={{ margin: '0 0 4px', fontSize: 10, color: '#9ca3af' }}>{hint}</p>}
     {children}
   </div>
 )
 
-const Input = ({ value, onChange, placeholder, type = 'text', disabled }) => (
-  <input type={type} value={value} onChange={onChange} placeholder={placeholder} disabled={disabled}
-    style={{ width: '100%', padding: '9px 12px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13, outline: 'none', background: disabled ? '#f9fafb' : '#fff', boxSizing: 'border-box', color: '#111827' }}
-    onFocus={e => { if (!disabled) e.target.style.borderColor = '#0c3b73' }}
-    onBlur={e => e.target.style.borderColor = '#e5e7eb'}
+const Input = ({ value, onChange, placeholder, type = 'text', disabled, min, max, step }) => (
+  <input 
+    type={type} value={value} onChange={onChange} placeholder={placeholder} 
+    disabled={disabled} min={min} max={max} step={step}
+    style={{ 
+      width: '100%', padding: '9px 12px', border: '1px solid #e5e7eb', 
+      borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box' 
+    }}
   />
 )
 
-const Sel = ({ value, onChange, opts }) => (
-  <select value={value} onChange={onChange}
-    style={{ width: '100%', padding: '9px 12px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13, outline: 'none', background: '#fff', cursor: 'pointer', color: '#111827' }}>
-    {opts.map(o => <option key={o}>{o}</option>)}
+const Sel = ({ value, onChange, opts, placeholder }) => (
+  <select value={value} onChange={onChange} style={{ width: '100%', padding: '9px 12px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13, outline: 'none' }}>
+    {placeholder && <option value="">{placeholder}</option>}
+    {opts.map(o => <option key={o} value={o}>{o}</option>)}
   </select>
 )
 
 const Section = ({ title, children }) => (
-  <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden', marginBottom: 16 }}>
-    <div style={{ padding: '12px 18px', background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-      <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#374151' }}>{title}</p>
-    </div>
-    <div style={{ padding: '18px 18px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 14 }}>
-      {children}
-    </div>
+  <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: 20, marginBottom: 16 }}>
+    <h3 style={{ fontSize: 14, fontWeight: 700, color: '#0c3b73', margin: '0 0 16px' }}>{title}</h3>
+    {children}
   </div>
 )
 
-const GST_RATES = ['0%','5%','12%','18%']
-const CATEGORIES_DEFAULT   = ['Analgesic','Antibiotic','Antifungal','Antiviral','Antacid','Vitamin','Supplement','Cardiac','Diabetic','Other']
-const FORMULATIONS_DEFAULT = ['Tablet','Capsule','Syrup','Injection','Ointment','Cream','Gel','Drops','Powder','Sachet']
-const COMPANIES_DEFAULT    = ['Sun Pharma','Cipla','Lupin','Dr. Reddy\'s','Alkem','Mankind','Torrent','Abbott','GSK','Pfizer','Other']
-const UNITS_DEFAULT        = ['Tablet','Capsule','Syrup','Injection','Ointment','Drops','Strip','Bottle','Sachet','Cream','Gel','Powder']
+// Constants
+const GST_RATES = ['0%', '5%', '12%', '18%', '28%']
+const RACKS = ['RACK-A', 'RACK-B', 'RACK-C', 'RACK-D', 'RACK-E', 'RACK-F']
+const ROWS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']
 
 export default function AddMedicine() {
   const navigate = useNavigate()
+  const [saving, setSaving] = useState(false)
+  const [loadingMeta, setLoadingMeta] = useState(true)
+  const [categories, setCategories] = useState([])
+  const [formulations, setFormulations] = useState([])
+  const [companies, setCompanies] = useState([])
+  const [imageFile, setImageFile] = useState(null)
+  const [imagePreview, setImagePreview] = useState(null)
+  
   const [form, setForm] = useState({
-    name: '', salt: '', brand: '', category: 'Analgesic', formulation: 'Tablet',
-    company: 'Sun Pharma', strength: '', unit: 'Tablet', packSize: '', hsn: '3004',
-    gst: '12%', mrp: '', purchasePrice: '', reorderLevel: '100',
-    openingStock: '0', description: '', prescription: false,
+    name: '',
+    salt: '',
+    genericName: '',
+    category: '',
+    formulation: '',
+    company: '',
+    strength: '',
+    packSize: '',
+    mrp: '',
+    purchasePrice: '',
+    gstPercent: 12,
+    reorderLevel: '20',
+    barcode: '',
+    rackLocation: { rackId: '', shelf: '', row: '', column: '' },
+    batches: [{ batchNo: '', expiryDate: '', quantity: '', mrp: '', purchasePrice: '' }]
   })
-  const [saving, setSaving]         = useState(false)
-  const [categories, setCategories]     = useState(CATEGORIES_DEFAULT)
-  const [formulations, setFormulations] = useState(FORMULATIONS_DEFAULT)
-  const [companies, setCompanies]       = useState(COMPANIES_DEFAULT)
-  const [units, setUnits]               = useState(UNITS_DEFAULT)
 
-  // Load categories, units, companies from Medicine Masters
-  useEffect(() => {
-    getRequest('/franchise/medicines/masters/all').then(res => {
-      const d = res?.data?.data
-      if (d?.categories?.length) setCategories(d.categories.map(c => c.name))
-      if (d?.units?.length)      setUnits(d.units.map(u => u.name))
-      if (d?.companies?.length)  setCompanies(d.companies.map(c => c.name))
-    }).catch(() => {
-      // fallback to defaults if API fails — already set via useState
-    })
+  // Fetch master data dynamically from API
+  const fetchMasters = useCallback(async () => {
+    try {
+      setLoadingMeta(true)
+      const res = await getRequest('/franchise/medicines/meta')
+      if (res.data?.data) {
+        const { categories: cats, formulations: forms, companies: comps } = res.data.data
+        setCategories(cats || [])
+        setFormulations(forms || [])
+        setCompanies(comps || [])
+      }
+    } catch (err) {
+      console.error('Failed to fetch masters:', err)
+      toast.error('Failed to load dropdown data')
+      // Fallback to hardcoded values if API fails
+      setCategories(['Analgesic', 'Antibiotic', 'Antacid', 'Antipyretic', 'Vitamin'])
+      setFormulations(['Tablet', 'Capsule', 'Syrup', 'Injection', 'Ointment'])
+      setCompanies(['Cipla', 'Sun Pharma', 'Dr. Reddy\'s', 'Lupin', 'Other'])
+    } finally {
+      setLoadingMeta(false)
+    }
   }, [])
 
-  const set = k => e => setForm(p => ({ ...p, [k]: e.target.value }))
-  const setCheck = k => e => setForm(p => ({ ...p, [k]: e.target.checked }))
+  useEffect(() => { fetchMasters() }, [fetchMasters])
+
+  const set = (field) => (e) => setForm(p => ({ ...p, [field]: e.target.value }))
+  
+  const setNested = (parent, field) => (e) => {
+    setForm(p => ({
+      ...p,
+      [parent]: { ...p[parent], [field]: e.target.value }
+    }))
+  }
+
+  const updateBatch = (index, field, value) => {
+    setForm(p => ({
+      ...p,
+      batches: p.batches.map((b, i) => i === index ? { ...b, [field]: value } : b)
+    }))
+  }
+
+  const addBatch = () => {
+    setForm(p => ({
+      ...p,
+      batches: [...p.batches, { batchNo: '', expiryDate: '', quantity: '', mrp: '', purchasePrice: '' }]
+    }))
+  }
+
+  const removeBatch = (index) => {
+    if (form.batches.length > 1) {
+      setForm(p => ({ ...p, batches: p.batches.filter((_, i) => i !== index) }))
+    }
+  }
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    
+    // Check file size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('Image size must be less than 2MB')
+      return
+    }
+    
+    // Check file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file')
+      return
+    }
+    
+    setImageFile(file)
+    
+    // Create preview
+    const reader = new FileReader()
+    reader.onloadend = () => {
+      setImagePreview(reader.result)
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const removeImage = () => {
+    setImageFile(null)
+    setImagePreview(null)
+  }
+
+  const generateBarcode = async () => {
+    try {
+      const res = await postRequest({ url: '/franchise/medicines/barcode/generate', cred: {} })
+      const barcode = res.data?.data?.barcode
+      if (barcode) {
+        setForm(p => ({ ...p, barcode }))
+        toast.success('Barcode generated!')
+      }
+    } catch (err) {
+      toast.error('Failed to generate barcode')
+    }
+  }
 
   const handleSave = async () => {
-    if (!form.name.trim()) { toast.error('Medicine name is required'); return }
-    if (!form.salt.trim()) { toast.error('Salt / generic name is required'); return }
-    if (!form.mrp)         { toast.error('MRP is required'); return }
+    // Validation
+    if (!form.name) { toast.error('Name is required'); return }
+    if (!form.salt) { toast.error('Salt is required'); return }
+    if (!form.mrp) { toast.error('MRP is required'); return }
+    
+    // Rack validation
+    if (!form.rackLocation.rackId) { toast.error('Rack is required'); return }
+    if (!form.rackLocation.shelf) { toast.error('Shelf is required'); return }
+    if (!form.rackLocation.row) { toast.error('Row is required'); return }
+    if (!form.rackLocation.column) { toast.error('Column is required'); return }
+    
+    // Batch validation
+    const validBatches = form.batches.filter(b => b.batchNo && b.expiryDate && b.quantity)
+    if (validBatches.length === 0) {
+      toast.error('At least one complete batch is required')
+      return
+    }
 
     setSaving(true)
     try {
-      const payload = {
-        ...form,
-        mrp:           parseFloat(form.mrp)           || 0,
-        purchasePrice: parseFloat(form.purchasePrice) || 0,
-        reorderLevel:  parseInt(form.reorderLevel)    || 100,
-        openingStock:  parseInt(form.openingStock)    || 0,
-        gst:           parseFloat(form.gst)           || 0,
+      const response = await postRequest({
+        url: '/franchise/medicines',
+        cred: {
+          ...form,
+          batches: validBatches.map(b => ({
+            ...b,
+            quantity: parseInt(b.quantity),
+            mrp: parseFloat(b.mrp) || parseFloat(form.mrp),
+            purchasePrice: parseFloat(b.purchasePrice) || parseFloat(form.purchasePrice)
+          })),
+          rackLocation: {
+            rackId: form.rackLocation.rackId,
+            shelf: parseInt(form.rackLocation.shelf),
+            row: form.rackLocation.row,
+            column: parseInt(form.rackLocation.column)
+          },
+          mrp: parseFloat(form.mrp),
+          purchasePrice: parseFloat(form.purchasePrice) || 0,
+          reorderLevel: parseInt(form.reorderLevel) || 10,
+          isBatchTracked: true
+        }
+      })
+      
+      const medicineId = response.data?.data?._id
+      
+      // Upload image if provided
+      if (imageFile && medicineId) {
+        try {
+          const formData = new FormData()
+          formData.append('image', imageFile)
+          
+          const { fileUpload } = await import('../../../Helpers')
+          await fileUpload({
+            url: `/franchise/medicines/${medicineId}/images`,
+            cred: formData
+          })
+          toast.success('Medicine added with image!')
+        } catch (imgErr) {
+          console.error('Image upload failed:', imgErr)
+          toast.warning('Medicine added but image upload failed')
+        }
+      } else {
+        toast.success('Medicine added successfully!')
       }
-      await postRequest({ url: '/franchise/medicines', cred: payload })
-      toast.success('Medicine added successfully')
+      
       navigate('/franchise/medicines')
     } catch (err) {
       toast.error(err?.response?.data?.message || 'Failed to add medicine')
@@ -105,122 +250,252 @@ export default function AddMedicine() {
     }
   }
 
+  useEffect(() => {
+    // Auto-generate position
+    const { rackId, shelf, row, column } = form.rackLocation
+    if (rackId && shelf && row && column) {
+      setForm(p => ({
+        ...p,
+        rackLocation: { ...p.rackLocation, position: `${rackId}-${shelf}-${row}-${column}` }
+      }))
+    }
+  }, [form.rackLocation.rackId, form.rackLocation.shelf, form.rackLocation.row, form.rackLocation.column])
+
   return (
-    <div style={{ fontFamily: 'Inter, sans-serif', display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <PageHeader icon={FlaskConical} title="Add New Medicine" subtitle="Add a new medicine to your inventory" color="#16a34a">
-        <button onClick={() => navigate('/franchise/medicines')}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 12, background: '#fff', cursor: 'pointer' }}>
-          <ArrowLeft size={13} /> Back
+    <div style={{ fontFamily: 'Inter, sans-serif', padding: '0 0 40px' }}>
+      <PageHeader
+        icon={FlaskConical}
+        title="Add New Medicine"
+        subtitle="Complete medicine entry with rack location and batch details"
+        color="#16a34a"
+      >
+        <button
+          onClick={() => navigate(-1)}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', border: '1px solid #e5e7eb', borderRadius: 8, background: '#fff', fontSize: 13, cursor: 'pointer' }}
+        >
+          <ArrowLeft size={14} /> Back
         </button>
       </PageHeader>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 260px', gap: 16, alignItems: 'start' }}>
-        <div>
-          {/* Basic Info */}
-          <Section title="Basic Information">
+      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 20px' }}>
+        
+        {loadingMeta && (
+          <div style={{ padding: 20, textAlign: 'center', background: '#f0f9ff', border: '1px solid #bfdbfe', borderRadius: 8, marginBottom: 20, color: '#1e40af', fontSize: 13 }}>
+            Loading dropdown data...
+          </div>
+        )}
+        
+        {/* Section 1: Basic Information */}
+        <Section title="📋 Basic Information">
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+            <button
+              onClick={fetchMasters}
+              disabled={loadingMeta}
+              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', border: '1px solid #e5e7eb', borderRadius: 6, background: '#fff', fontSize: 11, fontWeight: 600, color: '#6b7280', cursor: loadingMeta ? 'not-allowed' : 'pointer', opacity: loadingMeta ? 0.6 : 1 }}
+              title="Refresh dropdown data from database"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ transform: loadingMeta ? 'rotate(360deg)' : 'none', transition: 'transform 0.5s' }}>
+                <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+              </svg>
+              {loadingMeta ? 'Refreshing...' : 'Refresh Dropdowns'}
+            </button>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
             <FL label="Medicine Name" required>
-              <Input value={form.name} onChange={set('name')} placeholder="e.g. Paracetamol 650mg Tablet" />
+              <Input value={form.name} onChange={set('name')} placeholder="e.g. Dolo 650" />
             </FL>
             <FL label="Salt / Generic Name" required>
-              <Input value={form.salt} onChange={set('salt')} placeholder="e.g. Paracetamol 650mg" />
+              <Input value={form.salt} onChange={set('salt')} placeholder="e.g. Paracetamol" />
             </FL>
-            <FL label="Brand Name">
-              <Input value={form.brand} onChange={set('brand')} placeholder="e.g. Crocin" />
+            <FL label="Generic Name">
+              <Input value={form.genericName} onChange={set('genericName')} placeholder="Generic name" />
             </FL>
-            <FL label="Medicine Category">
-              <Sel value={form.category} onChange={set('category')} opts={categories} />
+            <FL label="Category">
+              <Sel value={form.category} onChange={set('category')} opts={categories} placeholder="Select category" />
             </FL>
-            <FL label="Select Formulation">
-              <Sel value={form.formulation} onChange={set('formulation')} opts={formulations} />
+            <FL label="Formulation">
+              <Sel value={form.formulation} onChange={set('formulation')} opts={formulations} placeholder="Select formulation" />
+            </FL>
+            <FL label="Company">
+              <Sel value={form.company} onChange={set('company')} opts={companies} placeholder="Select company" />
             </FL>
             <FL label="Strength">
-              <Input value={form.strength} onChange={set('strength')} placeholder="e.g. 650 mg" />
+              <Input value={form.strength} onChange={set('strength')} placeholder="e.g. 650mg" />
             </FL>
-            <FL label="Unit">
-              <Sel value={form.unit} onChange={set('unit')} opts={units} />
+            <FL label="Pack Size">
+              <Input value={form.packSize} onChange={set('packSize')} placeholder="e.g. 15 tablets" />
             </FL>
-            <FL label="Company / Manufacturer">
-              <Sel value={form.company} onChange={set('company')} opts={companies} />
-            </FL>
-            <FL label="HSN Code">
-              <Input value={form.hsn} onChange={set('hsn')} placeholder="3004" />
-            </FL>
-            <FL label="GST Rate">
-              <Sel value={form.gst} onChange={set('gst')} opts={GST_RATES} />
-            </FL>
-          </Section>
+          </div>
+        </Section>
 
-          {/* Pricing & Stock */}
-          <Section title="Pricing & Stock">
+        {/* Section 2: Pricing & Tax */}
+        <Section title="💰 Pricing & Tax">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
             <FL label="MRP (₹)" required>
-              <Input value={form.mrp} onChange={set('mrp')} placeholder="0.00" type="number" />
+              <Input type="number" value={form.mrp} onChange={set('mrp')} placeholder="0.00" step="0.01" min="0" />
             </FL>
             <FL label="Purchase Price (₹)">
-              <Input value={form.purchasePrice} onChange={set('purchasePrice')} placeholder="0.00" type="number" />
+              <Input type="number" value={form.purchasePrice} onChange={set('purchasePrice')} placeholder="0.00" step="0.01" min="0" />
             </FL>
-            <FL label="Opening Stock">
-              <Input value={form.openingStock} onChange={set('openingStock')} placeholder="0" type="number" />
+            <FL label="GST %">
+              <Sel value={form.gstPercent + '%'} onChange={e => setForm(p => ({ ...p, gstPercent: parseFloat(e.target.value) }))} opts={GST_RATES} />
             </FL>
-            <FL label="Reorder Level">
-              <Input value={form.reorderLevel} onChange={set('reorderLevel')} placeholder="100" type="number" />
-            </FL>
-          </Section>
+          </div>
+        </Section>
 
-          {/* Other Info */}
-          <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
-            <div style={{ padding: '12px 18px', background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-              <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#374151' }}>Other Information</p>
+        {/* Section 3: Rack Location */}
+        <Section title="📍 Rack Location (MANDATORY)">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+            <FL label="Rack" required>
+              <Sel value={form.rackLocation.rackId} onChange={setNested('rackLocation', 'rackId')} opts={RACKS} placeholder="Select rack" />
+            </FL>
+            <FL label="Shelf (1-10)" required>
+              <Input type="number" value={form.rackLocation.shelf} onChange={setNested('rackLocation', 'shelf')} placeholder="1" min="1" max="10" />
+            </FL>
+            <FL label="Row" required>
+              <Sel value={form.rackLocation.row} onChange={setNested('rackLocation', 'row')} opts={ROWS} placeholder="Select row" />
+            </FL>
+            <FL label="Column (1-20)" required>
+              <Input type="number" value={form.rackLocation.column} onChange={setNested('rackLocation', 'column')} placeholder="1" min="1" max="20" />
+            </FL>
+          </div>
+          {form.rackLocation.position && (
+            <div style={{ marginTop: 12, padding: 12, background: '#dcfce7', border: '1px solid #86efac', borderRadius: 8 }}>
+              <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#15803d' }}>
+                📦 Position: <span style={{ fontFamily: 'monospace' }}>{form.rackLocation.position}</span>
+              </p>
             </div>
-            <div style={{ padding: '18px' }}>
-              <div style={{ marginBottom: 14 }}>
-                <FL label="Description">
-                  <textarea value={form.description} onChange={set('description')} rows={3}
-                    placeholder="Medicine description, usage, side effects..."
-                    style={{ width: '100%', padding: '9px 12px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13, outline: 'none', resize: 'vertical', boxSizing: 'border-box' }} />
+          )}
+        </Section>
+
+        {/* Section 4: Batch Details */}
+        <Section title="📦 Batch Details (MANDATORY)">
+          {form.batches.map((batch, index) => (
+            <div key={index} style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 8, padding: 16, marginBottom: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#0c3b73' }}>Batch #{index + 1}</p>
+                {form.batches.length > 1 && (
+                  <button onClick={() => removeBatch(index)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer' }}>
+                    <Trash2 size={16} />
+                  </button>
+                )}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+                <FL label="Batch Number" required>
+                  <Input value={batch.batchNo} onChange={e => updateBatch(index, 'batchNo', e.target.value)} placeholder="BTH001" />
+                </FL>
+                <FL label="Expiry Date" required>
+                  <Input type="date" value={batch.expiryDate} onChange={e => updateBatch(index, 'expiryDate', e.target.value)} />
+                </FL>
+                <FL label="Quantity" required>
+                  <Input type="number" value={batch.quantity} onChange={e => updateBatch(index, 'quantity', e.target.value)} placeholder="0" min="1" />
                 </FL>
               </div>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13 }}>
-                <input type="checkbox" checked={form.prescription} onChange={setCheck('prescription')}
-                  style={{ width: 15, height: 15, accentColor: '#0c3b73' }} />
-                <span style={{ fontWeight: 500, color: '#374151' }}>Prescription Required (Rx)</span>
-              </label>
             </div>
-          </div>
-        </div>
+          ))}
+          <button onClick={addBatch} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', border: '1px dashed #0c3b73', borderRadius: 8, background: '#fff', color: '#0c3b73', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+            <Plus size={14} /> Add Another Batch
+          </button>
+        </Section>
 
-        {/* Right: Image Upload + Pack Size + Save */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {/* Image Upload */}
-          <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: 18 }}>
-            <p style={{ fontSize: 12, fontWeight: 700, color: '#374151', margin: '0 0 12px', textTransform: 'uppercase' }}>Upload Image</p>
-            <div style={{ border: '2px dashed #e5e7eb', borderRadius: 10, padding: '28px 16px', textAlign: 'center', cursor: 'pointer', background: '#f9fafb' }}
-              onMouseEnter={e => e.currentTarget.style.borderColor='#0c3b73'}
-              onMouseLeave={e => e.currentTarget.style.borderColor='#e5e7eb'}>
-              <Upload size={28} color="#9ca3af" style={{ margin: '0 auto 10px', display: 'block' }} />
-              <p style={{ fontSize: 12, color: '#6b7280', margin: '0 0 4px', fontWeight: 600 }}>Click or drag to upload</p>
-              <p style={{ fontSize: 10, color: '#9ca3af', margin: 0 }}>PNG, JPG up to 2MB</p>
-            </div>
-          </div>
-
-          {/* Pack Size */}
-          <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: 18 }}>
-            <FL label="Pack Size">
-              <Input value={form.packSize} onChange={set('packSize')} placeholder="e.g. 1x15 Strips" />
+        {/* Section 5: Barcode */}
+        <Section title="🏷️ Barcode">
+          <div style={{ display: 'flex', gap: 12 }}>
+            <FL label="Barcode">
+              <Input value={form.barcode} onChange={set('barcode')} placeholder="Auto-generated or manual" />
             </FL>
+            <div style={{ paddingTop: 28 }}>
+              <button onClick={generateBarcode} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', border: '1px solid #0c3b73', borderRadius: 8, background: '#fff', color: '#0c3b73', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                <QrCode size={14} /> Generate
+              </button>
+            </div>
           </div>
+        </Section>
 
-          {/* Action Buttons */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <button onClick={handleSave} disabled={saving}
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '11px', background: saving ? '#9ca3af' : '#0c3b73', border: 'none', borderRadius: 9, fontSize: 14, fontWeight: 700, color: '#fff', cursor: saving ? 'not-allowed' : 'pointer' }}>
-              <Save size={15} /> {saving ? 'Saving...' : 'Save Medicine'}
-            </button>
-            <button onClick={() => navigate('/franchise/medicines')}
-              style={{ padding: '10px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 9, fontSize: 13, fontWeight: 600, color: '#374151', cursor: 'pointer' }}>
-              Cancel
-            </button>
+        {/* Section 6: Medicine Image (Optional) */}
+        <Section title="📸 Medicine Image (Optional)">
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 20, alignItems: 'start' }}>
+            <div>
+              <FL label="Upload Medicine Image">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageChange}
+                  style={{
+                    width: '100%',
+                    padding: '9px 12px',
+                    border: '1px dashed #e5e7eb',
+                    borderRadius: 8,
+                    fontSize: 13,
+                    cursor: 'pointer'
+                  }}
+                />
+              </FL>
+              <p style={{ fontSize: 11, color: '#6b7280', margin: '4px 0 0' }}>
+                Maximum size: 2MB • Formats: JPG, PNG, GIF, WebP
+              </p>
+            </div>
+            
+            {imagePreview && (
+              <div style={{ textAlign: 'center' }}>
+                <div style={{
+                  width: 120,
+                  height: 120,
+                  borderRadius: 12,
+                  overflow: 'hidden',
+                  border: '2px solid #0891b2',
+                  background: 'linear-gradient(135deg, #e0e7ff, #f0fdf4)',
+                  position: 'relative'
+                }}>
+                  <img
+                    src={imagePreview}
+                    alt="Preview"
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover'
+                    }}
+                  />
+                </div>
+                <button
+                  onClick={removeImage}
+                  style={{
+                    marginTop: 8,
+                    padding: '4px 12px',
+                    border: 'none',
+                    borderRadius: 6,
+                    background: '#fee2e2',
+                    color: '#dc2626',
+                    fontSize: 11,
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Remove
+                </button>
+              </div>
+            )}
           </div>
+        </Section>
+
+        {/* Section 7: Stock Settings */}
+        <Section title="📊 Stock Management">
+          <FL label="Reorder Level">
+            <Input type="number" value={form.reorderLevel} onChange={set('reorderLevel')} placeholder="20" min="0" />
+          </FL>
+        </Section>
+
+        {/* Save Button */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 24 }}>
+          <button onClick={() => navigate(-1)} style={{ padding: '10px 24px', border: '1px solid #e5e7eb', borderRadius: 8, background: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+            Cancel
+          </button>
+          <button onClick={handleSave} disabled={saving} style={{ padding: '10px 32px', border: 'none', borderRadius: 8, background: saving ? '#93c5fd' : '#0c3b73', color: '#fff', fontSize: 14, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer' }}>
+            <Save size={16} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} />
+            {saving ? 'Saving...' : 'Save Medicine'}
+          </button>
         </div>
+
       </div>
     </div>
   )

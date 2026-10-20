@@ -15,22 +15,50 @@ const Td = ({ children, style = {} }) => (
 
 export default function CompareSuppliers() {
   const navigate        = useNavigate()
-  const [medicine, setMedicine] = useState('Clavm 625')
+  const [medicine, setMedicine] = useState('')
   const [suppliers, setSuppliers] = useState([])
   const [savings, setSavings]   = useState(0)
   const [loading, setLoading]   = useState(false)
   const [searched, setSearched] = useState(false)
+  const [suggestions, setSuggestions] = useState([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [selectedMedicine, setSelectedMedicine] = useState(null)
   const debounceRef = useRef()
+  const suggestionDebounceRef = useRef()
 
-  const fetchCompare = useCallback(async (med) => {
-    if (!med) return
+  // Fetch autocomplete suggestions
+  const fetchSuggestions = useCallback(async (query) => {
+    if (!query || query.length < 2) {
+      setSuggestions([])
+      setShowSuggestions(false)
+      return
+    }
+
+    try {
+      const res = await getRequest(`/franchise-suppliers/medicines/search?query=${encodeURIComponent(query)}`)
+      if (res.data?.data) {
+        setSuggestions(res.data.data)
+        setShowSuggestions(true)
+      }
+    } catch (err) {
+      console.error('Suggestion fetch error:', err)
+      setSuggestions([])
+    }
+  }, [])
+
+  // Fetch comparison data
+  const fetchCompare = useCallback(async (medicineData) => {
+    if (!medicineData) return
+    
+    const searchTerm = typeof medicineData === 'string' ? medicineData : medicineData._id || medicineData.genericName
+    
     setLoading(true)
     setSearched(true)
+    setShowSuggestions(false)
+    
     try {
-      // ✅ CORRECT API: Use main supplier comparison endpoint
-      const res = await getRequest(`/franchise-suppliers/medicines/compare/${encodeURIComponent(med)}`)
+      const res = await getRequest(`/franchise-suppliers/medicines/compare/${encodeURIComponent(searchTerm)}`)
       
-      // Transform main supplier API response to match component expectations
       if (res.data?.data?.suppliers) {
         const transformedSuppliers = res.data.data.suppliers.map((item, index) => ({
           id: item.supplierInfo._id || index,
@@ -44,7 +72,9 @@ export default function CompareSuppliers() {
           stock: item.medicine.stock > 0 ? `${item.medicine.stock} Available` : 'Out of Stock',
           stockQty: item.medicine.stock || 0,
           delivery: item.medicine.deliveryEstimate || 'Next Day',
-          rating: item.supplierInfo.rating?.toFixed(1) || '0.0'
+          rating: item.supplierInfo.rating?.toFixed(1) || '0.0',
+          medicineName: item.medicine.name,
+          genericName: item.medicine.genericName
         }))
         
         setSuppliers(transformedSuppliers)
@@ -57,6 +87,14 @@ export default function CompareSuppliers() {
           setSavings(highestPrice - lowestPrice)
         } else {
           setSavings(0)
+        }
+
+        // Set selected medicine info
+        if (transformedSuppliers.length > 0) {
+          setSelectedMedicine({
+            name: transformedSuppliers[0].medicineName,
+            genericName: transformedSuppliers[0].genericName
+          })
         }
       } else {
         setSuppliers([])
@@ -71,42 +109,188 @@ export default function CompareSuppliers() {
     finally { setLoading(false) }
   }, [])
 
+  // Handle input change - show suggestions
   const handleChange = (val) => {
     setMedicine(val)
-    clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => fetchCompare(val), 500)
+    setSelectedMedicine(null)
+    
+    // Fetch suggestions
+    clearTimeout(suggestionDebounceRef.current)
+    suggestionDebounceRef.current = setTimeout(() => fetchSuggestions(val), 300)
+  }
+
+  // Handle suggestion selection
+  const handleSelectSuggestion = (suggestion) => {
+    setMedicine(suggestion._id || suggestion.genericName)
+    setSelectedMedicine(suggestion)
+    setShowSuggestions(false)
+    setSuggestions([])
+    fetchCompare(suggestion.genericName)
+  }
+
+  // Handle search button click
+  const handleSearch = () => {
+    if (medicine) {
+      fetchCompare(medicine)
+    }
+  }
+
+  // Handle Enter key press
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter' && medicine) {
+      setShowSuggestions(false)
+      fetchCompare(medicine)
+    }
   }
 
   return (
     <div style={{ fontFamily: 'Inter, sans-serif', display: 'flex', flexDirection: 'column', gap: 18 }}>
       <PageHeader icon={GitCompare} title="Compare Suppliers" subtitle="Compare medicine prices across all suppliers" color="#7c3aed" />
 
-      {/* Search */}
-      <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10, padding: '12px 16px' }}>
-        <input value={medicine} onChange={e => handleChange(e.target.value)}
-          placeholder="Type medicine name to compare suppliers..."
-          style={{ width: '100%', padding: '10px 14px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13, outline: 'none', background: '#f9fafb', boxSizing: 'border-box' }} />
+      {/* Search with Autocomplete */}
+      <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10, padding: '12px 16px', position: 'relative' }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <div style={{ flex: 1, position: 'relative' }}>
+            <input 
+              value={medicine} 
+              onChange={e => handleChange(e.target.value)}
+              onKeyPress={handleKeyPress}
+              onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+              placeholder="Type medicine name (e.g., Paracetamol, Dolo, Clavm)..."
+              style={{ 
+                width: '100%', 
+                padding: '10px 14px', 
+                border: '1px solid #e5e7eb', 
+                borderRadius: 8, 
+                fontSize: 13, 
+                outline: 'none', 
+                background: '#f9fafb', 
+                boxSizing: 'border-box' 
+              }} 
+            />
+            
+            {/* Selected Medicine Info */}
+            {selectedMedicine && (
+              <div style={{ marginTop: 6, fontSize: 11, color: '#6b7280', display: 'flex', gap: 8, alignItems: 'center' }}>
+                <span style={{ fontWeight: 600, color: '#374151' }}>Searching:</span>
+                <span>{selectedMedicine.name}</span>
+                <span style={{ color: '#9ca3af' }}>|</span>
+                <span>Generic: {selectedMedicine.genericName}</span>
+              </div>
+            )}
+            
+            {/* Autocomplete Dropdown */}
+            {showSuggestions && suggestions.length > 0 && (
+              <div style={{
+                position: 'absolute',
+                top: '100%',
+                left: 0,
+                right: 0,
+                marginTop: 4,
+                background: '#fff',
+                border: '1px solid #e5e7eb',
+                borderRadius: 8,
+                boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
+                maxHeight: 300,
+                overflowY: 'auto',
+                zIndex: 1000
+              }}>
+                {suggestions.map((suggestion, idx) => (
+                  <div
+                    key={idx}
+                    onClick={() => handleSelectSuggestion(suggestion)}
+                    onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
+                    onMouseLeave={e => e.currentTarget.style.background = '#fff'}
+                    style={{
+                      padding: '10px 14px',
+                      cursor: 'pointer',
+                      borderBottom: idx < suggestions.length - 1 ? '1px solid #f3f4f6' : 'none',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}
+                  >
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>
+                        {suggestion._id}
+                      </div>
+                      <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>
+                        Generic: {suggestion.genericName} {suggestion.category && `• ${suggestion.category}`}
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 11, color: '#9ca3af', textAlign: 'right' }}>
+                      <div>{suggestion.supplierCount} supplier{suggestion.supplierCount > 1 ? 's' : ''}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          
+          <button
+            onClick={handleSearch}
+            disabled={!medicine || loading}
+            style={{
+              padding: '10px 20px',
+              background: medicine ? '#7c3aed' : '#e5e7eb',
+              color: medicine ? '#fff' : '#9ca3af',
+              border: 'none',
+              borderRadius: 8,
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: medicine ? 'pointer' : 'not-allowed',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              transition: 'all 0.2s'
+            }}
+            onMouseEnter={e => { if (medicine) e.currentTarget.style.background = '#6d28d9' }}
+            onMouseLeave={e => { if (medicine) e.currentTarget.style.background = '#7c3aed' }}
+          >
+            <Search size={14} />
+            Compare
+          </button>
+        </div>
       </div>
 
       {!searched && (
         <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 10, padding: 32, textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>
           <GitCompare size={36} color="#e5e7eb" style={{ margin: '0 auto 12px', display: 'block' }} />
-          Start typing a medicine name to compare suppliers
+          <div style={{ fontSize: 14, fontWeight: 600, color: '#6b7280', marginBottom: 6 }}>
+            Search for a medicine to compare prices
+          </div>
+          <div>
+            Type at least 2 characters to see suggestions, then select a medicine
+          </div>
+          <div style={{ marginTop: 16, fontSize: 12, color: '#9ca3af' }}>
+            Try: "Paracetamol", "Dolo", "Clavm 625", "Amoxicillin"
+          </div>
         </div>
       )}
 
-      {searched && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 260px', gap: 16, alignItems: 'start' }}>
-          {/* Suppliers Table */}
-          <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
-            <div style={{ padding: '12px 16px', borderBottom: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <p style={{ margin: 0, fontSize: 13, fontWeight: 700 }}>All Suppliers ({suppliers.length})</p>
-              {savings > 0 && (
-                <span style={{ fontSize: 12, color: '#16a34a', fontWeight: 600, background: '#f0fdf4', padding: '4px 10px', borderRadius: 20, border: '1px solid #bbf7d0' }}>
-                  Save ₹{savings.toFixed(2)} per unit by choosing best
-                </span>
-              )}
-            </div>
+      {searched && (() => {
+        // Find the actual best supplier (not just first)
+        const bestSupplier = suppliers.find(s => s.best === true) || suppliers[0]
+        
+        return (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 260px', gap: 16, alignItems: 'start' }}>
+            {/* Suppliers Table */}
+            <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
+              <div style={{ padding: '12px 16px', borderBottom: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <p style={{ margin: 0, fontSize: 13, fontWeight: 700 }}>All Suppliers ({suppliers.length})</p>
+                  {selectedMedicine && (
+                    <p style={{ margin: '4px 0 0', fontSize: 11, color: '#6b7280' }}>
+                      {selectedMedicine.name} • Generic: {selectedMedicine.genericName}
+                    </p>
+                  )}
+                </div>
+                {savings > 0 && (
+                  <span style={{ fontSize: 12, color: '#16a34a', fontWeight: 600, background: '#f0fdf4', padding: '4px 10px', borderRadius: 20, border: '1px solid #bbf7d0' }}>
+                    Save ₹{savings.toFixed(2)} per unit by choosing best
+                  </span>
+                )}
+              </div>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead><tr>
@@ -158,35 +342,100 @@ export default function CompareSuppliers() {
             </div>
           </div>
 
-          {/* Best Supplier Panel */}
-          {suppliers[0] && (
-            <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: 18, display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#111827' }}>Best Supplier</h3>
-              <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: 14 }}>
-                <p style={{ margin: '0 0 4px', fontSize: 14, fontWeight: 700, color: '#111827' }}>{suppliers[0].name}</p>
-                <p style={{ margin: '0 0 8px', fontSize: 12, color: '#16a34a', fontWeight: 600 }}>Best Price ₹{suppliers[0].yourPrice?.toFixed(2)}</p>
-                {[
-                  ['MRP',      `₹${suppliers[0].priceMRP?.toFixed(2)}`],
-                  ['Discount', suppliers[0].discount],
-                  ['Scheme',   suppliers[0].scheme],
-                  ['Stock',    suppliers[0].stock],
-                  ['Delivery', suppliers[0].delivery],
-                  ['Rating',   `⭐ ${suppliers[0].rating}`],
-                ].map(([l, v]) => (
-                  <div key={l} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #dcfce7', fontSize: 12 }}>
-                    <span style={{ color: '#6b7280' }}>{l}</span>
-                    <span style={{ fontWeight: 600, color: '#111827' }}>{v}</span>
-                  </div>
-                ))}
+            {/* Best Supplier Panel */}
+            {bestSupplier && (
+              <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: 18, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#111827', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  Best Supplier
+                  {bestSupplier.best && (
+                    <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 10, background: '#fef3c7', color: '#d97706' }}>
+                      Lowest Price
+                    </span>
+                  )}
+                </h3>
+                
+                <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: 14 }}>
+                  <p style={{ margin: '0 0 2px', fontSize: 14, fontWeight: 700, color: '#111827' }}>
+                    {bestSupplier.name}
+                  </p>
+                  {bestSupplier.medicineName && (
+                    <p style={{ margin: '0 0 8px', fontSize: 11, color: '#6b7280' }}>
+                      {bestSupplier.medicineName}
+                    </p>
+                  )}
+                  <p style={{ margin: '0 0 12px', fontSize: 16, color: '#16a34a', fontWeight: 700 }}>
+                    ₹{bestSupplier.yourPrice?.toFixed(2)}
+                  </p>
+                  
+                  {[
+                    ['MRP',      `₹${bestSupplier.priceMRP?.toFixed(2)}`],
+                    ['Discount', bestSupplier.discount],
+                    ['Scheme',   bestSupplier.scheme],
+                    ['Stock',    bestSupplier.stock],
+                    ['Delivery', bestSupplier.delivery],
+                    ['Rating',   `⭐ ${bestSupplier.rating}`],
+                  ].map(([l, v]) => (
+                    <div key={l} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #dcfce7', fontSize: 12 }}>
+                      <span style={{ color: '#6b7280' }}>{l}</span>
+                      <span style={{ fontWeight: 600, color: '#111827' }}>{v}</span>
+                    </div>
+                  ))}
+                </div>
+                
+                <button 
+                  onClick={() => {
+                    // Prepare cart item from best supplier
+                    const cartItem = {
+                      id: `cart_${Date.now()}`,
+                      supplierId: bestSupplier.id,
+                      supplierName: bestSupplier.name,
+                      name: bestSupplier.medicineName || selectedMedicine?.name || 'Selected Medicine',
+                      genericName: bestSupplier.genericName || selectedMedicine?.genericName,
+                      pack: `${bestSupplier.priceMRP ? 'MRP ₹' + bestSupplier.priceMRP : 'Pack'}`,
+                      qty: 1,
+                      price: bestSupplier.yourPrice || 0,
+                      mrp: bestSupplier.priceMRP || 0,
+                      discountPct: bestSupplier.discount ? parseInt(bestSupplier.discount) : 0,
+                      amount: bestSupplier.yourPrice || 0,
+                      scheme: bestSupplier.scheme,
+                      stock: bestSupplier.stockQty,
+                      delivery: bestSupplier.delivery,
+                      rating: bestSupplier.rating
+                    }
+                    
+                    // Save to localStorage (temporary cart)
+                    const existingCart = JSON.parse(localStorage.getItem('purchaseCart') || '[]')
+                    existingCart.push(cartItem)
+                    localStorage.setItem('purchaseCart', JSON.stringify(existingCart))
+                    
+                    toast.success(`Added ${cartItem.name} to cart!`)
+                    navigate('/franchise/live-rates/purchase-cart')
+                  }}
+                  style={{ 
+                    padding: '12px', 
+                    border: 'none', 
+                    borderRadius: 8, 
+                    background: '#0c3b73', 
+                    color: '#fff', 
+                    fontSize: 13, 
+                    fontWeight: 700, 
+                    cursor: 'pointer', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    gap: 6,
+                    transition: 'background 0.2s'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#0a2d5a'}
+                  onMouseLeave={e => e.currentTarget.style.background = '#0c3b73'}
+                >
+                  <ShoppingCart size={14} /> Add to Cart
+                </button>
               </div>
-              <button onClick={() => navigate('/franchise/live-rates/purchase-cart')}
-                style={{ padding: '10px', border: 'none', borderRadius: 8, background: '#0c3b73', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                <ShoppingCart size={14} /> Add to Cart
-              </button>
-            </div>
-          )}
-        </div>
-      )}
+            )}
+          </div>
+        )
+      })()}
     </div>
   )
 }

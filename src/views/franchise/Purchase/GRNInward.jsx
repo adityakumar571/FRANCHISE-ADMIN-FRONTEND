@@ -5,10 +5,13 @@ import toast from 'react-hot-toast'
 import PageHeader from '../components/PageHeader'
 import StatusBadge from '../components/StatusBadge'
 import { getRequest, postRequest } from '../../../Helpers'
+import PTRInput from '../../../components/PTRInput'
+import MarginCalculator from '../../../components/MarginCalculator'
+import { calculateStandardPTR, batchValidatePTR } from '../../../utils/ptrValidation'
 
 const LIMIT = 20
 
-const EMPTY_ITEM = { medicineId: '', medicineName: '', batchNo: '', expiry: '', qty: 1, freeQty: 0, ptr: '', rack: '' }
+const EMPTY_ITEM = { medicineId: '', medicineName: '', batchNo: '', expiry: '', qty: 1, freeQty: 0, ptr: '', mrp: '', rack: '' }
 function MedicineCell({ value, onSelect, cellStyle }) {
   const [query, setQuery]   = useState(value || '')
   const [results, setResults] = useState([])
@@ -40,7 +43,14 @@ function MedicineCell({ value, onSelect, cellStyle }) {
     setQuery(med.name)
     setResults([])
     setOpen(false)
-    onSelect({ medicineId: med.id || med._id, medicineName: med.name, ptr: med.mrp ? (med.mrp * 0.7).toFixed(2) : '' })
+    // Use calculateStandardPTR instead of arbitrary 70%
+    const suggestedPTR = med.mrp ? calculateStandardPTR(med.mrp, med.category || 'Generic') : ''
+    onSelect({ 
+      medicineId: med.id || med._id, 
+      medicineName: med.name, 
+      mrp: med.mrp || '',
+      ptr: suggestedPTR 
+    })
   }
 
   return (
@@ -110,9 +120,31 @@ const GRNInward = () => {
   useEffect(() => { fetchGRNs() }, [fetchGRNs])
 
   useEffect(() => {
-    getRequest('/franchise/suppliers?status=Active&limit=200')
-      .then(res => setSuppliers(res.data?.data?.suppliers || []))
-      .catch(() => {})
+    const fetchSuppliers = async () => {
+      try {
+        const res = await getRequest('/franchise-suppliers/suppliers')
+        console.log('📦 Suppliers fetched:', res?.data)
+        
+        // Handle different response structures
+        let suppliersList = []
+        if (Array.isArray(res?.data)) {
+          suppliersList = res.data
+        } else if (Array.isArray(res?.data?.data)) {
+          suppliersList = res.data.data
+        } else if (Array.isArray(res?.data?.suppliers)) {
+          suppliersList = res.data.suppliers
+        } else if (res?.data?.data?.suppliers && Array.isArray(res.data.data.suppliers)) {
+          suppliersList = res.data.data.suppliers
+        }
+        
+        console.log('✅ Suppliers loaded:', suppliersList.length)
+        setSuppliers(suppliersList)
+      } catch (err) {
+        console.error('❌ Failed to fetch suppliers:', err)
+        toast.error('Failed to load suppliers')
+      }
+    }
+    fetchSuppliers()
   }, [])
 
   const handleSearch = (val) => {
@@ -129,12 +161,46 @@ const GRNInward = () => {
   const handleSave = async (e) => {
     e.preventDefault()
     if (!supplierId) { toast.error('Supplier is required'); return }
-    if (!items.some(it => it.medicineName || it.medicineId)) { toast.error('Add at least one medicine'); return }
+    
+    const validItems = items.filter(it => it.medicineName || it.medicineId)
+    if (!validItems.length) { toast.error('Add at least one medicine'); return }
+    
+    // Batch validate PTR values
+    const itemsWithMRP = validItems.filter(it => it.ptr && it.mrp)
+    if (itemsWithMRP.length > 0) {
+      const validation = batchValidatePTR(
+        itemsWithMRP.map(it => ({
+          name: it.medicineName,
+          ptr: Number(it.ptr),
+          mrp: Number(it.mrp),
+          category: it.category || 'Generic'
+        }))
+      )
+      
+      if (!validation.allValid && validation.critical > 0) {
+        toast.error(`${validation.critical} items have critical PTR issues. Please review.`)
+        return
+      }
+      
+      if (validation.warnings > 0) {
+        const proceed = window.confirm(
+          `⚠️ PTR Validation Warning\n\n` +
+          `${validation.warnings} item(s) have low margins.\n\n` +
+          `Summary:\n` +
+          `• Critical issues: ${validation.critical}\n` +
+          `• Warnings: ${validation.warnings}\n` +
+          `• Valid: ${validation.valid}\n\n` +
+          `Do you want to proceed anyway?`
+        )
+        if (!proceed) return
+      }
+    }
+    
     setSaving(true)
     try {
       await postRequest({ url: '/franchise/purchase/grn', cred: {
         supplierId, supplier: supplierName, poRef, invoiceNo, invoiceDate,
-        items: items.filter(it => it.medicineName || it.medicineId).map(it => ({
+        items: validItems.map(it => ({
           medicineId:   it.medicineId,
           medicineName: it.medicineName,
           batchNo:      it.batchNo,
@@ -273,10 +339,10 @@ const GRNInward = () => {
                 <select value={supplierId} onChange={e => {
                   setSupplierId(e.target.value)
                   const sup = suppliers.find(s => s._id === e.target.value)
-                  setSupplierName(sup?.name || '')
+                  setSupplierName(sup?.companyName || sup?.name || '')
                 }} style={{ ...inp, cursor:'pointer' }}>
                   <option value="">Select Supplier</option>
-                  {suppliers.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
+                  {suppliers.map(s => <option key={s._id} value={s._id}>{s.companyName || s.name}</option>)}
                 </select>
               </div>
               <div><label style={lbl}>PO Reference</label><input value={poRef} onChange={e=>setPoRef(e.target.value)} placeholder="e.g. PO-2401" style={inp} /></div>
@@ -296,7 +362,7 @@ const GRNInward = () => {
                 <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12, minWidth:800 }}>
                   <thead>
                     <tr style={{ background:'#f9fafb' }}>
-                      {['Medicine *','Batch No.','Expiry','Qty','Free Qty','PTR (₹)','Rack',''].map(h => (
+                      {['Medicine *','Batch No.','Expiry','Qty','Free Qty','PTR (₹)','MRP (₹)','Margin','Rack',''].map(h => (
                         <th key={h} style={{ padding:'8px 10px', textAlign:'left', fontWeight:600, color:'#374151', whiteSpace:'nowrap' }}>{h}</th>
                       ))}
                     </tr>
@@ -315,7 +381,29 @@ const GRNInward = () => {
                         <td style={{ padding:'5px 8px' }}><input type="month" value={item.expiry} onChange={e=>setItem(i,'expiry',e.target.value)} style={{ ...cellInput, width:120 }} /></td>
                         <td style={{ padding:'5px 8px' }}><input type="number" min={1} value={item.qty} onChange={e=>setItem(i,'qty',e.target.value)} style={{ ...cellInput, width:60 }} /></td>
                         <td style={{ padding:'5px 8px' }}><input type="number" min={0} value={item.freeQty} onChange={e=>setItem(i,'freeQty',e.target.value)} style={{ ...cellInput, width:60 }} /></td>
-                        <td style={{ padding:'5px 8px' }}><input type="number" step="0.01" value={item.ptr} onChange={e=>setItem(i,'ptr',e.target.value)} placeholder="0.00" style={{ ...cellInput, width:80 }} /></td>
+                        <td style={{ padding:'5px 8px', width:100 }}>
+                          <PTRInput
+                            value={item.ptr}
+                            onChange={(val) => setItem(i, 'ptr', val)}
+                            mrp={item.mrp}
+                            medicineName={item.medicineName}
+                            showMargin={false}
+                            showComparison={false}
+                            style={{ fontSize: 12 }}
+                          />
+                        </td>
+                        <td style={{ padding:'5px 8px' }}><input type="number" step="0.01" value={item.mrp} onChange={e=>setItem(i,'mrp',e.target.value)} placeholder="0.00" style={{ ...cellInput, width:80 }} /></td>
+                        <td style={{ padding:'5px 8px', width:100 }}>
+                          {item.ptr && item.mrp ? (
+                            <MarginCalculator 
+                              ptr={item.ptr}
+                              mrp={item.mrp}
+                              compact={true}
+                            />
+                          ) : (
+                            <span style={{ fontSize: 11, color: '#9ca3af' }}>—</span>
+                          )}
+                        </td>
                         <td style={{ padding:'5px 8px' }}><input value={item.rack} onChange={e=>setItem(i,'rack',e.target.value)} placeholder="A01" style={{ ...cellInput, width:70 }} /></td>
                         <td style={{ padding:'5px 8px', textAlign:'center' }}>
                           {items.length > 1 && (

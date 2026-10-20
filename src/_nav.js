@@ -96,36 +96,23 @@ const franchiseNav = [
       { component: CNavItem, name: 'Purchase Dashboard', to: '/franchise/purchase/dashboard',       icon: ic(LayoutDashboard), accessKey: 'purchase_dashboard' },
       { component: CNavItem, name: 'New Purchase',       to: '/franchise/purchase/live-rate',       icon: ic(ShoppingCart),    accessKey: 'purchase_liverates' },
       { component: CNavItem, name: 'Purchase Orders',    to: '/franchise/purchase/orders',          icon: ic(FileText),        accessKey: 'purchase_orders'    },
+      { component: CNavItem, name: 'Unified Tracking',   to: '/franchise/purchase/unified-tracking', icon: ic(Layers),         accessKey: 'purchase_orders'    },
       { component: CNavItem, name: 'GRN / Inward',       to: '/franchise/purchase/grn',             icon: ic(Warehouse),       accessKey: 'purchase_grn'       },
       { component: CNavItem, name: 'Purchase Returns',   to: '/franchise/purchase/returns',         icon: ic(RotateCcw),       accessKey: 'purchase_returns'   },
       { component: CNavItem, name: 'Supplier Ledger',    to: '/franchise/purchase/supplier-ledger', icon: ic(BookOpen),        accessKey: 'purchase_ledger'    },
     ],
   },
 
-  /* 5 ── Inventory (group) ── */
+  /* 5 ── Inventory (simplified to single dashboard) ── */
   {
-    component: CNavGroup,
-    name: 'Inventory',
+    component: CNavItem,
+    name: 'Inventory Dashboard',
     to: '/franchise/inventory',
     icon: ic(Warehouse),
     accessKey: 'inventory',
-    items: [
-      { component: CNavItem, name: 'Inventory Dashboard',   to: '/franchise/inventory/dashboard',    icon: ic(LayoutDashboard), accessKey: 'inventory_dashboard'    },
-      { component: CNavItem, name: 'Current Stock',         to: '/franchise/inventory/stock',        icon: ic(FileText),        accessKey: 'inventory_stock'        },
-      { component: CNavItem, name: 'Stock Adjustment',      to: '/franchise/inventory/adjustments',  icon: ic(ArrowLeftRight),  accessKey: 'inventory_adjustment'   },
-      { component: CNavItem, name: 'Physical Verification', to: '/franchise/inventory/verification', icon: ic(ShieldCheck),     accessKey: 'inventory_verification' },
-      { component: CNavItem, name: 'Near Expiry',           to: '/franchise/inventory/near-expiry',  icon: ic(AlertCircle),     accessKey: 'inventory_nearexpiry'   },
-      { component: CNavItem, name: 'Expired Stock',         to: '/franchise/inventory/expired',      icon: ic(Trash2),          accessKey: 'inventory_expired'      },
-      { component: CNavItem, name: 'Damage Stock',          to: '/franchise/inventory/damage',       icon: ic(AlertTriangle),   accessKey: 'inventory_damage'       },
-      { component: CNavItem, name: 'Dead Stock',            to: '/franchise/inventory/dead',         icon: ic(TrendingDown),    accessKey: 'inventory_dead'         },
-      { component: CNavItem, name: 'Fast Moving',           to: '/franchise/inventory/fast-moving',  icon: ic(Zap),             accessKey: 'inventory_fastmoving'   },
-      { component: CNavItem, name: 'Slow Moving',           to: '/franchise/inventory/slow-moving',  icon: ic(TrendingDown),    accessKey: 'inventory_slowmoving'   },
-      { component: CNavItem, name: 'Stock Ledger',          to: '/franchise/inventory/ledger',       icon: ic(BookOpen),        accessKey: 'inventory_ledger'       },
-      { component: CNavItem, name: 'Rack & Warehouse',      to: '/franchise/inventory/rack',         icon: ic(Layers),          accessKey: 'inventory_rack'         },
-      { component: CNavItem, name: 'Batch & Expiry',        to: '/franchise/inventory/batch-expiry', icon: ic(Calendar),        accessKey: 'inventory_nearexpiry'   },
-      { component: CNavItem, name: 'Inventory Audit',       to: '/franchise/inventory/audit',        icon: ic(ClipboardList),   accessKey: 'inventory_audit'        },
-    ],
   },
+
+  /* Note: Other inventory pages (Stock, Adjustments, etc.) are consolidated into the main dashboard */
 
   /* 6 ── Live Wholesale Rates (group) ── */
   {
@@ -177,6 +164,8 @@ const franchiseNav = [
     items: [
       { component: CNavItem, name: 'Medicine List',     to: '/franchise/medicines',              icon: ic(List),      accessKey: 'medicines_list'    },
       { component: CNavItem, name: 'Add Medicine',      to: '/franchise/medicines/add',          icon: ic(Plus),      accessKey: 'medicines_add'     },
+      { component: CNavItem, name: 'Expiry Dashboard',  to: '/franchise/medicines/expiry',       icon: ic(AlertTriangle), accessKey: 'medicines_expiry'  },
+      { component: CNavItem, name: 'Bulk Barcode Print', to: '/franchise/medicines/bulk-barcode', icon: ic(ScanLine),  accessKey: 'medicines_barcode' },
       { component: CNavItem, name: 'Rack Management',   to: '/franchise/medicines/racks',        icon: ic(Layers),    accessKey: 'medicines_rack'    },
       { component: CNavItem, name: 'Category & Units',  to: '/franchise/medicines/masters',      icon: ic(Settings),  accessKey: 'medicines_masters' },
     ],

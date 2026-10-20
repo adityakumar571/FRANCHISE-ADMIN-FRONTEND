@@ -26,17 +26,33 @@ export default function PurchaseCart() {
   const [cartLoading, setCartLoading] = useState(true)
   const [placing, setPlacing]   = useState(false)
 
-  // Load cart from API on mount, fallback to demo data if empty
+  // Load cart from localStorage (fallback to API, then demo data)
   useEffect(() => {
     const loadCart = async () => {
       setCartLoading(true)
       try {
-        const res = await getRequest('/franchise/live-rates/purchase-cart')
-        const serverItems = res.data?.data?.items || []
-        // API returns empty cart (cart is session-level) — use demo data to show UI
-        setItems(serverItems.length > 0 ? serverItems : DEMO_CART)
+        // First, check localStorage for cart items
+        const localCart = JSON.parse(localStorage.getItem('purchaseCart') || '[]')
+        
+        if (localCart.length > 0) {
+          // Use localStorage cart
+          setItems(localCart)
+        } else {
+          // Fallback to API
+          const res = await getRequest('/franchise/live-rates/purchase-cart')
+          const serverItems = res.data?.data?.items || []
+          
+          if (serverItems.length > 0) {
+            setItems(serverItems)
+          } else {
+            // Last fallback: demo data (for UI demo only)
+            setItems(DEMO_CART)
+          }
+        }
       } catch {
-        setItems(DEMO_CART)
+        // On error, try localStorage first, then demo
+        const localCart = JSON.parse(localStorage.getItem('purchaseCart') || '[]')
+        setItems(localCart.length > 0 ? localCart : DEMO_CART)
       } finally {
         setCartLoading(false)
       }
@@ -44,13 +60,24 @@ export default function PurchaseCart() {
     loadCart()
   }, [])
 
-  const removeItem = (id) => setItems(p => p.filter(it => (it.id || it._id) !== id))
-  const updateQty  = (id, delta) => setItems(p => p.map(it => {
-    const itId = it.id || it._id
-    if (itId !== id) return it
-    const newQty = Math.max(1, it.qty + delta)
-    return { ...it, qty: newQty, amount: +(it.price * newQty * (1 - (it.discountPct || 0) / 100)).toFixed(2) }
-  }))
+  const removeItem = (id) => {
+    const newItems = items.filter(it => (it.id || it._id) !== id)
+    setItems(newItems)
+    // Update localStorage
+    localStorage.setItem('purchaseCart', JSON.stringify(newItems))
+  }
+  
+  const updateQty  = (id, delta) => {
+    const newItems = items.map(it => {
+      const itId = it.id || it._id
+      if (itId !== id) return it
+      const newQty = Math.max(1, it.qty + delta)
+      return { ...it, qty: newQty, amount: +(it.price * newQty * (1 - (it.discountPct || 0) / 100)).toFixed(2) }
+    })
+    setItems(newItems)
+    // Update localStorage
+    localStorage.setItem('purchaseCart', JSON.stringify(newItems))
+  }
 
   const totalItems  = items.reduce((s, it) => s + it.qty, 0)
   const grossAmt    = +items.reduce((s, it) => s + it.price * it.qty, 0).toFixed(2)
@@ -63,11 +90,14 @@ export default function PurchaseCart() {
     setPlacing(true)
     try {
       const res = await postRequest({ url: '/franchise/live-rates/place-order', cred: {
-        supplierName: 'Medico Agency',
+        supplierName: items[0]?.supplierName || 'Medico Agency',
         items: items.map(it => ({ medicineName: it.name, packSize: it.pack, qty: it.qty, price: it.price, discountPct: it.discountPct, amount: it.amount })),
         totalMRP: grossAmt, discountAmt, gstAmt, grandTotal,
       }})
       toast.success(`Order placed! ID: ${res.data?.data?.orderId}`)
+      // Clear cart after successful order
+      setItems([])
+      localStorage.removeItem('purchaseCart')
       navigate('/franchise/live-rates/order-tracking/all')
     } catch { toast.error('Failed to place order') }
     finally   { setPlacing(false) }
@@ -83,7 +113,10 @@ export default function PurchaseCart() {
           <div style={{ padding: '12px 16px', borderBottom: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <p style={{ margin: 0, fontSize: 13, fontWeight: 700 }}>Cart ({items.length} medicines · {totalItems} qty)</p>
             {items.length > 0 && (
-              <button onClick={() => setItems([])} style={{ fontSize: 11, color: '#dc2626', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer' }}>Clear All</button>
+              <button onClick={() => {
+                setItems([])
+                localStorage.removeItem('purchaseCart')
+              }} style={{ fontSize: 11, color: '#dc2626', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer' }}>Clear All</button>
             )}
           </div>
           {items.length === 0 ? (

@@ -58,8 +58,10 @@ function cartReducer(state, action) {
       const key = `${medId}_${med.batchId || medId}`
       const ex  = state.find(i => i._cartKey === key)
       if (ex) {
+        // If item exists, increase quantity (respect incoming qty if provided)
+        const addQty = med.qty || 1
         return state.map(i => i._cartKey === key
-          ? { ...i, qty: Math.min(i.qty + 1, i.stock) }
+          ? { ...i, qty: Math.min(i.qty + addQty, i.stock) }
           : i
         )
       }
@@ -76,8 +78,8 @@ function cartReducer(state, action) {
         ptr:         Number(med.ptr  || med.mrp || 0),
         stock:       Number(med.stock || 999),
         gst:         Number(med.gst  || 0),
-        discount:    0,
-        qty:         1,
+        discount:    Number(med.discount || 0),
+        qty:         Number(med.qty  || 1),  // Use provided qty
         nearExpiry:  med.nearExpiry  || false,
       }]
     }
@@ -293,6 +295,23 @@ export default function NewBilling() {
     window.history.replaceState({ ...window.history.state, usr: null }, '')
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.state?.resumeHoldBill])
+
+  /* ──────────────────────────────────────────────
+     ADD ITEM FROM BARCODE SCANNER — from location.state.addItem
+  ────────────────────────────────────────────── */
+  useEffect(() => {
+    const item = location.state?.addItem
+    if (!item) return
+
+    // Add scanned item to cart
+    dispatch({ type: 'ADD', payload: item })
+    
+    toast.success(`✅ Added ${item.name} to cart`, { icon: '🛒' })
+
+    // Clean up location state to prevent re-adding on re-render
+    window.history.replaceState({}, '')
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state?.addItem])
 
   /* Barcode input on the main search box — detect rapid input */
   const handleSearchInput = (val) => {
@@ -849,9 +868,41 @@ export default function NewBilling() {
                     const expWarn  = m.nearExpiry
                     return (
                       <div key={m._id || i} onClick={() => addMedToCart(m)}
-                        style={{ padding:'10px 14px', cursor:'pointer', borderBottom:'1px solid #f3f4f6', display:'flex', justifyContent:'space-between', alignItems:'center', transition:'background 0.08s' }}
+                        style={{ padding:'10px 14px', cursor:'pointer', borderBottom:'1px solid #f3f4f6', display:'flex', justifyContent:'space-between', alignItems:'center', gap: 10, transition:'background 0.08s' }}
                         onMouseEnter={e => e.currentTarget.style.background = '#f0f9ff'}
                         onMouseLeave={e => e.currentTarget.style.background = ''}>
+                        {/* Medicine Image */}
+                        {m.imageUrl ? (
+                          <img 
+                            src={m.imageUrl} 
+                            alt={m.name}
+                            style={{ 
+                              width: 45, 
+                              height: 45, 
+                              borderRadius: 8, 
+                              objectFit: 'cover',
+                              border: '1px solid #e5e7eb',
+                              background: '#f9fafb',
+                              flexShrink: 0
+                            }}
+                            onError={(e) => {
+                              e.target.style.display = 'none'
+                            }}
+                          />
+                        ) : (
+                          <div style={{ 
+                            width: 45, 
+                            height: 45, 
+                            borderRadius: 8, 
+                            background: 'linear-gradient(135deg, #e0e7ff, #f0fdf4)', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center', 
+                            fontSize: 20,
+                            border: '1px solid #e5e7eb',
+                            flexShrink: 0
+                          }}>💊</div>
+                        )}
                         <div style={{ flex:1, minWidth:0 }}>
                           <div style={{ display:'flex', alignItems:'center', gap:7, marginBottom:2 }}>
                             <span style={{ fontWeight:700, fontSize:13, color:'#111827' }}>{m.name}</span>

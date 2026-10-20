@@ -2,13 +2,16 @@
 /**
  * LiveRateCompare — Compare supplier stock, price and schemes
  * SOW §9.1: Live Medicine Price & Stock Comparison
+ * Enhanced with margin calculator and scheme support
  */
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, BarChart2, Star, ShoppingCart, Package, Percent, X } from 'lucide-react'
+import { Search, BarChart2, Star, ShoppingCart, Package, Percent, X, TrendingUp, Tag } from 'lucide-react'
 import { getRequest } from '../../../Helpers'
 import toast from 'react-hot-toast'
 import PageHeader from '../components/PageHeader'
+import MarginCalculator from '../../../components/MarginCalculator'
+import { calculateEffectiveRate, formatScheme, compareSchemes } from '../../../utils/schemeCalculator'
 
 const LiveRateCompare = () => {
   const navigate = useNavigate()
@@ -128,14 +131,24 @@ const LiveRateCompare = () => {
       
       console.log('✅ Transformed results:', transformed.length, 'supplier rates')
       
-      setResults(transformed)
+      // Apply scheme calculations and sort by best effective rate
+      const withSchemes = compareSchemes(transformed.map(r => ({
+        ...r,
+        ptr: r.ptr || 0,
+        mrp: r.mrp || 0,
+        scheme: r.scheme || null
+      })))
+      
+      setResults(withSchemes)
       setSearched(true)
       setSelectedMed(searchQuery) // Set the medicine name that was searched
       
-      if (transformed.length === 0) {
+      if (withSchemes.length === 0) {
         toast.error('No suppliers found for this medicine')
       } else {
-        toast.success(`Found ${transformed.length} supplier(s) for ${searchQuery}`)
+        const bestRate = withSchemes[0]
+        const bestEffective = bestRate.effectivePTR || bestRate.netRate
+        toast.success(`Found ${withSchemes.length} supplier(s). Best rate: ₹${bestEffective.toFixed(2)}`)
       }
     } catch (err) {
       toast.error(err?.response?.data?.message || 'Failed to fetch rates')
@@ -155,7 +168,9 @@ const LiveRateCompare = () => {
     handleSearchWithMedicine(query.trim())
   }
 
-  const minRate = results.length ? Math.min(...results.filter((r) => r.isAvailable && r.netRate != null).map((r) => Number(r.netRate || 0))) : 0
+  const minRate = results.length 
+    ? Math.min(...results.filter((r) => r.isAvailable && (r.effectivePTR || r.netRate) != null).map((r) => Number(r.effectivePTR || r.netRate || 0))) 
+    : 0
 
   return (
     <div>
@@ -367,15 +382,17 @@ const LiveRateCompare = () => {
               {results.length > 0 && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#16a34a', fontWeight: 600, background: '#f0fdf4', padding: '6px 12px', borderRadius: 6 }}>
                   <Star size={14} fill="#16a34a" />
-                  Save up to ₹{Math.max(...results.map(r => r.ptr - (r.netRate || r.ptr))).toFixed(2)} per unit
+                  Best effective rate: ₹{minRate.toFixed(2)}
                 </div>
               )}
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 14 }}>
             {results.map((r, i) => {
-              const isBest = r.isAvailable && r.netRate === minRate
+              const effectiveRate = r.effectivePTR || r.netRate || r.ptr
+              const isBest = r.isAvailable && effectiveRate === minRate
+              const hasScheme = r.scheme && r.effectivePTR && r.effectivePTR !== r.ptr
               return (
                 <div key={i} style={{
                   background: '#fff', borderRadius: 12, border: `2px solid ${isBest ? '#0c3b73' : '#e5e7eb'}`,
@@ -411,10 +428,44 @@ const LiveRateCompare = () => {
                     </div>
                     {r.scheme && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#7c3aed', fontWeight: 600 }}>
-                        <Percent size={12} /> Scheme: {r.scheme}
+                        <Tag size={12} /> {formatScheme(r.scheme)}
                       </div>
                     )}
                   </div>
+
+                  {/* Margin Calculator */}
+                  {r.mrp && r.ptr && (
+                    <div style={{ marginBottom: 14 }}>
+                      <MarginCalculator 
+                        ptr={r.effectivePTR || r.ptr} 
+                        mrp={r.mrp} 
+                        scheme={r.scheme}
+                        compact={false}
+                      />
+                    </div>
+                  )}
+
+                  {/* Effective Rate Highlight (if scheme exists) */}
+                  {r.scheme && r.effectivePTR && r.effectivePTR !== r.ptr && (
+                    <div style={{
+                      marginBottom: 14,
+                      padding: '10px 12px',
+                      background: 'linear-gradient(135deg, #f0fdf4, #dcfce7)',
+                      border: '1px solid #bbf7d0',
+                      borderRadius: 8,
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                        <span style={{ fontSize: 11, color: '#166534', fontWeight: 600 }}>Effective PTR:</span>
+                        <span style={{ fontSize: 16, color: '#16a34a', fontWeight: 800 }}>
+                          ₹{r.effectivePTR.toFixed(2)}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 10, color: '#16a34a', display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <TrendingUp size={10} />
+                        Save ₹{(r.ptr - r.effectivePTR).toFixed(2)} per unit with scheme
+                      </div>
+                    </div>
+                  )}
 
                   <button
                     disabled={!r.isAvailable}
