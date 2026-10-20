@@ -73,7 +73,6 @@ export default defineConfig(() => {
     },
 
     optimizeDeps: {
-      // NO force:true — let Vite cache deps between reloads
       esbuildOptions: {
         loader: { '.js': 'jsx' },
       },
