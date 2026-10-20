@@ -15,7 +15,7 @@ const Td = ({ children, style = {} }) => (
 
 export default function CompareSuppliers() {
   const navigate        = useNavigate()
-  const [medicine, setMedicine] = useState('Paracetamol 650mg')
+  const [medicine, setMedicine] = useState('Clavm 625')
   const [suppliers, setSuppliers] = useState([])
   const [savings, setSavings]   = useState(0)
   const [loading, setLoading]   = useState(false)
@@ -27,11 +27,48 @@ export default function CompareSuppliers() {
     setLoading(true)
     setSearched(true)
     try {
-      const res = await getRequest(`/franchise/live-rates/compare-suppliers?medicine=${encodeURIComponent(med)}`)
-      setSuppliers(res.data?.data?.suppliers || [])
-      setSavings(res.data?.data?.savings || 0)
-    } catch { toast.error('Failed to load comparison') }
-    finally   { setLoading(false) }
+      // ✅ CORRECT API: Use main supplier comparison endpoint
+      const res = await getRequest(`/franchise-suppliers/medicines/compare/${encodeURIComponent(med)}`)
+      
+      // Transform main supplier API response to match component expectations
+      if (res.data?.data?.suppliers) {
+        const transformedSuppliers = res.data.data.suppliers.map((item, index) => ({
+          id: item.supplierInfo._id || index,
+          name: item.supplierInfo.companyName,
+          verified: item.supplierInfo.rating >= 4,
+          best: item.isBestPrice,
+          priceMRP: item.medicine.mrp || 0,
+          discount: item.medicine.discount > 0 ? `${item.medicine.discount}% OFF` : 'No Discount',
+          yourPrice: item.medicine.effectiveRate || 0,
+          scheme: item.medicine.scheme || 'No Scheme',
+          stock: item.medicine.stock > 0 ? `${item.medicine.stock} Available` : 'Out of Stock',
+          stockQty: item.medicine.stock || 0,
+          delivery: item.medicine.deliveryEstimate || 'Next Day',
+          rating: item.supplierInfo.rating?.toFixed(1) || '0.0'
+        }))
+        
+        setSuppliers(transformedSuppliers)
+        
+        // Calculate savings
+        if (transformedSuppliers.length > 1) {
+          const sortedByPrice = [...transformedSuppliers].sort((a, b) => a.yourPrice - b.yourPrice)
+          const lowestPrice = sortedByPrice[0].yourPrice
+          const highestPrice = sortedByPrice[sortedByPrice.length - 1].yourPrice
+          setSavings(highestPrice - lowestPrice)
+        } else {
+          setSavings(0)
+        }
+      } else {
+        setSuppliers([])
+        setSavings(0)
+      }
+    } catch (err) { 
+      console.error('Comparison fetch error:', err)
+      toast.error('Failed to load comparison') 
+      setSuppliers([])
+      setSavings(0)
+    }
+    finally { setLoading(false) }
   }, [])
 
   const handleChange = (val) => {

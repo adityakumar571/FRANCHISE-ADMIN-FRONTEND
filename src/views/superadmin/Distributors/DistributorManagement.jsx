@@ -1,42 +1,23 @@
 /* eslint-disable prettier/prettier */
-import React, { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
-  Search, Plus, Eye, Edit2, ShieldCheck, ShieldOff, X, ChevronLeft, ChevronRight,
-  MapPin, Phone, Package, CheckCircle, Clock, AlertCircle,
+  Search, Plus, Eye, Edit2, ShieldCheck, ShieldOff, X,
+  ChevronLeft, ChevronRight, MapPin, Phone, Package,
+  CheckCircle, Clock, AlertCircle, RefreshCw, Save, Trash2,
 } from 'lucide-react'
+import { getRequest, postRequest, putRequest, deleteRequest, patchRequest } from '../../../Helpers/index'
+import toast from 'react-hot-toast'
 
 const C = {
-  primary: '#0c3b73',
-  accent: '#fabf22',
-  success: '#16a34a',
-  danger: '#dc2626',
-  border: '#e5e7eb',
-  bg: '#f8f9fb',
-  white: '#ffffff',
-  text: '#111827',
-  muted: '#6b7280',
+  primary: '#0c3b73', accent: '#fabf22', success: '#16a34a',
+  danger: '#dc2626', border: '#e5e7eb', bg: '#f8f9fb', white: '#ffffff',
+  text: '#111827', muted: '#6b7280',
 }
-const font = { fontFamily: "'Inter', sans-serif" }
 
-// ─── Mock Data ───────────────────────────────────────────────────────────────
-const mockDistributors = [
-  { id: 'SUP-001', business: 'MedLine Pharma Distributors', type: 'Distributor', owner: 'Rajesh Kumar', state: 'Maharashtra', city: 'Mumbai', phone: '9876543210', catalogue: 1240, status: true, verified: 'Verified', gstin: '27AABCU9603R1ZX', drug: 'MH-MUM-2019-1234', email: 'rajesh@medline.in', address: '12 BKC, Bandra East, Mumbai 400051' },
-  { id: 'SUP-002', business: 'HealthHub Wholesale Pvt Ltd', type: 'Wholesaler', owner: 'Sunita Sharma', state: 'Delhi', city: 'New Delhi', phone: '9812345678', catalogue: 870, status: true, verified: 'Verified', gstin: '07AAACH1234D1Z5', drug: 'DL-DEL-2020-5678', email: 'sunita@healthhub.in', address: 'Plot 5, Azadpur Mandi, New Delhi 110033' },
-  { id: 'SUP-003', business: 'PharmaLink Distribution Co.', type: 'Distributor', owner: 'Anand Mehta', state: 'Gujarat', city: 'Ahmedabad', phone: '9023456789', catalogue: 1100, status: true, verified: 'Pending', gstin: '24AAACH9876E2ZP', drug: 'GJ-AMD-2021-9012', email: 'anand@pharmalink.in', address: 'Ring Road, Naroda, Ahmedabad 382330' },
-  { id: 'SUP-004', business: 'Shree Drugs & Chemicals', type: 'Distributor', owner: 'Priya Nair', state: 'Kerala', city: 'Kochi', phone: '9934567890', catalogue: 560, status: false, verified: 'Unverified', gstin: '32AAACH7654F3ZQ', drug: 'KL-COK-2022-3456', email: 'priya@shreedrugs.in', address: '8 Marine Drive, Ernakulam, Kochi 682031' },
-  { id: 'SUP-005', business: 'Karnataka Medical Suppliers', type: 'Wholesaler', owner: 'Vikram Rao', state: 'Karnataka', city: 'Bengaluru', phone: '9845678901', catalogue: 980, status: true, verified: 'Verified', gstin: '29AAACH4321G4ZR', drug: 'KA-BLR-2018-7890', email: 'vikram@kmsuppliers.in', address: 'Rajajinagar Industrial Area, Bengaluru 560044' },
-  { id: 'SUP-006', business: 'NovaMed Trade Solutions', type: 'Distributor', owner: 'Deepak Joshi', state: 'Rajasthan', city: 'Jaipur', phone: '9756789012', catalogue: 720, status: true, verified: 'Pending', gstin: '08AAACH1111H5ZS', drug: 'RJ-JAI-2023-0123', email: 'deepak@novamed.in', address: 'Tonk Road Industrial Area, Jaipur 302015' },
-  { id: 'SUP-007', business: 'Tamil Nadu Pharma Works', type: 'Wholesaler', owner: 'Meena Krishnan', state: 'Tamil Nadu', city: 'Chennai', phone: '9667890123', catalogue: 1050, status: true, verified: 'Verified', gstin: '33AAACH2222I6ZT', drug: 'TN-CHE-2019-4567', email: 'meena@tnpharma.in', address: 'Ambattur Industrial Estate, Chennai 600058' },
-  { id: 'SUP-008', business: 'Capital Pharma Suppliers', type: 'Distributor', owner: 'Sanjay Gupta', state: 'Uttar Pradesh', city: 'Lucknow', phone: '9578901234', catalogue: 630, status: false, verified: 'Pending', gstin: '09AAACH3333J7ZU', drug: 'UP-LKO-2022-8901', email: 'sanjay@capitalpharma.in', address: 'Alambagh, Lucknow 226005' },
-  { id: 'SUP-009', business: 'East India Drug House', type: 'Wholesaler', owner: 'Rina Das', state: 'West Bengal', city: 'Kolkata', phone: '9489012345', catalogue: 890, status: true, verified: 'Verified', gstin: '19AAACH4444K8ZV', drug: 'WB-KOL-2020-2345', email: 'rina@eidh.in', address: 'Park Street, Kolkata 700016' },
-  { id: 'SUP-010', business: 'Deccan Pharma Distributors', type: 'Distributor', owner: 'Ravi Reddy', state: 'Telangana', city: 'Hyderabad', phone: '9390123456', catalogue: 760, status: true, verified: 'Verified', gstin: '36AAACH5555L9ZW', drug: 'TS-HYD-2021-6789', email: 'ravi@deccanpharma.in', address: 'Kukatpally Industrial Area, Hyderabad 500072' },
-]
-
-const emptyForm = { business: '', owner: '', email: '', phone: '', type: 'Distributor', state: '', city: '', address: '', gstin: '', drug: '', status: true }
-
-// ─── Sub-components ───────────────────────────────────────────────────────────
+/* ─── Sub-components ── */
 const Th = ({ children }) => (
-  <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 12, fontWeight: 600, color: C.muted, background: C.bg, borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap' }}>{children}</th>
+  <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 12, fontWeight: 600,
+    color: C.muted, background: C.bg, borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap' }}>{children}</th>
 )
 const Td = ({ children }) => (
   <td style={{ padding: '10px 12px', fontSize: 13, color: C.text, borderBottom: `1px solid ${C.border}`, verticalAlign: 'middle' }}>{children}</td>
@@ -44,233 +25,395 @@ const Td = ({ children }) => (
 const Badge = ({ label, color, bg }) => (
   <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20, color, background: bg, whiteSpace: 'nowrap' }}>{label}</span>
 )
-const StatCard = ({ label, value, color, icon }) => (
-  <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 10, padding: '16px 20px', flex: 1, minWidth: 110, display: 'flex', flexDirection: 'column', gap: 4 }}>
+const StatCard = ({ label, value, color, icon, loading }) => (
+  <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 10,
+    padding: '16px 20px', flex: 1, minWidth: 110, display: 'flex', flexDirection: 'column', gap: 4 }}>
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
       <span style={{ color: color || C.primary }}>{icon}</span>
-      <span style={{ fontSize: 22, fontWeight: 700, color: color || C.primary }}>{value}</span>
+      {loading
+        ? <div style={{ height: 24, width: 40, background: '#f3f4f6', borderRadius: 4 }} />
+        : <span style={{ fontSize: 22, fontWeight: 700, color: color || C.primary }}>{value ?? 0}</span>
+      }
     </div>
     <div style={{ fontSize: 12, color: C.muted }}>{label}</div>
   </div>
 )
+
+const veriBadge = (v) => {
+  if (v === 'Verified')   return <Badge label="✓ Verified"    color={C.success} bg="#dcfce7" />
+  if (v === 'Pending')    return <Badge label="⏳ Pending"    color="#d97706"   bg="#fef3c7" />
+  return                          <Badge label="✗ Unverified" color={C.danger}  bg="#fee2e2" />
+}
+const typeBadge = (t) => t === 'Distributor'
+  ? <Badge label="Distributor" color="#1d4ed8" bg="#dbeafe" />
+  : <Badge label="Wholesaler"  color="#7c3aed" bg="#f3e8ff" />
+
 const LabelInput = ({ label, ...props }) => (
   <div style={{ marginBottom: 14 }}>
     <label style={{ fontSize: 12, fontWeight: 600, color: C.text, display: 'block', marginBottom: 4 }}>{label}</label>
-    <input {...props} style={{ width: '100%', padding: '8px 10px', border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 13, outline: 'none', boxSizing: 'border-box' }} />
+    <input {...props} style={{ width: '100%', padding: '8px 10px', border: `1px solid ${C.border}`,
+      borderRadius: 6, fontSize: 13, outline: 'none', boxSizing: 'border-box' }} />
   </div>
 )
 const LabelSelect = ({ label, children, ...props }) => (
   <div style={{ marginBottom: 14 }}>
     <label style={{ fontSize: 12, fontWeight: 600, color: C.text, display: 'block', marginBottom: 4 }}>{label}</label>
-    <select {...props} style={{ width: '100%', padding: '8px 10px', border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 13, outline: 'none', background: C.white, boxSizing: 'border-box' }}>
+    <select {...props} style={{ width: '100%', padding: '8px 10px', border: `1px solid ${C.border}`,
+      borderRadius: 6, fontSize: 13, outline: 'none', background: C.white, boxSizing: 'border-box' }}>
       {children}
     </select>
   </div>
 )
 
-const veriBadge = (v) => {
-  if (v === 'Verified') return <Badge label="✓ Verified" color={C.success} bg="#dcfce7" />
-  if (v === 'Pending') return <Badge label="⏳ Pending" color="#d97706" bg="#fef3c7" />
-  return <Badge label="✗ Unverified" color={C.danger} bg="#fee2e2" />
-}
-
-const typeBadge = (t) => t === 'Distributor'
-  ? <Badge label="Distributor" color="#1d4ed8" bg="#dbeafe" />
-  : <Badge label="Wholesaler" color="#7c3aed" bg="#f3e8ff" />
-
-// ─── Side Panel ───────────────────────────────────────────────────────────────
-const ViewPanel = ({ supplier, onClose }) => (
-  <div style={{ position: 'fixed', top: 0, right: 0, width: 420, height: '100vh', background: C.white, boxShadow: '-4px 0 30px rgba(0,0,0,0.12)', zIndex: 999, display: 'flex', flexDirection: 'column', ...font }}>
-    <div style={{ padding: '18px 24px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: C.primary }}>
+/* ─── Side Panel ── */
+const ViewPanel = ({ distributor: d, onClose, onToggle, onVerify }) => (
+  <div style={{ position: 'fixed', top: 0, right: 0, width: 420, height: '100vh', background: C.white,
+    boxShadow: '-4px 0 30px rgba(0,0,0,0.12)', zIndex: 999, display: 'flex', flexDirection: 'column',
+    fontFamily: "'Inter', sans-serif" }}>
+    <div style={{ padding: '18px 24px', borderBottom: `1px solid ${C.border}`, display: 'flex',
+      justifyContent: 'space-between', alignItems: 'center', background: C.primary }}>
       <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: C.white }}>Supplier Profile</h2>
-      <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 6, cursor: 'pointer', color: C.white, padding: '4px 8px' }}><X size={18} /></button>
+      <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 6,
+        cursor: 'pointer', color: C.white, padding: '4px 8px' }}><X size={18} /></button>
     </div>
     <div style={{ overflowY: 'auto', flex: 1, padding: 24 }}>
       <div style={{ marginBottom: 20 }}>
-        <div style={{ fontSize: 18, fontWeight: 700, color: C.primary, marginBottom: 4 }}>{supplier.business}</div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>{typeBadge(supplier.type)}{veriBadge(supplier.verified)}</div>
-        <div style={{ fontSize: 13, color: C.muted, display: 'flex', alignItems: 'center', gap: 4 }}><MapPin size={13} /> {supplier.city}, {supplier.state}</div>
-      </div>
-      <Section title="Contact">
-        <Row label="Owner" value={supplier.owner} />
-        <Row label="Phone" value={supplier.phone} />
-        <Row label="Email" value={supplier.email} />
-        <Row label="Address" value={supplier.address} />
-      </Section>
-      <Section title="Legal">
-        <Row label="GSTIN" value={supplier.gstin} />
-        <Row label="Drug License" value={supplier.drug} />
-      </Section>
-      <Section title="Catalogue Summary">
-        <div style={{ display: 'flex', gap: 12 }}>
-          <StatMini label="Total Items" value={supplier.catalogue} />
-          <StatMini label="Active" value={Math.floor(supplier.catalogue * 0.9)} />
-          <StatMini label="Inactive" value={Math.floor(supplier.catalogue * 0.1)} />
+        <div style={{ fontSize: 18, fontWeight: 700, color: C.primary, marginBottom: 4 }}>{d.name}</div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+          {typeBadge(d.type)}{veriBadge(d.verificationStatus || 'Unverified')}
+          <Badge label={d.isActive ? 'Active' : 'Inactive'} color={d.isActive ? C.success : C.danger} bg={d.isActive ? '#dcfce7' : '#fee2e2'} />
         </div>
-      </Section>
-      <Section title="Assigned Franchises">
-        {['MedPlus - Andheri', 'Apollo - Bandra', 'Generic One - Thane'].map(f => (
-          <div key={f} style={{ padding: '7px 0', borderBottom: `1px solid ${C.border}`, fontSize: 13, color: C.text }}>{f}</div>
-        ))}
-      </Section>
-      <Section title="Recent Orders">
-        {[{ date: '2025-06-28', amount: '₹1,24,500', status: 'Delivered' }, { date: '2025-06-15', amount: '₹98,200', status: 'Delivered' }, { date: '2025-05-30', amount: '₹2,10,000', status: 'Completed' }].map((o, i) => (
-          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: `1px solid ${C.border}`, fontSize: 13 }}>
-            <span style={{ color: C.muted }}>{o.date}</span>
-            <span style={{ fontWeight: 600 }}>{o.amount}</span>
-            <Badge label={o.status} color={C.success} bg="#dcfce7" />
+        <div style={{ fontSize: 13, color: C.muted, display: 'flex', alignItems: 'center', gap: 4 }}>
+          <MapPin size={13} /> {d.city || '—'}, {d.state || '—'}
+        </div>
+      </div>
+
+      {/* Contact */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: C.primary, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10, paddingBottom: 6, borderBottom: `2px solid ${C.border}` }}>Contact</div>
+        {[['Owner / Contact', d.contactPerson || '—'], ['Phone', d.mobile], ['Email', d.email || '—'], ['Address', d.addressLine1 || '—']].map(([label, value]) => (
+          <div key={label} style={{ display: 'flex', gap: 8, marginBottom: 6, fontSize: 13 }}>
+            <span style={{ color: C.muted, minWidth: 110 }}>{label}:</span>
+            <span style={{ color: C.text, fontWeight: 500 }}>{value}</span>
           </div>
         ))}
-      </Section>
+      </div>
+
+      {/* Legal */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: C.primary, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10, paddingBottom: 6, borderBottom: `2px solid ${C.border}` }}>Legal</div>
+        {[['GSTIN', d.gstNo || '—'], ['Drug License', d.drugLicenseNo || '—'], ['PAN', d.panNo || '—']].map(([label, value]) => (
+          <div key={label} style={{ display: 'flex', gap: 8, marginBottom: 6, fontSize: 13 }}>
+            <span style={{ color: C.muted, minWidth: 110 }}>{label}:</span>
+            <span style={{ color: C.text, fontWeight: 500 }}>{value}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Quick Actions */}
+      <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+        <button onClick={() => onToggle(d._id)} style={{
+          flex: 1, padding: '9px 0', borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: 13,
+          background: d.isActive ? '#fef2f2' : '#f0fdf4',
+          color: d.isActive ? C.danger : C.success,
+        }}>
+          {d.isActive ? 'Deactivate' : 'Activate'}
+        </button>
+        {d.verificationStatus !== 'Verified' && (
+          <button onClick={() => onVerify(d._id)} style={{
+            flex: 1, padding: '9px 0', borderRadius: 8, border: 'none', cursor: 'pointer',
+            background: '#dcfce7', color: C.success, fontWeight: 600, fontSize: 13,
+          }}>
+            Mark Verified
+          </button>
+        )}
+      </div>
     </div>
   </div>
 )
 
-const Section = ({ title, children }) => (
-  <div style={{ marginBottom: 20 }}>
-    <div style={{ fontSize: 11, fontWeight: 700, color: C.primary, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10, paddingBottom: 6, borderBottom: `2px solid ${C.border}` }}>{title}</div>
-    {children}
-  </div>
-)
-const Row = ({ label, value }) => (
-  <div style={{ display: 'flex', gap: 8, marginBottom: 6, fontSize: 13 }}>
-    <span style={{ color: C.muted, minWidth: 90 }}>{label}:</span>
-    <span style={{ color: C.text, fontWeight: 500 }}>{value}</span>
-  </div>
-)
-const StatMini = ({ label, value }) => (
-  <div style={{ background: C.bg, borderRadius: 8, padding: '10px 14px', flex: 1, textAlign: 'center' }}>
-    <div style={{ fontSize: 18, fontWeight: 700, color: C.primary }}>{value}</div>
-    <div style={{ fontSize: 11, color: C.muted }}>{label}</div>
-  </div>
-)
+const EMPTY_FORM = {
+  name: '', mobile: '', email: '', contactPerson: '', type: 'Distributor',
+  state: '', city: '', addressLine1: '', gstNo: '', drugLicenseNo: '', panNo: '', password: '',
+}
 
-// ─── Main Component ───────────────────────────────────────────────────────────
-const DistributorManagement = () => {
-  const [activeTab, setActiveTab] = useState('all')
-  const [search, setSearch] = useState('')
-  const [typeFilter, setTypeFilter] = useState('')
-  const [stateFilter, setStateFilter] = useState('')
+const PER_PAGE = 10
+
+export default function DistributorManagement() {
+  const [distributors, setDistributors] = useState([])
+  const [total, setTotal]               = useState(0)
+  const [stats, setStats]               = useState({ total: 0, active: 0, distributors: 0, wholesalers: 0, pending: 0 })
+  const [loading, setLoading]           = useState(false)
+  const [search, setSearch]             = useState('')
+  const [draftSearch, setDraftSearch]   = useState('')
+  const [activeTab, setActiveTab]       = useState('all')
   const [statusFilter, setStatusFilter] = useState('')
-  const [page, setPage] = useState(1)
-  const [showModal, setShowModal] = useState(false)
-  const [viewPanel, setViewPanel] = useState(null)
-  const [form, setForm] = useState(emptyForm)
-  const [distributors, setDistributors] = useState(mockDistributors)
-  const perPage = 10
+  const [stateFilter, setStateFilter]   = useState('')
+  const [page, setPage]                 = useState(1)
+  const [viewPanel, setViewPanel]       = useState(null)
+  const [showModal, setShowModal]       = useState(false)
+  const [editDist, setEditDist]         = useState(null)
+  const [form, setForm]                 = useState(EMPTY_FORM)
+  const [submitting, setSubmitting]     = useState(false)
 
-  const tabs = [
-    { key: 'all', label: 'All Suppliers' },
-    { key: 'distributor', label: 'Distributors' },
-    { key: 'wholesaler', label: 'Wholesalers' },
-    { key: 'pending', label: 'Pending Verification' },
-  ]
+  /* ── Fetch ── */
+  const fetchDistributors = useCallback(async () => {
+    setLoading(true)
+    try {
+      const params = new URLSearchParams({ page, limit: PER_PAGE })
+      if (search)       params.append('search', search)
+      if (statusFilter) params.append('isActive', statusFilter === 'active' ? 'true' : 'false')
+      if (activeTab === 'distributor') params.append('type', 'Distributor')
+      if (activeTab === 'wholesaler')  params.append('type', 'Wholesaler')
+      if (activeTab === 'pending')     params.append('verificationStatus', 'Pending')
 
-  const filtered = distributors.filter(d => {
-    const s = search.toLowerCase()
-    const matchSearch = !s || d.business.toLowerCase().includes(s) || d.owner.toLowerCase().includes(s) || d.id.toLowerCase().includes(s)
-    const matchType = !typeFilter || d.type === typeFilter
-    const matchState = !stateFilter || d.state === stateFilter
-    const matchStatus = !statusFilter || (statusFilter === 'active' ? d.status : !d.status)
-    const matchTab = activeTab === 'all' || (activeTab === 'distributor' && d.type === 'Distributor') || (activeTab === 'wholesaler' && d.type === 'Wholesaler') || (activeTab === 'pending' && d.verified === 'Pending')
-    return matchSearch && matchType && matchState && matchStatus && matchTab
-  })
+      const res  = await getRequest(`distributor/all?${params.toString()}`)
+      const data = res?.data?.data
+      const list = data?.distributors || []
+      setDistributors(list)
+      setTotal(data?.total || 0)
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / perPage))
-  const paginated = filtered.slice((page - 1) * perPage, page * perPage)
+      // Derive stats
+      setStats({
+        total:        data?.total || 0,
+        active:       list.filter(d => d.isActive).length,
+        distributors: list.filter(d => d.type === 'Distributor').length,
+        wholesalers:  list.filter(d => d.type === 'Wholesaler').length,
+        pending:      list.filter(d => (d.verificationStatus || '') === 'Pending').length,
+      })
+    } catch (err) {
+      console.error('[DistributorMgmt] fetch error:', err)
+      toast.error('Failed to load distributors')
+    } finally {
+      setLoading(false)
+    }
+  }, [page, search, statusFilter, activeTab])
 
-  const handleSave = () => {
-    if (!form.business) return
-    setDistributors(prev => [...prev, { ...form, id: `SUP-0${prev.length + 1}`, catalogue: 0, verified: 'Pending' }])
-    setForm(emptyForm)
-    setShowModal(false)
+  useEffect(() => { fetchDistributors() }, [fetchDistributors])
+
+  /* ── Toggle status ── */
+  const handleToggle = async (id) => {
+    try {
+      await patchRequest({ url: `distributor/${id}/toggle`, cred: {} })
+      toast.success('Status updated')
+      fetchDistributors()
+      if (viewPanel?._id === id) setViewPanel(prev => ({ ...prev, isActive: !prev.isActive }))
+    } catch { toast.error('Failed to update status') }
   }
 
-  const states = [...new Set(mockDistributors.map(d => d.state))].sort()
+  /* ── Verify ── */
+  const handleVerify = async (id) => {
+    try {
+      await putRequest({ url: `distributor/${id}`, cred: { verificationStatus: 'Verified' } })
+      toast.success('Distributor verified')
+      fetchDistributors()
+      if (viewPanel?._id === id) setViewPanel(prev => ({ ...prev, verificationStatus: 'Verified' }))
+    } catch { toast.error('Failed to verify') }
+  }
+
+  /* ── Delete ── */
+  const handleDelete = async (id, name) => {
+    if (!window.confirm(`Delete "${name}"? This cannot be undone.`)) return
+    try {
+      await deleteRequest(`distributor/${id}`)
+      toast.success('Deleted successfully')
+      fetchDistributors()
+    } catch { toast.error('Failed to delete') }
+  }
+
+  /* ── Open create modal ── */
+  const openCreate = () => {
+    setEditDist(null)
+    setForm(EMPTY_FORM)
+    setShowModal(true)
+  }
+
+  /* ── Open edit modal ── */
+  const openEdit = (d) => {
+    setEditDist(d)
+    setForm({
+      name:          d.name          || '',
+      mobile:        d.mobile        || '',
+      email:         d.email         || '',
+      contactPerson: d.contactPerson || '',
+      type:          d.type          || 'Distributor',
+      state:         d.state         || '',
+      city:          d.city          || '',
+      addressLine1:  d.addressLine1  || '',
+      gstNo:         d.gstNo         || '',
+      drugLicenseNo: d.drugLicenseNo || '',
+      panNo:         d.panNo         || '',
+      password:      '',
+    })
+    setShowModal(true)
+  }
+
+  /* ── Submit ── */
+  const handleSubmit = async () => {
+    if (!form.name.trim() || !form.mobile.trim()) {
+      toast.error('Name and mobile are required')
+      return
+    }
+    setSubmitting(true)
+    try {
+      if (editDist) {
+        const { password, ...body } = form
+        await putRequest({ url: `distributor/${editDist._id}`, cred: body })
+        toast.success('Distributor updated')
+      } else {
+        if (!form.password.trim()) { toast.error('Password is required'); setSubmitting(false); return }
+        await postRequest({ url: 'distributor/register', cred: form })
+        toast.success('Distributor registered successfully')
+      }
+      setShowModal(false)
+      setForm(EMPTY_FORM)
+      fetchDistributors()
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Operation failed')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const totalPages = Math.ceil(total / PER_PAGE)
+  const tabs = [
+    { key: 'all',         label: 'All Suppliers' },
+    { key: 'distributor', label: 'Distributors'  },
+    { key: 'wholesaler',  label: 'Wholesalers'   },
+    { key: 'pending',     label: 'Pending Verification' },
+  ]
 
   return (
-    <div style={{ ...font, background: C.bg, minHeight: '100vh', padding: 24 }}>
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+    <div style={{ fontFamily: "'Inter', sans-serif", background: C.bg, minHeight: '100vh', padding: 4 }}>
+
+      {/* ── Header ── */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, color: C.primary, margin: 0 }}>Distributor / Wholesaler Management</h1>
-          <p style={{ fontSize: 13, color: C.muted, margin: '4px 0 0' }}>Manage and verify your supplier network across India</p>
+          <h1 style={{ fontSize: 20, fontWeight: 800, color: C.primary, margin: 0 }}>Distributor / Wholesaler Management</h1>
+          <p style={{ fontSize: 13, color: C.muted, margin: '4px 0 0' }}>Manage and verify your supplier network</p>
         </div>
-        <button onClick={() => setShowModal(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: C.primary, color: C.white, border: 'none', borderRadius: 8, padding: '10px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-          <Plus size={16} /> Add Distributor
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={fetchDistributors}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, background: C.white,
+              border: `1px solid ${C.border}`, borderRadius: 8, padding: '9px 14px', fontSize: 13, fontWeight: 600, color: C.text, cursor: 'pointer' }}>
+            <RefreshCw size={14} /> Refresh
+          </button>
+          <button onClick={openCreate}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, background: C.primary, color: C.white,
+              border: 'none', borderRadius: 8, padding: '10px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+            <Plus size={16} /> Add Distributor
+          </button>
+        </div>
       </div>
 
-      {/* Stats */}
+      {/* ── Stats ── */}
       <div style={{ display: 'flex', gap: 14, marginBottom: 22, flexWrap: 'wrap' }}>
-        <StatCard label="Total Suppliers" value="48" icon={<Package size={18} />} />
-        <StatCard label="Active" value="42" color={C.success} icon={<CheckCircle size={18} />} />
-        <StatCard label="Distributors" value="28" color="#1d4ed8" icon={<ShieldCheck size={18} />} />
-        <StatCard label="Wholesalers" value="20" color="#7c3aed" icon={<Package size={18} />} />
-        <StatCard label="Pending Verification" value="6" color="#d97706" icon={<Clock size={18} />} />
+        <StatCard loading={loading} label="Total Suppliers"        value={total}             icon={<Package size={18} />}     color={C.primary} />
+        <StatCard loading={loading} label="Active"                 value={stats.active}       icon={<CheckCircle size={18} />}  color={C.success} />
+        <StatCard loading={loading} label="Distributors"           value={stats.distributors} icon={<ShieldCheck size={18} />}  color="#1d4ed8" />
+        <StatCard loading={loading} label="Wholesalers"            value={stats.wholesalers}  icon={<Package size={18} />}      color="#7c3aed" />
+        <StatCard loading={loading} label="Pending Verification"   value={stats.pending}      icon={<Clock size={18} />}        color="#d97706" />
       </div>
 
-      {/* Tabs */}
+      {/* ── Tabs ── */}
       <div style={{ display: 'flex', gap: 4, background: C.white, border: `1px solid ${C.border}`, borderRadius: 10, padding: 6, marginBottom: 18, width: 'fit-content' }}>
         {tabs.map(t => (
-          <button key={t.key} onClick={() => { setActiveTab(t.key); setPage(1) }} style={{ padding: '8px 18px', borderRadius: 7, border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer', background: activeTab === t.key ? C.primary : 'transparent', color: activeTab === t.key ? C.white : C.muted }}>
+          <button key={t.key} onClick={() => { setActiveTab(t.key); setPage(1) }}
+            style={{ padding: '8px 18px', borderRadius: 7, border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+              background: activeTab === t.key ? C.primary : 'transparent',
+              color: activeTab === t.key ? C.white : C.muted }}>
             {t.label}
           </button>
         ))}
       </div>
 
-      {/* Filters */}
+      {/* ── Filters ── */}
       <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 10, padding: 16, marginBottom: 18, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
         <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
           <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: C.muted }} />
-          <input value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} placeholder="Search supplier, owner, ID..." style={{ width: '100%', padding: '8px 10px 8px 32px', border: `1px solid ${C.border}`, borderRadius: 7, fontSize: 13, outline: 'none', boxSizing: 'border-box' }} />
+          <input value={draftSearch} onChange={e => setDraftSearch(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { setSearch(draftSearch); setPage(1) } }}
+            onBlur={() => { if (draftSearch !== search) { setSearch(draftSearch); setPage(1) } }}
+            placeholder="Search name, mobile, code… (Enter)"
+            style={{ width: '100%', padding: '8px 10px 8px 32px', border: `1px solid ${C.border}`, borderRadius: 7, fontSize: 13, outline: 'none', boxSizing: 'border-box' }} />
         </div>
-        <select value={typeFilter} onChange={e => { setTypeFilter(e.target.value); setPage(1) }} style={{ padding: '8px 12px', border: `1px solid ${C.border}`, borderRadius: 7, fontSize: 13, outline: 'none', background: C.white }}>
-          <option value="">All Types</option>
-          <option value="Distributor">Distributor</option>
-          <option value="Wholesaler">Wholesaler</option>
-        </select>
-        <select value={stateFilter} onChange={e => { setStateFilter(e.target.value); setPage(1) }} style={{ padding: '8px 12px', border: `1px solid ${C.border}`, borderRadius: 7, fontSize: 13, outline: 'none', background: C.white }}>
-          <option value="">All States</option>
-          {states.map(s => <option key={s} value={s}>{s}</option>)}
-        </select>
-        <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1) }} style={{ padding: '8px 12px', border: `1px solid ${C.border}`, borderRadius: 7, fontSize: 13, outline: 'none', background: C.white }}>
+        <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1) }}
+          style={{ padding: '8px 12px', border: `1px solid ${C.border}`, borderRadius: 7, fontSize: 13, outline: 'none', background: C.white }}>
           <option value="">All Status</option>
           <option value="active">Active</option>
           <option value="inactive">Inactive</option>
         </select>
+        {(search || statusFilter) && (
+          <button onClick={() => { setDraftSearch(''); setSearch(''); setStatusFilter(''); setPage(1) }}
+            style={{ fontSize: 12, color: C.danger, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
+            Clear
+          </button>
+        )}
       </div>
 
-      {/* Table */}
-      <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 10, overflow: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1100 }}>
+      {/* ── Table ── */}
+      <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 10, overflow: 'auto', marginBottom: 14 }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1000 }}>
           <thead>
             <tr>
-              <Th>Supplier ID</Th><Th>Business Name</Th><Th>Type</Th><Th>Owner</Th><Th>State / City</Th>
-              <Th>Phone</Th><Th>Catalogue Items</Th><Th>Status</Th><Th>Verification</Th><Th>Actions</Th>
+              <Th>#</Th><Th>Business Name</Th><Th>Type</Th><Th>Contact Person</Th>
+              <Th>Mobile</Th><Th>State / City</Th><Th>Status</Th><Th>Verification</Th><Th>Actions</Th>
             </tr>
           </thead>
           <tbody>
-            {paginated.map(d => (
-              <tr key={d.id} onMouseEnter={e => e.currentTarget.style.background = C.bg} onMouseLeave={e => e.currentTarget.style.background = C.white}>
-                <Td><span style={{ fontSize: 12, fontWeight: 700, color: C.primary }}>{d.id}</span></Td>
-                <Td><span style={{ fontWeight: 600 }}>{d.business}</span></Td>
-                <Td>{typeBadge(d.type)}</Td>
-                <Td>{d.owner}</Td>
+            {loading ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <tr key={i}>
+                  <td colSpan={9} style={{ padding: '12px 12px' }}>
+                    <div style={{ height: 12, background: '#f3f4f6', borderRadius: 4 }} />
+                  </td>
+                </tr>
+              ))
+            ) : distributors.length === 0 ? (
+              <tr>
+                <td colSpan={9} style={{ padding: '40px 0', textAlign: 'center', color: C.muted }}>
+                  <AlertCircle size={24} style={{ marginBottom: 8, display: 'block', margin: '0 auto 8px' }} />
+                  No distributors found
+                </td>
+              </tr>
+            ) : distributors.map((d, i) => (
+              <tr key={d._id}
+                onMouseEnter={e => e.currentTarget.style.background = C.bg}
+                onMouseLeave={e => e.currentTarget.style.background = C.white}>
+                <Td><span style={{ fontSize: 11, fontWeight: 700, color: C.primary, fontFamily: 'monospace' }}>{(page - 1) * PER_PAGE + i + 1}</span></Td>
                 <Td>
-                  <div style={{ fontSize: 13 }}>{d.city}</div>
-                  <div style={{ fontSize: 11, color: C.muted }}>{d.state}</div>
+                  <div>
+                    <span style={{ fontWeight: 600, color: C.text }}>{d.name}</span>
+                    <div style={{ fontSize: 11, color: C.muted }}>{d.distributorCode}</div>
+                  </div>
                 </Td>
-                <Td><span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Phone size={12} color={C.muted} />{d.phone}</span></Td>
-                <Td><Badge label={d.catalogue} color={C.primary} bg="#e8f0fb" /></Td>
-                <Td><Badge label={d.status ? 'Active' : 'Inactive'} color={d.status ? C.success : C.danger} bg={d.status ? '#dcfce7' : '#fee2e2'} /></Td>
-                <Td>{veriBadge(d.verified)}</Td>
+                <Td>{typeBadge(d.type)}</Td>
+                <Td>{d.contactPerson || '—'}</Td>
+                <Td><span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Phone size={12} color={C.muted} />{d.mobile}</span></Td>
                 <Td>
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <button onClick={() => setViewPanel(d)} title="View" style={{ background: '#e8f0fb', border: 'none', borderRadius: 6, padding: '5px 7px', cursor: 'pointer', color: C.primary }}><Eye size={13} /></button>
-                    <button title="Edit" style={{ background: '#fef9ec', border: 'none', borderRadius: 6, padding: '5px 7px', cursor: 'pointer', color: '#d97706' }}><Edit2 size={13} /></button>
-                    <button title="Verify" style={{ background: '#dcfce7', border: 'none', borderRadius: 6, padding: '5px 7px', cursor: 'pointer', color: C.success }}><ShieldCheck size={13} /></button>
-                    <button title="Suspend" style={{ background: '#fee2e2', border: 'none', borderRadius: 6, padding: '5px 7px', cursor: 'pointer', color: C.danger }}><ShieldOff size={13} /></button>
+                  <div style={{ fontSize: 13 }}>{d.city || '—'}</div>
+                  <div style={{ fontSize: 11, color: C.muted }}>{d.state || '—'}</div>
+                </Td>
+                <Td><Badge label={d.isActive ? 'Active' : 'Inactive'} color={d.isActive ? C.success : C.danger} bg={d.isActive ? '#dcfce7' : '#fee2e2'} /></Td>
+                <Td>{veriBadge(d.verificationStatus || 'Unverified')}</Td>
+                <Td>
+                  <div style={{ display: 'flex', gap: 5 }}>
+                    <button onClick={() => setViewPanel(d)} title="View"
+                      style={{ background: '#e8f0fb', border: 'none', borderRadius: 6, padding: '5px 7px', cursor: 'pointer', color: C.primary }}>
+                      <Eye size={13} />
+                    </button>
+                    <button onClick={() => openEdit(d)} title="Edit"
+                      style={{ background: '#fef9ec', border: 'none', borderRadius: 6, padding: '5px 7px', cursor: 'pointer', color: '#d97706' }}>
+                      <Edit2 size={13} />
+                    </button>
+                    <button onClick={() => handleToggle(d._id)} title={d.isActive ? 'Deactivate' : 'Activate'}
+                      style={{ background: d.isActive ? '#fee2e2' : '#dcfce7', border: 'none', borderRadius: 6, padding: '5px 7px', cursor: 'pointer', color: d.isActive ? C.danger : C.success }}>
+                      {d.isActive ? <ShieldOff size={13} /> : <ShieldCheck size={13} />}
+                    </button>
+                    <button onClick={() => handleDelete(d._id, d.name)} title="Delete"
+                      style={{ background: '#fee2e2', border: 'none', borderRadius: 6, padding: '5px 7px', cursor: 'pointer', color: C.danger }}>
+                      <Trash2 size={13} />
+                    </button>
                   </div>
                 </Td>
               </tr>
@@ -279,51 +422,94 @@ const DistributorManagement = () => {
         </table>
 
         {/* Pagination */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderTop: `1px solid ${C.border}` }}>
-          <span style={{ fontSize: 12, color: C.muted }}>Showing {Math.min((page - 1) * perPage + 1, filtered.length)}–{Math.min(page * perPage, filtered.length)} of {filtered.length}</span>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '12px 16px', borderTop: `1px solid ${C.border}`, flexWrap: 'wrap', gap: 8 }}>
+          <span style={{ fontSize: 12, color: C.muted }}>
+            {total > 0 ? `Showing ${(page - 1) * PER_PAGE + 1}–${Math.min(page * PER_PAGE, total)} of ${total}` : '0 results'}
+          </span>
           <div style={{ display: 'flex', gap: 6 }}>
-            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} style={{ border: `1px solid ${C.border}`, background: C.white, borderRadius: 6, padding: '5px 10px', cursor: page === 1 ? 'not-allowed' : 'pointer', opacity: page === 1 ? 0.5 : 1 }}><ChevronLeft size={14} /></button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
-              <button key={p} onClick={() => setPage(p)} style={{ border: `1px solid ${page === p ? C.primary : C.border}`, background: page === p ? C.primary : C.white, color: page === p ? C.white : C.text, borderRadius: 6, padding: '5px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>{p}</button>
-            ))}
-            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} style={{ border: `1px solid ${C.border}`, background: C.white, borderRadius: 6, padding: '5px 10px', cursor: page === totalPages ? 'not-allowed' : 'pointer', opacity: page === totalPages ? 0.5 : 1 }}><ChevronRight size={14} /></button>
+            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+              style={{ border: `1px solid ${C.border}`, background: C.white, borderRadius: 6, padding: '5px 10px',
+                cursor: page === 1 ? 'not-allowed' : 'pointer', opacity: page === 1 ? 0.5 : 1 }}>
+              <ChevronLeft size={14} />
+            </button>
+            {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+              const start = Math.max(1, page - 2)
+              const n = start + i
+              if (n > totalPages) return null
+              return (
+                <button key={n} onClick={() => setPage(n)}
+                  style={{ border: `1px solid ${page === n ? C.primary : C.border}`,
+                    background: page === n ? C.primary : C.white, color: page === n ? C.white : C.text,
+                    borderRadius: 6, padding: '5px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>{n}</button>
+              )
+            })}
+            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages || totalPages === 0}
+              style={{ border: `1px solid ${C.border}`, background: C.white, borderRadius: 6, padding: '5px 10px',
+                cursor: (page === totalPages || totalPages === 0) ? 'not-allowed' : 'pointer',
+                opacity: (page === totalPages || totalPages === 0) ? 0.5 : 1 }}>
+              <ChevronRight size={14} />
+            </button>
           </div>
         </div>
       </div>
 
-      {/* View Panel */}
-      {viewPanel && <ViewPanel supplier={viewPanel} onClose={() => setViewPanel(null)} />}
+      {/* ── View Panel ── */}
+      {viewPanel && <ViewPanel distributor={viewPanel} onClose={() => setViewPanel(null)} onToggle={handleToggle} onVerify={handleVerify} />}
 
-      {/* Add Modal */}
+      {/* ── Add / Edit Modal ── */}
       {showModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-          <div style={{ background: C.white, borderRadius: 14, width: '100%', maxWidth: 620, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.2)', ...font }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 24px', borderBottom: `1px solid ${C.border}` }}>
-              <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: C.primary }}>Add New Distributor</h2>
-              <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted }}><X size={20} /></button>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: C.white, borderRadius: 14, width: '100%', maxWidth: 640,
+            maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.2)', fontFamily: "'Inter', sans-serif" }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '18px 24px', borderBottom: `1px solid ${C.border}` }}>
+              <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: C.primary }}>
+                {editDist ? 'Edit Distributor' : 'Add New Distributor'}
+              </h2>
+              <button onClick={() => setShowModal(false)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted }}>
+                <X size={20} />
+              </button>
             </div>
             <div style={{ padding: 24 }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 16px' }}>
-                <LabelInput label="Business Name *" value={form.business} onChange={e => setForm(f => ({ ...f, business: e.target.value }))} placeholder="e.g. MedLine Pharma" />
-                <LabelInput label="Owner Name" value={form.owner} onChange={e => setForm(f => ({ ...f, owner: e.target.value }))} placeholder="e.g. Rajesh Kumar" />
-                <LabelInput label="Email" type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="email@company.in" />
-                <LabelInput label="Phone" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="10-digit mobile" />
+                <LabelInput label="Business Name *"  value={form.name}          onChange={e => setForm(f => ({ ...f, name: e.target.value }))}          placeholder="e.g. MedLine Pharma" />
+                <LabelInput label="Contact Person"   value={form.contactPerson} onChange={e => setForm(f => ({ ...f, contactPerson: e.target.value }))} placeholder="Owner / Manager name" />
+                <LabelInput label="Mobile *"         value={form.mobile}        onChange={e => setForm(f => ({ ...f, mobile: e.target.value }))}        placeholder="10-digit mobile" />
+                <LabelInput label="Email"            value={form.email}         onChange={e => setForm(f => ({ ...f, email: e.target.value }))}         placeholder="email@company.in" type="email" />
+                {!editDist && (
+                  <LabelInput label="Password *" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} placeholder="Login password" type="password" />
+                )}
                 <LabelSelect label="Type" value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
                   <option value="Distributor">Distributor</option>
                   <option value="Wholesaler">Wholesaler</option>
                 </LabelSelect>
-                <LabelInput label="State" value={form.state} onChange={e => setForm(f => ({ ...f, state: e.target.value }))} placeholder="e.g. Maharashtra" />
-                <LabelInput label="City" value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} placeholder="e.g. Mumbai" />
-                <LabelInput label="GSTIN" value={form.gstin} onChange={e => setForm(f => ({ ...f, gstin: e.target.value }))} placeholder="27XXXXX1234X1ZX" />
-                <LabelInput label="Drug License No." value={form.drug} onChange={e => setForm(f => ({ ...f, drug: e.target.value }))} placeholder="e.g. MH-MUM-2024-1234" />
+                <LabelInput label="State"            value={form.state}         onChange={e => setForm(f => ({ ...f, state: e.target.value }))}         placeholder="e.g. Maharashtra" />
+                <LabelInput label="City"             value={form.city}          onChange={e => setForm(f => ({ ...f, city: e.target.value }))}          placeholder="e.g. Mumbai" />
+                <LabelInput label="GSTIN"            value={form.gstNo}         onChange={e => setForm(f => ({ ...f, gstNo: e.target.value }))}         placeholder="27XXXXX1234X1ZX" />
+                <LabelInput label="Drug License No." value={form.drugLicenseNo} onChange={e => setForm(f => ({ ...f, drugLicenseNo: e.target.value }))} placeholder="e.g. MH-MUM-2024-1234" />
+                <LabelInput label="PAN"              value={form.panNo}         onChange={e => setForm(f => ({ ...f, panNo: e.target.value }))}         placeholder="AABCD1234E" />
               </div>
               <div style={{ marginBottom: 14 }}>
                 <label style={{ fontSize: 12, fontWeight: 600, color: C.text, display: 'block', marginBottom: 4 }}>Address</label>
-                <textarea value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} placeholder="Full address..." rows={2} style={{ width: '100%', padding: '8px 10px', border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 13, outline: 'none', resize: 'vertical', boxSizing: 'border-box' }} />
+                <textarea value={form.addressLine1} onChange={e => setForm(f => ({ ...f, addressLine1: e.target.value }))}
+                  placeholder="Full address..." rows={2}
+                  style={{ width: '100%', padding: '8px 10px', border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 13, outline: 'none', resize: 'vertical', boxSizing: 'border-box' }} />
               </div>
               <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', paddingTop: 8, borderTop: `1px solid ${C.border}` }}>
-                <button onClick={() => setShowModal(false)} style={{ padding: '9px 20px', border: `1px solid ${C.border}`, borderRadius: 7, background: C.white, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: C.muted }}>Cancel</button>
-                <button onClick={handleSave} style={{ padding: '9px 22px', border: 'none', borderRadius: 7, background: C.primary, color: C.white, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Save Distributor</button>
+                <button onClick={() => setShowModal(false)}
+                  style={{ padding: '9px 20px', border: `1px solid ${C.border}`, borderRadius: 7, background: C.white, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: C.muted }}>
+                  Cancel
+                </button>
+                <button onClick={handleSubmit} disabled={submitting}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 22px', border: 'none', borderRadius: 7,
+                    background: submitting ? '#6fa3d0' : C.primary, color: C.white, fontSize: 13, fontWeight: 600,
+                    cursor: submitting ? 'not-allowed' : 'pointer' }}>
+                  <Save size={14} />
+                  {submitting ? 'Saving…' : editDist ? 'Save Changes' : 'Register Distributor'}
+                </button>
               </div>
             </div>
           </div>
@@ -332,5 +518,3 @@ const DistributorManagement = () => {
     </div>
   )
 }
-
-export default DistributorManagement

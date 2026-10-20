@@ -69,8 +69,13 @@ export default function MedicineList() {
   return (
     <div style={{ fontFamily: 'Inter, sans-serif', display: 'flex', flexDirection: 'column', gap: 18 }}>
       <PageHeader icon={FlaskConical} title="Medicine List" subtitle="Manage all your medicine items" color="#7c3aed">
-        <button style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '8px 14px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 12, background: '#fff', cursor: 'pointer' }}>
-          <Download size={13} /> Export
+        <button onClick={() => {
+          const rows = data.map(m => `"${m.name}","${m.salt||''}","${m.formulation||''}","${m.company||''}",${m.mrp||0},${m.stock||0},"${m.isActive?'Active':'Inactive'}"`)
+          const csv = `Name,Salt,Formulation,Company,MRP,Stock,Status\n${rows.join('\n')}`
+          const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download='medicines.csv'; a.click()
+          toast.success(`Exported ${data.length} medicines`)
+        }} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '8px 14px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 12, background: '#fff', cursor: 'pointer' }}>
+          <Download size={13} /> Export CSV
         </button>
         <button onClick={() => navigate('/franchise/medicines/add')}
           style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: '#0c3b73', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, color: '#fff', cursor: 'pointer' }}>

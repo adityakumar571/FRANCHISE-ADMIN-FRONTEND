@@ -1,14 +1,14 @@
 /* eslint-disable prettier/prettier */
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   Users, Plus, Search, Eye, Edit2, ToggleLeft, ToggleRight,
-  ChevronLeft, ChevronRight, X, Check, Shield, MapPin,
-  Clock, Mail, Phone, UserCheck, UserX, AlertCircle,
+  ChevronLeft, ChevronRight, X, Check, Shield,
+  Clock, Mail, Phone, UserCheck, UserX, AlertCircle, Trash2, RefreshCw, Save,
 } from 'lucide-react'
+import { getRequest, postRequest, putRequest, deleteRequest, patchRequest } from '../../../Helpers/index'
+import toast from 'react-hot-toast'
 
-/* ─────────────────────────────────────────────
-   PALETTE & SHARED PRIMITIVES
-───────────────────────────────────────────── */
+/* ─── Palette ── */
 const C = {
   primary: '#0c3b73', accent: '#fabf22', success: '#16a34a',
   danger: '#dc2626', border: '#e5e7eb', bg: '#f8f9fb',
@@ -19,67 +19,30 @@ const inputStyle = {
   fontSize: 13, color: '#374151', outline: 'none', background: '#fff',
   fontFamily: 'Inter, -apple-system, sans-serif', width: '100%', boxSizing: 'border-box',
 }
-
 const labelStyle = { fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4, display: 'block' }
 
-const StatusBadge = ({ status }) => {
-  const map = {
-    Active:   { bg: '#f0fdf4', color: '#16a34a', border: '#bbf7d0' },
-    Inactive: { bg: '#f9fafb', color: '#6b7280', border: '#e5e7eb' },
-    Pending:  { bg: '#fffbeb', color: '#d97706', border: '#fde68a' },
-  }
-  const s = map[status] || map.Inactive
+const StatusBadge = ({ active }) => {
+  const s = active
+    ? { bg: '#f0fdf4', color: '#16a34a', border: '#bbf7d0', label: 'Active' }
+    : { bg: '#f9fafb', color: '#6b7280', border: '#e5e7eb', label: 'Inactive' }
   return (
     <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20,
-      background: s.bg, color: s.color, border: `1px solid ${s.border}` }}>
-      {status}
-    </span>
+      background: s.bg, color: s.color, border: `1px solid ${s.border}` }}>{s.label}</span>
   )
 }
 
 const RoleBadge = ({ role }) => {
-  const isRegional = role === 'Regional Admin'
+  const isSA = role === 'SuperAdmin'
   return (
     <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20,
-      background: isRegional ? '#eff6ff' : '#faf5ff',
-      color: isRegional ? '#1d4ed8' : '#7c3aed',
-      border: `1px solid ${isRegional ? '#bfdbfe' : '#e9d5ff'}` }}>
+      background: isSA ? '#eff6ff' : '#faf5ff',
+      color: isSA ? '#1d4ed8' : '#7c3aed',
+      border: `1px solid ${isSA ? '#bfdbfe' : '#e9d5ff'}` }}>
       {role}
     </span>
   )
 }
 
-/* ─────────────────────────────────────────────
-   MOCK DATA
-───────────────────────────────────────────── */
-const STATES_DATA = {
-  Maharashtra: ['Mumbai', 'Pune', 'Nashik', 'Nagpur', 'Aurangabad'],
-  Karnataka:   ['Bengaluru', 'Mysuru', 'Hubli', 'Mangaluru'],
-  Telangana:   ['Hyderabad', 'Warangal', 'Karimnagar', 'Nizamabad'],
-  'Tamil Nadu':['Chennai', 'Coimbatore', 'Madurai', 'Salem'],
-  Gujarat:     ['Ahmedabad', 'Surat', 'Vadodara', 'Rajkot'],
-}
-
-const MOCK_ADMINS = [
-  { id: 'ADM-001', name: 'Rajesh Kumar Sharma', email: 'rajesh.sharma@pharmanexus.in', phone: '9876543210', states: ['Maharashtra', 'Gujarat'], cities: ['Mumbai', 'Pune', 'Ahmedabad'], role: 'Regional Admin', status: 'Active',   lastLogin: '2 hrs ago' },
-  { id: 'ADM-002', name: 'Priya Venkataraman',  email: 'priya.venkat@pharmanexus.in',  phone: '9865432109', states: ['Karnataka', 'Telangana'], cities: ['Bengaluru', 'Hyderabad'], role: 'Regional Admin', status: 'Active',   lastLogin: '5 hrs ago' },
-  { id: 'ADM-003', name: 'Amit Desai',          email: 'amit.desai@pharmanexus.in',    phone: '9854321098', states: ['Gujarat'],                cities: ['Surat', 'Vadodara'],     role: 'Area Admin',    status: 'Active',   lastLogin: '1 day ago' },
-  { id: 'ADM-004', name: 'Sunita Nair',         email: 'sunita.nair@pharmanexus.in',   phone: '9843210987', states: ['Tamil Nadu'],             cities: ['Chennai', 'Madurai'],    role: 'Area Admin',    status: 'Inactive', lastLogin: '15 days ago' },
-  { id: 'ADM-005', name: 'Vikram Singh Rathore',email: 'vikram.singh@pharmanexus.in',  phone: '9832109876', states: ['Maharashtra'],            cities: ['Nashik', 'Nagpur'],      role: 'Area Admin',    status: 'Active',   lastLogin: '3 hrs ago' },
-  { id: 'ADM-006', name: 'Meera Krishnamurthy', email: 'meera.krishna@pharmanexus.in', phone: '9821098765', states: ['Karnataka'],              cities: ['Mysuru', 'Hubli'],       role: 'Regional Admin', status: 'Pending', lastLogin: 'Never' },
-  { id: 'ADM-007', name: 'Deepak Agarwal',      email: 'deepak.agarwal@pharmanexus.in',phone: '9810987654', states: ['Telangana'],             cities: ['Warangal', 'Karimnagar'],role: 'Area Admin',    status: 'Active',   lastLogin: '6 hrs ago' },
-  { id: 'ADM-008', name: 'Ananya Pillai',        email: 'ananya.pillai@pharmanexus.in', phone: '9809876543', states: ['Tamil Nadu'],            cities: ['Coimbatore', 'Salem'],   role: 'Area Admin',    status: 'Inactive', lastLogin: '20 days ago' },
-]
-
-const PERMISSIONS = [
-  'View Franchises', 'Create Franchise', 'Suspend Franchise', 'Manage Suppliers', 'View Reports',
-]
-
-const ALL_STATES = Object.keys(STATES_DATA)
-
-/* ─────────────────────────────────────────────
-   STAT CARD
-───────────────────────────────────────────── */
 const StatCard = ({ icon: Icon, label, value, color, bg }) => (
   <div style={{ background: '#fff', border: `1px solid ${C.border}`, borderRadius: 12,
     padding: '16px 20px', flex: '1 1 160px', display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -94,97 +57,128 @@ const StatCard = ({ icon: Icon, label, value, color, bg }) => (
   </div>
 )
 
-/* ─────────────────────────────────────────────
-   MAIN COMPONENT
-───────────────────────────────────────────── */
+const EMPTY_FORM = { name: '', email: '', phone: '', gender: '', role: 'Admin' }
+
 export default function AdminManagement() {
-  const [admins, setAdmins]           = useState(MOCK_ADMINS)
-  const [search, setSearch]           = useState('')
+  const [admins, setAdmins]             = useState([])
+  const [total, setTotal]               = useState(0)
+  const [loading, setLoading]           = useState(false)
+  const [search, setSearch]             = useState('')
+  const [draftSearch, setDraftSearch]   = useState('')
   const [statusFilter, setStatusFilter] = useState('All')
-  const [stateFilter, setStateFilter]   = useState('All')
-  const [page, setPage]               = useState(1)
+  const [roleFilter, setRoleFilter]     = useState('All')
+  const [page, setPage]                 = useState(1)
+  const PER_PAGE = 10
+
   const [showModal, setShowModal]     = useState(false)
+  const [editAdmin, setEditAdmin]     = useState(null)   // null = create, obj = edit
+  const [form, setForm]               = useState(EMPTY_FORM)
+  const [submitting, setSubmitting]   = useState(false)
 
-  /* form state */
-  const [form, setForm] = useState({
-    name: '', email: '', phone: '', password: '', role: 'Regional Admin',
-    selectedStates: [], selectedCities: [], permissions: [],
-  })
+  // Credentials popup after create
+  const [credsPopup, setCredsPopup] = useState(null)  // { userId, password }
 
-  const PER_PAGE = 5
+  /* ── Fetch admins ── */
+  const fetchAdmins = useCallback(async () => {
+    setLoading(true)
+    try {
+      const params = new URLSearchParams({ page, limit: PER_PAGE })
+      if (search)                        params.append('search', search)
+      if (statusFilter !== 'All')        params.append('isActive', statusFilter === 'Active' ? 'true' : 'false')
+      if (roleFilter   !== 'All')        params.append('role', roleFilter)
 
-  /* ── filter logic ── */
-  const filtered = admins.filter(a => {
-    const q = search.toLowerCase()
-    const matchQ = !q || a.name.toLowerCase().includes(q) || a.email.toLowerCase().includes(q) || a.id.toLowerCase().includes(q)
-    const matchS = statusFilter === 'All' || a.status === statusFilter
-    const matchSt = stateFilter === 'All' || a.states.includes(stateFilter)
-    return matchQ && matchS && matchSt
-  })
-
-  const total     = filtered.length
-  const totalPages = Math.ceil(total / PER_PAGE)
-  const pageData  = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE)
-
-  /* ── stat counts ── */
-  const counts = {
-    total:    admins.length,
-    active:   admins.filter(a => a.status === 'Active').length,
-    inactive: admins.filter(a => a.status === 'Inactive').length,
-    pending:  admins.filter(a => a.status === 'Pending').length,
-  }
-
-  /* ── toggle status ── */
-  const toggleStatus = (id) => {
-    setAdmins(prev => prev.map(a => {
-      if (a.id !== id) return a
-      const next = a.status === 'Active' ? 'Inactive' : 'Active'
-      return { ...a, status: next }
-    }))
-  }
-
-  /* ── form helpers ── */
-  const toggleState = (state) => {
-    const sel = form.selectedStates.includes(state)
-      ? form.selectedStates.filter(s => s !== state)
-      : [...form.selectedStates, state]
-    const allowedCities = sel.flatMap(s => STATES_DATA[s] || [])
-    const filteredCities = form.selectedCities.filter(c => allowedCities.includes(c))
-    setForm(f => ({ ...f, selectedStates: sel, selectedCities: filteredCities }))
-  }
-
-  const toggleCity = (city) => {
-    setForm(f => ({
-      ...f,
-      selectedCities: f.selectedCities.includes(city)
-        ? f.selectedCities.filter(c => c !== city)
-        : [...f.selectedCities, city],
-    }))
-  }
-
-  const togglePermission = (p) => {
-    setForm(f => ({
-      ...f,
-      permissions: f.permissions.includes(p)
-        ? f.permissions.filter(x => x !== p)
-        : [...f.permissions, p],
-    }))
-  }
-
-  const availableCities = form.selectedStates.flatMap(s => STATES_DATA[s] || [])
-
-  const handleSubmit = () => {
-    if (!form.name || !form.email || !form.phone || !form.password) return
-    const newAdmin = {
-      id: `ADM-${String(admins.length + 1).padStart(3, '0')}`,
-      name: form.name, email: form.email, phone: form.phone,
-      states: form.selectedStates, cities: form.selectedCities,
-      role: form.role, status: 'Pending', lastLogin: 'Never',
+      const res  = await getRequest(`admins?${params.toString()}`)
+      const data = res?.data?.data
+      setAdmins(data?.data || [])
+      setTotal(data?.total || 0)
+    } catch (err) {
+      console.error('[AdminManagement] fetch error:', err)
+      toast.error('Failed to load admins')
+      setAdmins([])
+      setTotal(0)
+    } finally {
+      setLoading(false)
     }
-    setAdmins(prev => [newAdmin, ...prev])
-    setShowModal(false)
-    setForm({ name: '', email: '', phone: '', password: '', role: 'Regional Admin', selectedStates: [], selectedCities: [], permissions: [] })
+  }, [page, search, statusFilter, roleFilter])
+
+  useEffect(() => { fetchAdmins() }, [fetchAdmins])
+
+  /* ── Derived stats from full list ── */
+  const activeCount   = admins.filter(a => a.isActive).length
+  const inactiveCount = admins.filter(a => !a.isActive).length
+
+  /* ── Toggle status ── */
+  const handleToggle = async (id) => {
+    try {
+      await patchRequest({ url: `admins/${id}/toggle`, cred: {} })
+      toast.success('Status updated')
+      fetchAdmins()
+    } catch { toast.error('Failed to update status') }
   }
+
+  /* ── Delete ── */
+  const handleDelete = async (id, name) => {
+    if (!window.confirm(`Delete admin "${name}"? This cannot be undone.`)) return
+    try {
+      await deleteRequest(`admins/${id}`)
+      toast.success('Admin deleted')
+      fetchAdmins()
+    } catch { toast.error('Failed to delete admin') }
+  }
+
+  /* ── Open create modal ── */
+  const openCreate = () => {
+    setEditAdmin(null)
+    setForm(EMPTY_FORM)
+    setShowModal(true)
+  }
+
+  /* ── Open edit modal ── */
+  const openEdit = (admin) => {
+    setEditAdmin(admin)
+    setForm({
+      name:   admin.name   || '',
+      email:  admin.email  || '',
+      phone:  admin.phone  || '',
+      gender: admin.gender || '',
+      role:   admin.role   || 'Admin',
+    })
+    setShowModal(true)
+  }
+
+  /* ── Submit (create or update) ── */
+  const handleSubmit = async () => {
+    if (!form.name.trim() || !form.email.trim()) {
+      toast.error('Name and email are required')
+      return
+    }
+    setSubmitting(true)
+    try {
+      if (editAdmin) {
+        // Update
+        await putRequest({ url: `admins/${editAdmin._id}`, cred: form })
+        toast.success('Admin updated successfully')
+        setShowModal(false)
+        fetchAdmins()
+      } else {
+        // Create
+        const res  = await postRequest({ url: 'admins/create', cred: form })
+        const data = res?.data?.data
+        toast.success('Admin created! Credentials shown below.')
+        setShowModal(false)
+        setForm(EMPTY_FORM)
+        fetchAdmins()
+        // Show credentials popup
+        if (data?.credentials) setCredsPopup(data.credentials)
+      }
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Operation failed')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const totalPages = Math.ceil(total / PER_PAGE)
 
   return (
     <div style={{ fontFamily: 'Inter, -apple-system, sans-serif', fontSize: 13, background: C.bg, minHeight: '100vh', padding: 4 }}>
@@ -192,47 +186,66 @@ export default function AdminManagement() {
       {/* ── PAGE HEADER ── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 42, height: 42, borderRadius: 11, background: C.primary, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: 42, height: 42, borderRadius: 11, background: C.primary,
+            display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Shield size={20} color={C.accent} />
           </div>
           <div>
             <h1 style={{ fontSize: 20, fontWeight: 800, color: '#111827', margin: 0 }}>Admin Management</h1>
-            <p style={{ fontSize: 12, color: '#9ca3af', margin: '2px 0 0' }}>Create and manage regional admins with geographic scope</p>
+            <p style={{ fontSize: 12, color: '#9ca3af', margin: '2px 0 0' }}>Create and manage admin accounts</p>
           </div>
         </div>
-        <button onClick={() => setShowModal(true)}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, background: C.primary, color: '#fff',
-            border: 'none', borderRadius: 9, padding: '9px 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-          <Plus size={15} /> Create Admin
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={fetchAdmins}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff',
+              border: `1px solid ${C.border}`, borderRadius: 9, padding: '9px 14px',
+              fontSize: 13, fontWeight: 600, color: '#374151', cursor: 'pointer' }}>
+            <RefreshCw size={14} /> Refresh
+          </button>
+          <button onClick={openCreate}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, background: C.primary, color: '#fff',
+              border: 'none', borderRadius: 9, padding: '9px 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+            <Plus size={15} /> Create Admin
+          </button>
+        </div>
       </div>
 
       {/* ── STAT CARDS ── */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
-        <StatCard icon={Users}     label="Total Admins" value={counts.total}    color={C.primary}  bg="#eff6ff" />
-        <StatCard icon={UserCheck} label="Active"       value={counts.active}   color={C.success}  bg="#f0fdf4" />
-        <StatCard icon={UserX}     label="Inactive"     value={counts.inactive} color="#6b7280"    bg="#f9fafb" />
-        <StatCard icon={AlertCircle} label="Pending"    value={counts.pending}  color="#d97706"    bg="#fffbeb" />
+        <StatCard icon={Users}       label="Total Admins" value={total}         color={C.primary} bg="#eff6ff" />
+        <StatCard icon={UserCheck}   label="Active"       value={activeCount}   color={C.success} bg="#f0fdf4" />
+        <StatCard icon={UserX}       label="Inactive"     value={inactiveCount} color="#6b7280"   bg="#f9fafb" />
+        <StatCard icon={AlertCircle} label="Per Page"     value={PER_PAGE}      color="#d97706"   bg="#fffbeb" />
       </div>
 
       {/* ── FILTER BAR ── */}
-      <div style={{ background: '#fff', border: `1px solid ${C.border}`, borderRadius: 10, padding: '12px 16px',
-        display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', marginBottom: 14 }}>
+      <div style={{ background: '#fff', border: `1px solid ${C.border}`, borderRadius: 10,
+        padding: '12px 16px', display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', marginBottom: 14 }}>
         <div style={{ position: 'relative', flex: '1 1 220px', minWidth: 180 }}>
           <Search size={14} color="#9ca3af" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)' }} />
-          <input value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
-            placeholder="Search by name, email, ID…"
+          <input value={draftSearch}
+            onChange={e => setDraftSearch(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { setSearch(draftSearch); setPage(1) } }}
+            onBlur={() => { if (draftSearch !== search) { setSearch(draftSearch); setPage(1) } }}
+            placeholder="Search by name, email, ID… (Enter)"
             style={{ ...inputStyle, paddingLeft: 32 }} />
         </div>
         <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1) }}
           style={{ ...inputStyle, width: 'auto', minWidth: 130, cursor: 'pointer' }}>
-          {['All', 'Active', 'Inactive', 'Pending'].map(s => <option key={s}>{s}</option>)}
+          {['All', 'Active', 'Inactive'].map(s => <option key={s}>{s}</option>)}
         </select>
-        <select value={stateFilter} onChange={e => { setStateFilter(e.target.value); setPage(1) }}
-          style={{ ...inputStyle, width: 'auto', minWidth: 160, cursor: 'pointer' }}>
-          <option value="All">All States</option>
-          {ALL_STATES.map(s => <option key={s}>{s}</option>)}
+        <select value={roleFilter} onChange={e => { setRoleFilter(e.target.value); setPage(1) }}
+          style={{ ...inputStyle, width: 'auto', minWidth: 150, cursor: 'pointer' }}>
+          <option value="All">All Roles</option>
+          <option value="Admin">Admin</option>
+          <option value="SuperAdmin">SuperAdmin</option>
         </select>
+        {(search || statusFilter !== 'All' || roleFilter !== 'All') && (
+          <button onClick={() => { setDraftSearch(''); setSearch(''); setStatusFilter('All'); setRoleFilter('All'); setPage(1) }}
+            style={{ fontSize: 12, color: C.danger, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
+            Clear filters
+          </button>
+        )}
       </div>
 
       {/* ── TABLE ── */}
@@ -241,86 +254,89 @@ export default function AdminManagement() {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: '#f9fafb' }}>
-                {['Admin ID', 'Name', 'Email', 'Phone', 'Assigned States', 'Assigned Cities', 'Role', 'Status', 'Last Login', 'Actions'].map(h => (
+                {['#', 'User ID', 'Name', 'Email', 'Phone', 'Role', 'Status', 'Last Login', 'Actions'].map(h => (
                   <th key={h} style={{ padding: '10px 14px', fontSize: 10, color: '#6b7280', fontWeight: 700,
                     textTransform: 'uppercase', textAlign: 'left', borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {pageData.length === 0 ? (
-                <tr><td colSpan={10} style={{ padding: 32, textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>No admins found.</td></tr>
-              ) : pageData.map(a => (
-                <tr key={a.id}
+              {loading ? (
+                <tr><td colSpan={9} style={{ padding: 40, textAlign: 'center', color: '#9ca3af' }}>
+                  <RefreshCw size={18} style={{ display: 'inline-block', marginRight: 8, animation: 'spin 1s linear infinite' }} />
+                  Loading admins…
+                </td></tr>
+              ) : admins.length === 0 ? (
+                <tr><td colSpan={9} style={{ padding: 40, textAlign: 'center', color: '#9ca3af' }}>
+                  No admins found.
+                </td></tr>
+              ) : admins.map((a, i) => (
+                <tr key={a._id}
                   onMouseEnter={e => e.currentTarget.style.background = '#f8f9fb'}
                   onMouseLeave={e => e.currentTarget.style.background = ''}
                   style={{ borderBottom: '1px solid #f3f4f6', transition: 'background .1s' }}>
-                  <td style={{ padding: '11px 14px', fontSize: 11, color: '#6b7280', fontWeight: 600 }}>{a.id}</td>
+                  <td style={{ padding: '11px 14px', fontSize: 11, color: '#9ca3af', fontWeight: 600 }}>
+                    {(page - 1) * PER_PAGE + i + 1}
+                  </td>
+                  <td style={{ padding: '11px 14px', fontSize: 11, color: '#6b7280', fontWeight: 700, fontFamily: 'monospace' }}>
+                    {a.userId}
+                  </td>
                   <td style={{ padding: '11px 14px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <div style={{ width: 32, height: 32, borderRadius: 8, background: `${C.primary}12`,
                         display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                         <Users size={14} color={C.primary} />
                       </div>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>{a.name}</span>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>{a.name || '—'}</span>
                     </div>
                   </td>
                   <td style={{ padding: '11px 14px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                       <Mail size={11} color="#9ca3af" />
-                      <span style={{ fontSize: 12, color: '#374151' }}>{a.email}</span>
+                      <span style={{ fontSize: 12, color: '#374151' }}>{a.email || '—'}</span>
                     </div>
                   </td>
                   <td style={{ padding: '11px 14px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                       <Phone size={11} color="#9ca3af" />
-                      <span style={{ fontSize: 12, color: '#374151' }}>{a.phone}</span>
-                    </div>
-                  </td>
-                  <td style={{ padding: '11px 14px' }}>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                      {a.states.map(s => (
-                        <span key={s} style={{ fontSize: 10, background: '#eff6ff', color: '#1d4ed8',
-                          border: '1px solid #bfdbfe', borderRadius: 5, padding: '2px 6px', fontWeight: 600 }}>{s}</span>
-                      ))}
-                    </div>
-                  </td>
-                  <td style={{ padding: '11px 14px' }}>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, maxWidth: 180 }}>
-                      {a.cities.slice(0, 3).map(c => (
-                        <span key={c} style={{ fontSize: 10, background: '#f3f4f6', color: '#374151',
-                          borderRadius: 5, padding: '2px 6px', fontWeight: 500 }}>{c}</span>
-                      ))}
-                      {a.cities.length > 3 && (
-                        <span style={{ fontSize: 10, color: '#9ca3af' }}>+{a.cities.length - 3}</span>
-                      )}
+                      <span style={{ fontSize: 12, color: '#374151' }}>{a.phone || '—'}</span>
                     </div>
                   </td>
                   <td style={{ padding: '11px 14px' }}><RoleBadge role={a.role} /></td>
-                  <td style={{ padding: '11px 14px' }}><StatusBadge status={a.status} /></td>
+                  <td style={{ padding: '11px 14px' }}><StatusBadge active={a.isActive} /></td>
                   <td style={{ padding: '11px 14px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                       <Clock size={11} color="#9ca3af" />
-                      <span style={{ fontSize: 11, color: '#9ca3af' }}>{a.lastLogin}</span>
+                      <span style={{ fontSize: 11, color: '#9ca3af' }}>
+                        {a.lastLogin ? new Date(a.lastLogin).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Never'}
+                      </span>
                     </div>
                   </td>
                   <td style={{ padding: '11px 14px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <button style={{ width: 28, height: 28, borderRadius: 7, border: `1px solid ${C.border}`,
-                        background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-                        <Eye size={13} color="#6b7280" />
-                      </button>
-                      <button style={{ width: 28, height: 28, borderRadius: 7, border: `1px solid ${C.border}`,
-                        background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                      {/* Edit */}
+                      <button onClick={() => openEdit(a)}
+                        title="Edit"
+                        style={{ width: 28, height: 28, borderRadius: 7, border: `1px solid ${C.border}`,
+                          background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
                         <Edit2 size={13} color="#6b7280" />
                       </button>
-                      <button onClick={() => toggleStatus(a.id)}
+                      {/* Toggle */}
+                      <button onClick={() => handleToggle(a._id)}
+                        title={a.isActive ? 'Deactivate' : 'Activate'}
                         style={{ width: 28, height: 28, borderRadius: 7, border: 'none',
-                          background: a.status === 'Active' ? '#fef2f2' : '#f0fdf4',
+                          background: a.isActive ? '#fef2f2' : '#f0fdf4',
                           display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-                        {a.status === 'Active'
+                        {a.isActive
                           ? <ToggleRight size={15} color={C.success} />
-                          : <ToggleLeft size={15} color="#9ca3af" />}
+                          : <ToggleLeft  size={15} color="#9ca3af" />}
+                      </button>
+                      {/* Delete */}
+                      <button onClick={() => handleDelete(a._id, a.name)}
+                        title="Delete"
+                        style={{ width: 28, height: 28, borderRadius: 7, border: 'none',
+                          background: '#fef2f2', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                        <Trash2 size={13} color={C.danger} />
                       </button>
                     </div>
                   </td>
@@ -331,52 +347,68 @@ export default function AdminManagement() {
         </div>
 
         {/* ── PAGINATION ── */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px',
-          borderTop: `1px solid ${C.border}`, flexWrap: 'wrap', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '10px 16px', borderTop: `1px solid ${C.border}`, flexWrap: 'wrap', gap: 8 }}>
           <span style={{ fontSize: 12, color: '#6b7280' }}>
-            Showing {Math.min((page - 1) * PER_PAGE + 1, total)}–{Math.min(page * PER_PAGE, total)} of {total} admins
+            {total > 0
+              ? `Showing ${(page - 1) * PER_PAGE + 1}–${Math.min(page * PER_PAGE, total)} of ${total} admins`
+              : '0 admins'}
           </span>
           <div style={{ display: 'flex', gap: 4 }}>
             <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
               style={{ width: 30, height: 30, borderRadius: 7, border: `1px solid ${C.border}`, background: '#fff',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: page === 1 ? 'not-allowed' : 'pointer', opacity: page === 1 ? 0.4 : 1 }}>
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: page === 1 ? 'not-allowed' : 'pointer', opacity: page === 1 ? 0.4 : 1 }}>
               <ChevronLeft size={14} />
             </button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
-              <button key={n} onClick={() => setPage(n)}
-                style={{ width: 30, height: 30, borderRadius: 7, border: `1px solid ${n === page ? C.primary : C.border}`,
-                  background: n === page ? C.primary : '#fff', color: n === page ? '#fff' : '#374151',
-                  fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>{n}</button>
-            ))}
-            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+            {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+              const start = Math.max(1, page - 2)
+              const n = start + i
+              if (n > totalPages) return null
+              return (
+                <button key={n} onClick={() => setPage(n)}
+                  style={{ width: 30, height: 30, borderRadius: 7,
+                    border: `1px solid ${n === page ? C.primary : C.border}`,
+                    background: n === page ? C.primary : '#fff',
+                    color: n === page ? '#fff' : '#374151',
+                    fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>{n}</button>
+              )
+            })}
+            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages || totalPages === 0}
               style={{ width: 30, height: 30, borderRadius: 7, border: `1px solid ${C.border}`, background: '#fff',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: page === totalPages ? 'not-allowed' : 'pointer', opacity: page === totalPages ? 0.4 : 1 }}>
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: (page === totalPages || totalPages === 0) ? 'not-allowed' : 'pointer',
+                opacity: (page === totalPages || totalPages === 0) ? 0.4 : 1 }}>
               <ChevronRight size={14} />
             </button>
           </div>
         </div>
       </div>
 
-      {/* ═══════════════════════════════
-          CREATE ADMIN MODAL
-      ═══════════════════════════════ */}
+      {/* ═══════════════════════════════════════
+          CREATE / EDIT ADMIN MODAL
+      ═══════════════════════════════════════ */}
       {showModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 9999,
           display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-          <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 640,
+          <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 520,
             maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
 
-            {/* Modal Header */}
+            {/* Header */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               padding: '16px 20px', borderBottom: `1px solid ${C.border}` }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <div style={{ width: 34, height: 34, borderRadius: 9, background: C.primary,
                   display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Plus size={16} color="#fff" />
+                  {editAdmin ? <Edit2 size={16} color="#fff" /> : <Plus size={16} color="#fff" />}
                 </div>
                 <div>
-                  <h2 style={{ fontSize: 15, fontWeight: 800, color: '#111827', margin: 0 }}>Create Admin</h2>
-                  <p style={{ fontSize: 11, color: '#9ca3af', margin: 0 }}>Add a new regional or area admin</p>
+                  <h2 style={{ fontSize: 15, fontWeight: 800, color: '#111827', margin: 0 }}>
+                    {editAdmin ? 'Edit Admin' : 'Create Admin'}
+                  </h2>
+                  <p style={{ fontSize: 11, color: '#9ca3af', margin: 0 }}>
+                    {editAdmin ? `Editing ${editAdmin.name}` : 'Fill details to create a new admin account'}
+                  </p>
                 </div>
               </div>
               <button onClick={() => setShowModal(false)}
@@ -387,121 +419,99 @@ export default function AdminManagement() {
             </div>
 
             <div style={{ padding: '20px' }}>
-              {/* Basic Info */}
-              <p style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>Basic Information</p>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
-                <div>
+                <div style={{ gridColumn: '1 / -1' }}>
                   <label style={labelStyle}>Full Name *</label>
                   <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                    placeholder="e.g. Rajesh Kumar Sharma" style={inputStyle} />
+                    placeholder="e.g. Rajesh Kumar" style={inputStyle} />
                 </div>
-                <div>
+                <div style={{ gridColumn: '1 / -1' }}>
                   <label style={labelStyle}>Email Address *</label>
                   <input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                    placeholder="admin@pharmanexus.in" style={inputStyle} />
+                    placeholder="admin@example.com" style={inputStyle}
+                    disabled={!!editAdmin} />
+                  {editAdmin && <p style={{ fontSize: 11, color: '#9ca3af', margin: '4px 0 0' }}>Email cannot be changed after creation</p>}
                 </div>
                 <div>
-                  <label style={labelStyle}>Phone Number *</label>
+                  <label style={labelStyle}>Phone Number</label>
                   <input type="tel" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
                     placeholder="9876543210" style={inputStyle} />
                 </div>
                 <div>
-                  <label style={labelStyle}>Password *</label>
-                  <input type="password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
-                    placeholder="Min 8 characters" style={inputStyle} />
+                  <label style={labelStyle}>Gender</label>
+                  <select value={form.gender} onChange={e => setForm(f => ({ ...f, gender: e.target.value }))}
+                    style={{ ...inputStyle, cursor: 'pointer' }}>
+                    <option value="">Select gender</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <label style={labelStyle}>Role *</label>
+                  <select value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))}
+                    style={{ ...inputStyle, cursor: 'pointer' }} disabled={!!editAdmin}>
+                    <option value="Admin">Admin</option>
+                    <option value="SuperAdmin">SuperAdmin</option>
+                  </select>
+                  {!editAdmin && (
+                    <p style={{ fontSize: 11, color: '#9ca3af', margin: '4px 0 0' }}>
+                      Password will be auto-generated and shown after creation
+                    </p>
+                  )}
                 </div>
               </div>
 
-              {/* Role */}
-              <div style={{ marginBottom: 18 }}>
-                <label style={labelStyle}>Role *</label>
-                <select value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))}
-                  style={{ ...inputStyle, width: 'auto', minWidth: 200, cursor: 'pointer' }}>
-                  <option>Regional Admin</option>
-                  <option>Area Admin</option>
-                </select>
-              </div>
-
-              {/* Assign States */}
-              <p style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Geographic Scope</p>
-              <div style={{ marginBottom: 14 }}>
-                <label style={labelStyle}>Assign States</label>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                  {ALL_STATES.map(s => {
-                    const sel = form.selectedStates.includes(s)
-                    return (
-                      <button key={s} onClick={() => toggleState(s)}
-                        style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 8,
-                          border: `1px solid ${sel ? C.primary : C.border}`,
-                          background: sel ? `${C.primary}10` : '#f9fafb',
-                          color: sel ? C.primary : '#374151',
-                          fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-                        {sel && <Check size={11} />}
-                        <MapPin size={11} />
-                        {s}
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-
-              {/* Assign Cities */}
-              {availableCities.length > 0 && (
-                <div style={{ marginBottom: 18 }}>
-                  <label style={labelStyle}>Assign Cities (based on selected states)</label>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-                    {availableCities.map(c => {
-                      const sel = form.selectedCities.includes(c)
-                      return (
-                        <button key={c} onClick={() => toggleCity(c)}
-                          style={{ padding: '5px 11px', borderRadius: 7,
-                            border: `1px solid ${sel ? C.success : C.border}`,
-                            background: sel ? '#f0fdf4' : '#f9fafb',
-                            color: sel ? C.success : '#374151',
-                            fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
-                          {c}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Permissions */}
-              <div style={{ marginBottom: 22 }}>
-                <label style={labelStyle}>Permissions</label>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                  {PERMISSIONS.map(p => {
-                    const sel = form.permissions.includes(p)
-                    return (
-                      <label key={p} onClick={() => togglePermission(p)}
-                        style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px',
-                          borderRadius: 8, border: `1px solid ${sel ? C.primary : C.border}`,
-                          background: sel ? `${C.primary}08` : '#fafafa', cursor: 'pointer' }}>
-                        <div style={{ width: 16, height: 16, borderRadius: 4, border: `2px solid ${sel ? C.primary : '#d1d5db'}`,
-                          background: sel ? C.primary : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                          {sel && <Check size={10} color="#fff" strokeWidth={3} />}
-                        </div>
-                        <span style={{ fontSize: 12, fontWeight: 500, color: sel ? C.primary : '#374151' }}>{p}</span>
-                      </label>
-                    )
-                  })}
-                </div>
-              </div>
-
-              {/* Submit */}
               <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
                 <button onClick={() => setShowModal(false)}
                   style={{ padding: '9px 20px', borderRadius: 8, border: `1px solid ${C.border}`,
                     background: '#fff', fontSize: 13, fontWeight: 600, color: '#374151', cursor: 'pointer' }}>
                   Cancel
                 </button>
-                <button onClick={handleSubmit}
-                  style={{ padding: '9px 22px', borderRadius: 8, border: 'none',
-                    background: C.primary, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-                  Create Admin
+                <button onClick={handleSubmit} disabled={submitting}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 22px', borderRadius: 8,
+                    border: 'none', background: submitting ? '#6fa3d0' : C.primary,
+                    color: '#fff', fontSize: 13, fontWeight: 700, cursor: submitting ? 'not-allowed' : 'pointer' }}>
+                  <Save size={14} />
+                  {submitting ? 'Saving…' : editAdmin ? 'Save Changes' : 'Create Admin'}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════
+          CREDENTIALS POPUP (after create)
+      ═══════════════════════════════════════ */}
+      {credsPopup && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 10000,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 420,
+            boxShadow: '0 20px 60px rgba(0,0,0,0.25)', overflow: 'hidden' }}>
+            <div style={{ background: C.primary, padding: '20px', textAlign: 'center' }}>
+              <Check size={36} color={C.accent} style={{ marginBottom: 8 }} />
+              <h2 style={{ fontSize: 16, fontWeight: 800, color: '#fff', margin: 0 }}>Admin Created Successfully!</h2>
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', margin: '4px 0 0' }}>
+                Save these credentials — they won&apos;t be shown again
+              </p>
+            </div>
+            <div style={{ padding: '24px 24px 20px' }}>
+              <div style={{ background: '#f8f9fb', borderRadius: 10, padding: '16px', marginBottom: 16 }}>
+                <div style={{ marginBottom: 12 }}>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 1 }}>User ID</label>
+                  <p style={{ fontSize: 16, fontWeight: 800, color: C.primary, margin: '4px 0 0', fontFamily: 'monospace' }}>{credsPopup.userId}</p>
+                </div>
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 1 }}>Password</label>
+                  <p style={{ fontSize: 16, fontWeight: 800, color: C.danger, margin: '4px 0 0', fontFamily: 'monospace' }}>{credsPopup.password}</p>
+                </div>
+              </div>
+              <button onClick={() => setCredsPopup(null)}
+                style={{ width: '100%', padding: '11px 0', background: C.primary, border: 'none',
+                  borderRadius: 9, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                I&apos;ve saved the credentials
+              </button>
             </div>
           </div>
         </div>

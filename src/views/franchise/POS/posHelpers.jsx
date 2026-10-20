@@ -81,12 +81,12 @@ export const CartTable = ({ cart, onQty, onRemove }) => {
               </Td>
               <Td style={{ fontFamily: 'monospace', fontSize: 11, color: '#6b7280' }}>{item.batch}</Td>
               <Td><QtyControl qty={item.qty} onDec={() => onQty(item.id, -1)} onInc={() => onQty(item.id, 1)} /></Td>
-              <Td style={{ fontWeight: 600 }}>₹{item.mrp.toFixed(2)}</Td>
+              <Td style={{ fontWeight: 600 }}>₹{Number(item.mrp || 0).toFixed(2)}</Td>
               <Td>
                 <input type="number" defaultValue={0} min={0} max={100}
                   style={{ width: 48, padding: '4px 6px', border: '1px solid #e5e7eb', borderRadius: 5, fontSize: 12, textAlign: 'center', outline: 'none' }} />
               </Td>
-              <Td style={{ fontWeight: 700, color: '#0c3b73' }}>₹{(item.mrp * item.qty).toFixed(2)}</Td>
+              <Td style={{ fontWeight: 700, color: '#0c3b73' }}>₹{(Number(item.mrp || 0) * item.qty).toFixed(2)}</Td>
               <Td>
                 <button onClick={() => onRemove(item.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', padding: 2 }}><Trash2 size={13} /></button>
               </Td>
@@ -99,11 +99,11 @@ export const CartTable = ({ cart, onQty, onRemove }) => {
 }
 
 export const BillSummaryPanel = ({ cart, discount, setDiscount, footer }) => {
-  const subtotal = cart.reduce((s, i) => s + i.mrp * i.qty, 0)
+  const subtotal = cart.reduce((s, i) => s + Number(i.mrp || 0) * (i.qty || 1), 0)
   const discAmt  = subtotal * (discount / 100)
   const taxable  = subtotal - discAmt
-  const gst5     = cart.filter(i => i.gst === 5).reduce((s, i) => s + i.mrp * i.qty, 0) * 0.05
-  const gst12    = cart.filter(i => i.gst === 12).reduce((s, i) => s + i.mrp * i.qty, 0) * 0.12
+  const gst5     = cart.filter(i => i.gst === 5).reduce((s, i) => s + Number(i.mrp || 0) * (i.qty || 1), 0) * 0.05
+  const gst12    = cart.filter(i => i.gst === 12).reduce((s, i) => s + Number(i.mrp || 0) * (i.qty || 1), 0) * 0.12
   const gstTotal = gst5 + gst12
   const total    = taxable + gstTotal
 
@@ -139,7 +139,7 @@ export const BillSummaryPanel = ({ cart, discount, setDiscount, footer }) => {
 }
 
 export const calcTotal = (cart, discount = 0) => {
-  const subtotal = cart.reduce((s, i) => s + i.mrp * i.qty, 0)
+  const subtotal = cart.reduce((s, i) => s + Number(i.mrp || 0) * (i.qty || 1), 0)
   const discAmt  = subtotal * (discount / 100)
   const taxable  = subtotal - discAmt
   const gst      = taxable * 0.05

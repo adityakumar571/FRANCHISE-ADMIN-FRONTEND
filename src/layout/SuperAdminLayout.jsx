@@ -13,7 +13,7 @@ import Cookies from 'js-cookie'
 import {
   LayoutDashboard, Users, Building2, CreditCard, Package, Truck,
   Link2, ClipboardList, Settings, Bell, ChevronDown, ChevronRight,
-  LogOut, Shield, Menu, X, BarChart2, HelpCircle,
+  LogOut, Shield, Menu, X, BarChart2, HelpCircle, ShoppingCart,
 } from 'lucide-react'
 
 /* ─── Nav config (SOW Section 4 Screen Groups) ─── */
@@ -25,6 +25,9 @@ const NAV = [
   { label: 'Medicine Master',   path: '/superadmin/medicines',     icon: Package },
   { label: 'Distributors',      path: '/superadmin/distributors',  icon: Truck },
   { label: 'Supplier Assignment',path: '/superadmin/supplier-assignment', icon: Link2 },
+  { label: 'Supplier Management', path: '/superadmin/suppliers', icon: ShoppingCart },
+  { label: 'Supplier Medicines', path: '/superadmin/supplier-medicines', icon: Package },
+  { label: 'Bulk Medicine Add', path: '/superadmin/bulk-medicine-assignment', icon: Package, badge: { color: 'success', text: 'NEW' } },
   { label: 'Reports',           path: '/superadmin/reports',       icon: BarChart2 },
   { label: 'Audit Logs',        path: '/superadmin/audit',         icon: ClipboardList },
   { label: 'Settings',          path: '/superadmin/settings',      icon: Settings },

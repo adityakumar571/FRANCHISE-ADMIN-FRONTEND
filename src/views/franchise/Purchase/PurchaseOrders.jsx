@@ -1,8 +1,9 @@
 /* eslint-disable prettier/prettier */
 /**
- * PurchaseOrders — Real API integration
+ * PurchaseOrders — Real API integration with prefilled data support
  */
 import { useState, useEffect, useCallback } from 'react'
+import { useLocation } from 'react-router-dom'
 import { FileText, Search, Plus, Eye } from 'lucide-react'
 import { getRequest, postRequest, putRequest } from '../../../Helpers'
 import toast from 'react-hot-toast'
@@ -13,6 +14,7 @@ import CreatePOModal from './CreatePOModal'
 import PODetailModal from './PODetailModal'
 
 const PurchaseOrders = () => {
+  const location = useLocation()
   const [data, setData]         = useState([])
   const [loading, setLoading]   = useState(true)
   const [search, setSearch]     = useState('')
@@ -23,14 +25,36 @@ const PurchaseOrders = () => {
   const [createOpen, setCreateOpen] = useState(false)
   const [detailOpen, setDetailOpen] = useState(false)
   const [selected, setSelected] = useState(null)
+  const [prefilledData, setPrefilledData] = useState({ supplier: null, medicine: null })
+
+  // Check if coming from LiveRateCompare with prefilled data
+  useEffect(() => {
+    if (location.state?.prefilledSupplier && location.state?.prefilledMedicine) {
+      setPrefilledData({
+        supplier: location.state.prefilledSupplier,
+        medicine: location.state.prefilledMedicine
+      })
+      setCreateOpen(true)
+      // Clear location state to prevent reopening on refresh
+      window.history.replaceState({}, document.title)
+    }
+  }, [location])
 
   const fetchOrders = useCallback(async () => {
+    console.log('📋 Fetching purchase orders...')
     setLoading(true)
     try {
       const res = await getRequest(`/franchise/purchase/orders?search=${encodeURIComponent(search)}&status=${statusFilter}&page=${page}&limit=${limit}`)
-      setData(res.data?.data?.orders || [])
-      setTotal(res.data?.data?.total || 0)
-    } catch {
+      console.log('📋 Purchase orders response:', res)
+      console.log('📋 Orders data:', res.data?.data?.orders || res.data?.orders)
+      
+      const orders = res.data?.data?.orders || res.data?.orders || []
+      setData(orders)
+      setTotal(res.data?.data?.total || res.data?.total || 0)
+      
+      console.log(`✅ Loaded ${orders.length} purchase orders`)
+    } catch (err) {
+      console.error('❌ Failed to fetch purchase orders:', err)
       toast.error('Failed to load purchase orders')
     } finally {
       setLoading(false)
@@ -94,8 +118,23 @@ const PurchaseOrders = () => {
       {createOpen && (
         <CreatePOModal
           open={createOpen}
-          onClose={() => setCreateOpen(false)}
-          onSaved={() => { setCreateOpen(false); toast.success('PO created'); fetchOrders() }}
+          onClose={() => {
+            setCreateOpen(false)
+            setPrefilledData({ supplier: null, medicine: null })
+          }}
+          onSaved={() => { 
+            console.log('✅ PO saved callback triggered')
+            setCreateOpen(false)
+            setPrefilledData({ supplier: null, medicine: null })
+            
+            // Small delay to ensure backend has saved
+            setTimeout(() => {
+              console.log('🔄 Refreshing purchase orders list...')
+              fetchOrders()
+            }, 500)
+          }}
+          prefilledSupplier={prefilledData.supplier}
+          prefilledMedicine={prefilledData.medicine}
         />
       )}
       {detailOpen && <PODetailModal open={detailOpen} onClose={() => setDetailOpen(false)} data={selected} />}

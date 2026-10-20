@@ -165,27 +165,63 @@ function AdminDashboard() {
   const fetchAll = useCallback(async () => {
     setLoading(true)
     try {
-      const [sumRes, ratesRes, trendRes, alertsRes, topRes, expiryRes, salesRes, purchaseRes, stockRes] =
+      const [sumRes, ratesRes, trendRes, alertsRes, topRes, expiryRes, salesRes, /* purchaseRes, */ stockRes] =
         await Promise.allSettled([
           getRequest('/franchise/dashboard/summary'),
-          getRequest('/franchise/dashboard/live-rates?medicine=Clavm+625+Tablet'),
+          getRequest('/franchise-suppliers/medicines/compare/Clavm 625'),
           getRequest('/franchise/dashboard/price-trend?medicine=Clavm+625+Tablet&days=7'),
           getRequest('/franchise/dashboard/rate-alerts'),
           getRequest('/franchise/dashboard/top-moving?period=month&limit=5'),
           getRequest('/franchise/dashboard/expiry-alerts?days=60'),
           getRequest('/franchise/sales/recent?limit=5'),
-          getRequest('/franchise/purchase/recent?limit=5'),
+          // getRequest('/franchise/purchase/recent?limit=5'), // COMMENTED: Recent Purchases
           getRequest('/franchise/inventory/low-stock?limit=5'),
         ])
 
       if (sumRes.status === 'fulfilled')      setSummary(sumRes.value.data?.data)
-      if (ratesRes.status === 'fulfilled')    setLiveRates(ratesRes.value.data?.data || { medicine: {}, rates: [] })
+      
+      // Transform main supplier API response to match dashboard format
+      if (ratesRes.status === 'fulfilled') {
+        const supplierData = ratesRes.value.data?.data
+        if (supplierData && supplierData.suppliers && supplierData.suppliers.length > 0) {
+          const transformedRates = {
+            medicine: {
+              name: 'Clavm 625',
+              salt: 'Amoxicillin + Clavulanic Acid',
+              packSize: '10 tablets',
+              mrp: supplierData.suppliers[0]?.medicine?.mrp || 0,
+              lastPurchaseRate: null, // Not available from supplier API
+              bestRateToday: supplierData.comparison.lowestPrice || 0,
+              availableWholesalers: supplierData.comparison.count || 0
+            },
+            rates: supplierData.suppliers.map((item, index) => ({
+              rank: index + 1,
+              name: item.supplierInfo.companyName,
+              verified: item.supplierInfo.rating >= 4,
+              rating: item.supplierInfo.rating || 0,
+              basic: item.medicine.supplierPrice || 0,
+              scheme: item.medicine.scheme || 'No Scheme',
+              gst: item.medicine.gst || 0,
+              other: 0, // Not in supplier API
+              effective: item.medicine.effectiveRate || 0,
+              stock: item.medicine.stock || 0,
+              delivery: item.medicine.deliveryEstimate || 'Next Day',
+              best: item.isBestPrice || false
+            })),
+            updatedAt: new Date().toISOString()
+          }
+          setLiveRates(transformedRates)
+        } else {
+          setLiveRates({ medicine: { availableWholesalers: 0 }, rates: [] })
+        }
+      }
+      
       if (trendRes.status === 'fulfilled')    setPriceTrend(trendRes.value.data?.data)
       if (alertsRes.status === 'fulfilled')   setRateAlerts(alertsRes.value.data?.data || [])
       if (topRes.status === 'fulfilled')      setTopMoving(topRes.value.data?.data || [])
       if (expiryRes.status === 'fulfilled')   setExpiryAlerts(expiryRes.value.data?.data || [])
       if (salesRes.status === 'fulfilled')    setRecentSales(salesRes.value.data?.data || [])
-      if (purchaseRes.status === 'fulfilled') setRecentPurchases(purchaseRes.value.data?.data || [])
+      // if (purchaseRes.status === 'fulfilled') setRecentPurchases(purchaseRes.value.data?.data || []) // COMMENTED
       if (stockRes.status === 'fulfilled')    setLowStock(stockRes.value.data?.data || [])
     } catch {
       toast.error('Failed to load dashboard data')
@@ -637,7 +673,7 @@ function AdminDashboard() {
               </tbody>
             </table>
           </div>
-        </Card>
+        </Card> */}
 
         {/* Stock Alerts */}
         <Card className="flex flex-col md:col-span-2 2xl:col-span-1">

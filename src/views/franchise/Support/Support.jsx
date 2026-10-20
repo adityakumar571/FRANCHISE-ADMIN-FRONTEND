@@ -1,49 +1,32 @@
 /* eslint-disable prettier/prettier */
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   HeadphonesIcon, Ticket, HelpCircle, BookOpen, Info,
   Phone, Mail, MessageCircle, Plus, Eye, ChevronRight,
-  CheckCircle, Clock, AlertCircle, XCircle, Search,
-  ChevronDown, ChevronUp, ExternalLink
+  ChevronDown, ChevronUp, ExternalLink, Search, CheckCircle
 } from 'lucide-react'
-
-/* ─── Mock tickets ─── */
-const TICKETS = [
-  { id: '#TK-2025-1058', subject: 'POS billing issue',              status: 'Open',        priority: 'High',   updated: '20 May 2025, 10:15 AM' },
-  { id: '#TK-2025-1057', subject: 'Medicine stock not updating',    status: 'In Progress', priority: 'Medium', updated: '19 May 2025, 04:30 PM' },
-  { id: '#TK-2025-1056', subject: 'Printer not working',            status: 'Open',        priority: 'Medium', updated: '19 May 2025, 11:20 AM' },
-  { id: '#TK-2025-1055', subject: 'GST report mismatch',            status: 'Resolved',    priority: 'Low',    updated: '18 May 2025, 05:45 PM' },
-  { id: '#TK-2025-1054', subject: 'Unable to login',                status: 'Closed',      priority: 'High',   updated: '18 May 2025, 09:30 AM' },
-]
-
-const FAQS = [
-  { q: 'How do I add a new medicine?',        a: 'Go to Products → Add Product. Fill in medicine name, salt/generic name, company, MRP, stock and save.' },
-  { q: 'How to backup my data?',              a: 'Go to Settings → System → Backup. You can configure auto-backup or trigger a manual backup from there.' },
-  { q: 'How to generate GST report?',         a: 'Go to Reports → Financial Report. Select the date range and click Export to download the GST-ready report.' },
-  { q: 'How to connect barcode scanner?',     a: 'Plug in USB barcode scanner. It works out of the box on billing page. For Bluetooth, go to Settings → Printer Settings.' },
-  { q: 'How to manage user roles?',           a: 'Go to Settings → Security tab. From there you can manage roles and assign permissions to each staff member.' },
-  { q: 'How to update medicine stock?',       a: 'Go to Inventory and use the Stock Adjustment button to increase or decrease stock for any item.' },
-]
-
-const GUIDES = [
-  { title: 'Getting Started Guide',           tag: 'PDF' },
-  { title: 'POS Billing Guide',               tag: 'PDF' },
-  { title: 'Inventory Management Guide',      tag: 'PDF' },
-  { title: 'Purchase & Supplier Guide',       tag: 'PDF' },
-  { title: 'Reports & Analytics Guide',       tag: 'PDF' },
-]
+import toast from 'react-hot-toast'
+import { getRequest, postRequest } from '../../../Helpers'
 
 const STATUS_CFG = {
-  Open:        { bg: '#fffbeb', color: '#d97706', border: '#fde68a' },
+  Open:          { bg: '#fffbeb', color: '#d97706', border: '#fde68a' },
   'In Progress': { bg: '#eff6ff', color: '#2563eb', border: '#bfdbfe' },
-  Resolved:    { bg: '#f0fdf4', color: '#16a34a', border: '#bbf7d0' },
-  Closed:      { bg: '#f3f4f6', color: '#6b7280', border: '#e5e7eb' },
+  Resolved:      { bg: '#f0fdf4', color: '#16a34a', border: '#bbf7d0' },
+  Closed:        { bg: '#f3f4f6', color: '#6b7280', border: '#e5e7eb' },
 }
 const PRIORITY_CFG = {
   High:   { color: '#dc2626' },
   Medium: { color: '#d97706' },
   Low:    { color: '#16a34a' },
 }
+
+const GUIDES = [
+  { title: 'Getting Started Guide',      tag: 'PDF' },
+  { title: 'POS Billing Guide',          tag: 'PDF' },
+  { title: 'Inventory Management Guide', tag: 'PDF' },
+  { title: 'Purchase & Supplier Guide',  tag: 'PDF' },
+  { title: 'Reports & Analytics Guide',  tag: 'PDF' },
+]
 
 const StatusBadge = ({ val }) => {
   const c = STATUS_CFG[val] || STATUS_CFG.Closed
@@ -53,7 +36,6 @@ const StatusBadge = ({ val }) => {
     </span>
   )
 }
-
 const Th = ({ c }) => (
   <th style={{ padding: '10px 12px', fontSize: 11, color: '#6b7280', fontWeight: 700, textTransform: 'uppercase', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', textAlign: 'left', whiteSpace: 'nowrap' }}>{c}</th>
 )
@@ -61,10 +43,33 @@ const Td = ({ children, style = {} }) => (
   <td style={{ padding: '10px 12px', fontSize: 13, color: '#374151', borderBottom: '1px solid #f3f4f6', ...style }}>{children}</td>
 )
 
-/* ─── New Ticket Modal ─── */
-function NewTicketModal({ onClose }) {
+function NewTicketModal({ onClose, onSaved }) {
   const [form, setForm] = useState({ subject: '', category: 'Billing', priority: 'Medium', desc: '' })
+  const [saving, setSaving] = useState(false)
   const s = (key) => (val) => setForm(p => ({ ...p, [key]: val }))
+
+  const handleSubmit = async () => {
+    if (!form.subject.trim() || !form.desc.trim()) {
+      toast.error('Subject and description required')
+      return
+    }
+    setSaving(true)
+    try {
+      await postRequest('franchise/support/tickets', {
+        subject: form.subject,
+        category: form.category,
+        priority: form.priority,
+        description: form.desc,
+      })
+      toast.success('Ticket created successfully')
+      onSaved()
+      onClose()
+    } catch {
+      toast.error('Failed to create ticket')
+    } finally {
+      setSaving(false)
+    }
+  }
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -101,22 +106,52 @@ function NewTicketModal({ onClose }) {
         </div>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 20 }}>
           <button onClick={onClose} style={{ padding: '9px 18px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13, fontWeight: 600, color: '#374151', background: '#fff', cursor: 'pointer' }}>Cancel</button>
-          <button onClick={onClose} style={{ padding: '9px 18px', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, color: '#fff', background: '#0c3b73', cursor: 'pointer' }}>Submit Ticket</button>
+          <button onClick={handleSubmit} disabled={saving} style={{ padding: '9px 18px', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, color: '#fff', background: '#0c3b73', cursor: 'pointer', opacity: saving ? 0.7 : 1 }}>
+            {saving ? 'Submitting...' : 'Submit Ticket'}
+          </button>
         </div>
       </div>
     </div>
   )
 }
 
-/* ─── Main ─── */
 export default function Support() {
-  const [activeTab, setActiveTab]   = useState('support')
-  const [showModal, setShowModal]   = useState(false)
-  const [openFaq, setOpenFaq]       = useState(null)
-  const [search, setSearch]         = useState('')
+  const [activeTab, setActiveTab] = useState('support')
+  const [showModal, setShowModal] = useState(false)
+  const [openFaq, setOpenFaq]     = useState(null)
+  const [search, setSearch]       = useState('')
 
-  const filteredTickets = TICKETS.filter(t =>
-    search === '' || t.subject.toLowerCase().includes(search.toLowerCase()) || t.id.toLowerCase().includes(search.toLowerCase())
+  const [tickets, setTickets]     = useState([])
+  const [faqs, setFaqs]           = useState([])
+  const [loadingTickets, setLoadingTickets] = useState(false)
+  const [loadingFaqs, setLoadingFaqs]       = useState(false)
+
+  useEffect(() => { fetchTickets() }, [])
+  useEffect(() => { if (activeTab === 'faqs') fetchFaqs() }, [activeTab])
+
+  const fetchTickets = async () => {
+    setLoadingTickets(true)
+    try {
+      const res = await getRequest('franchise/support/tickets')
+      setTickets(res?.data || [])
+    } catch { setTickets([]) }
+    finally { setLoadingTickets(false) }
+  }
+
+  const fetchFaqs = async () => {
+    if (faqs.length > 0) return
+    setLoadingFaqs(true)
+    try {
+      const res = await getRequest('franchise/support/faqs')
+      setFaqs(res?.data || [])
+    } catch { setFaqs([]) }
+    finally { setLoadingFaqs(false) }
+  }
+
+  const filteredTickets = tickets.filter(t =>
+    search === '' ||
+    (t.subject || '').toLowerCase().includes(search.toLowerCase()) ||
+    (t._id || t.ticketId || '').toLowerCase().includes(search.toLowerCase())
   )
 
   const TABS = [
@@ -129,9 +164,8 @@ export default function Support() {
 
   return (
     <div style={{ fontFamily: 'Inter, sans-serif', display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {showModal && <NewTicketModal onClose={() => setShowModal(false)} />}
+      {showModal && <NewTicketModal onClose={() => setShowModal(false)} onSaved={fetchTickets} />}
 
-      {/* Header */}
       <div>
         <h1 style={{ fontSize: 20, fontWeight: 800, color: '#111827', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
           <HeadphonesIcon size={22} color="#0c3b73" /> Help Center
@@ -158,7 +192,7 @@ export default function Support() {
         })}
       </div>
 
-      {/* ── SUPPORT TAB ── */}
+      {/* SUPPORT TAB */}
       {activeTab === 'support' && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
           {/* Contact Support */}
@@ -207,11 +241,13 @@ export default function Support() {
               </button>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {TICKETS.slice(0, 4).map((t, i) => (
+              {loadingTickets ? (
+                <p style={{ textAlign: 'center', color: '#9ca3af', fontSize: 13, padding: '12px 0' }}>Loading...</p>
+              ) : tickets.slice(0, 4).map((t, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', background: '#f9fafb', borderRadius: 8 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ fontSize: 12, fontWeight: 600, color: '#111827', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.subject}</p>
-                    <p style={{ fontSize: 10, color: '#9ca3af', margin: '2px 0 0' }}>{t.id}</p>
+                    <p style={{ fontSize: 10, color: '#9ca3af', margin: '2px 0 0' }}>{t.ticketId || t._id}</p>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, marginLeft: 8 }}>
                     <StatusBadge val={t.status} />
@@ -237,9 +273,9 @@ export default function Support() {
               </button>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {FAQS.slice(0, 5).map((f, i) => (
+              {faqs.slice(0, 5).map((f, i) => (
                 <button key={i} onClick={() => setActiveTab('faqs')} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 10px', background: '#f9fafb', borderRadius: 8, border: 'none', cursor: 'pointer', textAlign: 'left', width: '100%' }}>
-                  <span style={{ fontSize: 12, color: '#374151', fontWeight: 500 }}>{f.q}</span>
+                  <span style={{ fontSize: 12, color: '#374151', fontWeight: 500 }}>{f.question || f.q}</span>
                   <ChevronRight size={13} color="#9ca3af" style={{ flexShrink: 0 }} />
                 </button>
               ))}
@@ -248,16 +284,16 @@ export default function Support() {
         </div>
       )}
 
-      {/* ── TICKETS TAB ── */}
+      {/* TICKETS TAB */}
       {activeTab === 'tickets' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
             <div style={{ display: 'flex', gap: 12 }}>
               {[
-                { label: 'Total', value: TICKETS.length, color: '#0c3b73' },
-                { label: 'Open', value: TICKETS.filter(t => t.status === 'Open').length, color: '#d97706' },
-                { label: 'In Progress', value: TICKETS.filter(t => t.status === 'In Progress').length, color: '#2563eb' },
-                { label: 'Resolved', value: TICKETS.filter(t => t.status === 'Resolved').length, color: '#16a34a' },
+                { label: 'Total',       value: tickets.length,                                          color: '#0c3b73' },
+                { label: 'Open',        value: tickets.filter(t => t.status === 'Open').length,         color: '#d97706' },
+                { label: 'In Progress', value: tickets.filter(t => t.status === 'In Progress').length,  color: '#2563eb' },
+                { label: 'Resolved',    value: tickets.filter(t => t.status === 'Resolved').length,     color: '#16a34a' },
               ].map(c => (
                 <div key={c.label} style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10, padding: '10px 16px', textAlign: 'center', minWidth: 80 }}>
                   <p style={{ fontSize: 18, fontWeight: 700, color: c.color, margin: 0 }}>{c.value}</p>
@@ -282,28 +318,27 @@ export default function Support() {
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
-                  <tr>
-                    {['Ticket ID', 'Subject', 'Status', 'Priority', 'Last Updated', 'Action'].map(h => <Th key={h} c={h} />)}
-                  </tr>
+                  <tr>{['Ticket ID', 'Subject', 'Status', 'Priority', 'Last Updated', 'Action'].map(h => <Th key={h} c={h} />)}</tr>
                 </thead>
                 <tbody>
-                  {filteredTickets.length === 0
-                    ? <tr><td colSpan={6} style={{ padding: 40, textAlign: 'center', color: '#9ca3af' }}>No tickets found</td></tr>
-                    : filteredTickets.map((t, i) => (
-                      <tr key={i} onMouseEnter={e => e.currentTarget.style.background = '#fafafa'} onMouseLeave={e => e.currentTarget.style.background = ''}>
-                        <Td><span style={{ fontFamily: 'monospace', fontSize: 12, color: '#0c3b73', fontWeight: 600 }}>{t.id}</span></Td>
-                        <Td style={{ fontWeight: 500 }}>{t.subject}</Td>
-                        <Td><StatusBadge val={t.status} /></Td>
-                        <Td><span style={{ fontSize: 12, fontWeight: 700, color: PRIORITY_CFG[t.priority]?.color }}>{t.priority}</span></Td>
-                        <Td style={{ fontSize: 11, color: '#6b7280' }}>{t.updated}</Td>
-                        <Td>
-                          <button style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#e0e7ff', border: 'none', borderRadius: 6, padding: '5px 10px', cursor: 'pointer', color: '#0c3b73', fontSize: 12, fontWeight: 600 }}>
-                            <Eye size={12} /> View
-                          </button>
-                        </Td>
-                      </tr>
-                    ))
-                  }
+                  {loadingTickets ? (
+                    <tr><td colSpan={6} style={{ padding: 40, textAlign: 'center', color: '#9ca3af' }}>Loading...</td></tr>
+                  ) : filteredTickets.length === 0 ? (
+                    <tr><td colSpan={6} style={{ padding: 40, textAlign: 'center', color: '#9ca3af' }}>No tickets found</td></tr>
+                  ) : filteredTickets.map((t, i) => (
+                    <tr key={i} onMouseEnter={e => e.currentTarget.style.background = '#fafafa'} onMouseLeave={e => e.currentTarget.style.background = ''}>
+                      <Td><span style={{ fontFamily: 'monospace', fontSize: 12, color: '#0c3b73', fontWeight: 600 }}>{t.ticketId || t._id}</span></Td>
+                      <Td style={{ fontWeight: 500 }}>{t.subject}</Td>
+                      <Td><StatusBadge val={t.status} /></Td>
+                      <Td><span style={{ fontSize: 12, fontWeight: 700, color: PRIORITY_CFG[t.priority]?.color }}>{t.priority}</span></Td>
+                      <Td style={{ fontSize: 11, color: '#6b7280' }}>{t.updatedAt ? new Date(t.updatedAt).toLocaleString('en-IN') : t.updated}</Td>
+                      <Td>
+                        <button style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#e0e7ff', border: 'none', borderRadius: 6, padding: '5px 10px', cursor: 'pointer', color: '#0c3b73', fontSize: 12, fontWeight: 600 }}>
+                          <Eye size={12} /> View
+                        </button>
+                      </Td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -311,30 +346,35 @@ export default function Support() {
         </div>
       )}
 
-      {/* ── FAQS TAB ── */}
+      {/* FAQS TAB */}
       {activeTab === 'faqs' && (
         <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: '24px' }}>
           <h2 style={{ fontSize: 16, fontWeight: 700, color: '#111827', margin: '0 0 18px' }}>Frequently Asked Questions</h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {FAQS.map((f, i) => (
-              <div key={i} style={{ border: '1px solid #e5e7eb', borderRadius: 10, overflow: 'hidden' }}>
-                <button onClick={() => setOpenFaq(openFaq === i ? null : i)}
-                  style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', background: openFaq === i ? '#f0f4ff' : '#fff', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: openFaq === i ? '#0c3b73' : '#111827' }}>{f.q}</span>
-                  {openFaq === i ? <ChevronUp size={16} color="#0c3b73" /> : <ChevronDown size={16} color="#9ca3af" />}
-                </button>
-                {openFaq === i && (
-                  <div style={{ padding: '12px 16px 16px', background: '#f8faff', borderTop: '1px solid #e5e7eb' }}>
-                    <p style={{ fontSize: 13, color: '#374151', margin: 0, lineHeight: 1.6 }}>{f.a}</p>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
+          {loadingFaqs ? (
+            <p style={{ textAlign: 'center', color: '#9ca3af', padding: '32px 0' }}>Loading FAQs...</p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {faqs.map((f, i) => (
+                <div key={i} style={{ border: '1px solid #e5e7eb', borderRadius: 10, overflow: 'hidden' }}>
+                  <button onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                    style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', background: openFaq === i ? '#f0f4ff' : '#fff', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: openFaq === i ? '#0c3b73' : '#111827' }}>{f.question || f.q}</span>
+                    {openFaq === i ? <ChevronUp size={16} color="#0c3b73" /> : <ChevronDown size={16} color="#9ca3af" />}
+                  </button>
+                  {openFaq === i && (
+                    <div style={{ padding: '12px 16px 16px', background: '#f8faff', borderTop: '1px solid #e5e7eb' }}>
+                      <p style={{ fontSize: 13, color: '#374151', margin: 0, lineHeight: 1.6 }}>{f.answer || f.a}</p>
+                    </div>
+                  )}
+                </div>
+              ))}
+              {faqs.length === 0 && <p style={{ textAlign: 'center', color: '#9ca3af', padding: '20px 0' }}>No FAQs found</p>}
+            </div>
+          )}
         </div>
       )}
 
-      {/* ── USER GUIDE TAB ── */}
+      {/* USER GUIDE TAB */}
       {activeTab === 'guide' && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
           <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: '24px' }}>
@@ -361,7 +401,6 @@ export default function Support() {
               ))}
             </div>
           </div>
-
           <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: '24px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
               <Info size={18} color="#0891b2" />
@@ -369,12 +408,12 @@ export default function Support() {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {[
-                { label: 'Product Name',    value: 'PharmaNexus ERP' },
-                { label: 'Version',         value: 'v2.5.1' },
-                { label: 'License Type',    value: 'Premium', highlight: true },
+                { label: 'Product Name',     value: 'PharmaNexus ERP' },
+                { label: 'Version',          value: 'v2.5.1' },
+                { label: 'License Type',     value: 'Premium', highlight: true },
                 { label: 'License Validity', value: '31 Dec 2026' },
-                { label: 'Registered To',   value: 'Aarogya Medical Store' },
-                { label: 'System Status',   value: 'All Systems Operational', green: true },
+                { label: 'Registered To',    value: 'Aarogya Medical Store' },
+                { label: 'System Status',    value: 'All Systems Operational', green: true },
               ].map((r, i) => (
                 <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f3f4f6' }}>
                   <span style={{ fontSize: 12, color: '#6b7280' }}>{r.label}</span>
@@ -389,7 +428,7 @@ export default function Support() {
         </div>
       )}
 
-      {/* ── ABOUT TAB ── */}
+      {/* ABOUT TAB */}
       {activeTab === 'about' && (
         <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: '28px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 24 }}>
@@ -403,10 +442,10 @@ export default function Support() {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14, marginBottom: 24 }}>
             {[
-              { label: '100+ Features',    icon: CheckCircle, color: '#16a34a' },
-              { label: '5000+ Users',      icon: CheckCircle, color: '#0c3b73' },
-              { label: '24/7 Support',     icon: CheckCircle, color: '#7c3aed' },
-              { label: 'Secure & Cloud',   icon: CheckCircle, color: '#d97706' },
+              { label: '100+ Features', icon: CheckCircle, color: '#16a34a' },
+              { label: '5000+ Users',   icon: CheckCircle, color: '#0c3b73' },
+              { label: '24/7 Support',  icon: CheckCircle, color: '#7c3aed' },
+              { label: 'Secure & Cloud',icon: CheckCircle, color: '#d97706' },
             ].map((c, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px', background: '#f9fafb', borderRadius: 10, border: '1px solid #f3f4f6' }}>
                 <c.icon size={18} color={c.color} />
@@ -421,7 +460,7 @@ export default function Support() {
         </div>
       )}
 
-      {/* Bottom — support + guide + about cards (shown on Support tab) */}
+      {/* Bottom guide + about on support tab */}
       {activeTab === 'support' && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
           <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: '20px' }}>
@@ -441,27 +480,17 @@ export default function Support() {
               ))}
             </div>
           </div>
-
           <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: '20px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
               <Info size={16} color="#0891b2" />
               <span style={{ fontSize: 14, fontWeight: 700, color: '#111827' }}>About PharmaNexus ERP</span>
             </div>
             <p style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.7, margin: '0 0 16px' }}>
-              An all-in-one solution for pharmacy, medical store, and healthcare businesses.
+              An all-in-one solution for pharmacy, medical store and healthcare businesses.
             </p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 16 }}>
-              {[['100+', 'Features'], ['5000+', 'Happy Users'], ['24/7', 'Support']].map(([v, l]) => (
-                <div key={l} style={{ textAlign: 'center', padding: '10px', background: '#f9fafb', borderRadius: 8 }}>
-                  <p style={{ fontSize: 16, fontWeight: 800, color: '#0c3b73', margin: 0 }}>{v}</p>
-                  <p style={{ fontSize: 11, color: '#6b7280', margin: '2px 0 0' }}>{l}</p>
-                </div>
-              ))}
-            </div>
-            <div style={{ padding: '10px 14px', background: '#f0fdf4', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#16a34a', display: 'inline-block', flexShrink: 0 }} />
-              <span style={{ fontSize: 12, color: '#16a34a', fontWeight: 600 }}>All Systems Operational</span>
-            </div>
+            <button onClick={() => setActiveTab('about')} style={{ fontSize: 12, fontWeight: 600, color: '#0c3b73', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3 }}>
+              Learn More <ChevronRight size={12} />
+            </button>
           </div>
         </div>
       )}

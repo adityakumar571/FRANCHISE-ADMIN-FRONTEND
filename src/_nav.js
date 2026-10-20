@@ -19,6 +19,7 @@ import {
   Map,
 } from 'lucide-react'
 
+
 const C = '#fabf22'
 const S = { marginRight: 10, flexShrink: 0 }
 const ic = (Icon) => <Icon size={17} color={C} style={S} />
@@ -93,7 +94,7 @@ const franchiseNav = [
     accessKey: 'purchase',
     items: [
       { component: CNavItem, name: 'Purchase Dashboard', to: '/franchise/purchase/dashboard',       icon: ic(LayoutDashboard), accessKey: 'purchase_dashboard' },
-      { component: CNavItem, name: 'New Purchase',       to: '/franchise/purchase/orders',          icon: ic(ShoppingCart),    accessKey: 'purchase_orders'    },
+      { component: CNavItem, name: 'New Purchase',       to: '/franchise/purchase/live-rate',       icon: ic(ShoppingCart),    accessKey: 'purchase_liverates' },
       { component: CNavItem, name: 'Purchase Orders',    to: '/franchise/purchase/orders',          icon: ic(FileText),        accessKey: 'purchase_orders'    },
       { component: CNavItem, name: 'GRN / Inward',       to: '/franchise/purchase/grn',             icon: ic(Warehouse),       accessKey: 'purchase_grn'       },
       { component: CNavItem, name: 'Purchase Returns',   to: '/franchise/purchase/returns',         icon: ic(RotateCcw),       accessKey: 'purchase_returns'   },
@@ -174,9 +175,10 @@ const franchiseNav = [
     icon: ic(FlaskConical),
     accessKey: 'medicines',
     items: [
-      { component: CNavItem, name: 'Medicine List',   to: '/franchise/medicines',        icon: ic(List),   accessKey: 'medicines_list' },
-      { component: CNavItem, name: 'Add Medicine',    to: '/franchise/medicines/add',    icon: ic(Plus),   accessKey: 'medicines_add'  },
-      { component: CNavItem, name: 'Rack Management', to: '/franchise/medicines/racks',  icon: ic(Layers), accessKey: 'medicines_rack' },
+      { component: CNavItem, name: 'Medicine List',     to: '/franchise/medicines',              icon: ic(List),      accessKey: 'medicines_list'    },
+      { component: CNavItem, name: 'Add Medicine',      to: '/franchise/medicines/add',          icon: ic(Plus),      accessKey: 'medicines_add'     },
+      { component: CNavItem, name: 'Rack Management',   to: '/franchise/medicines/racks',        icon: ic(Layers),    accessKey: 'medicines_rack'    },
+      { component: CNavItem, name: 'Category & Units',  to: '/franchise/medicines/masters',      icon: ic(Settings),  accessKey: 'medicines_masters' },
     ],
   },
 
@@ -198,29 +200,32 @@ const franchiseNav = [
     icon: ic(Users),
     accessKey: 'customers',
     items: [
-      { component: CNavItem, name: 'Customer List',     to: '/franchise/customers',                   icon: ic(List),    accessKey: 'customers_list'       },
-      { component: CNavItem, name: 'Customer Wallet',   to: '/franchise/customers/CUS001/wallet',     icon: ic(Wallet),  accessKey: 'customers_wallet'     },
-      { component: CNavItem, name: 'Purchase History',  to: '/franchise/customers/CUS001/history',    icon: ic(History), accessKey: 'customers_history'    },
-      { component: CNavItem, name: 'Medicine Reminder', to: '/franchise/customers/CUS001/reminders',  icon: ic(Bell),    accessKey: 'customers_reminder'   },
-      { component: CNavItem, name: 'Membership',        to: '/franchise/customers/CUS001/membership', icon: ic(Crown),   accessKey: 'customers_membership' },
-      { component: CNavItem, name: 'Loyalty',           to: '/franchise/customers/CUS001/loyalty',    icon: ic(Star),    accessKey: 'customers_loyalty'    },
-      { component: CNavItem, name: 'CareCoin',          to: '/franchise/customers/CUS001/carecoin',   icon: ic(Award),   accessKey: 'customers_carecoin'   },
+      { component: CNavItem, name: 'Customer List',     to: '/franchise/customers',   icon: ic(List),    accessKey: 'customers_list'       },
+      { component: CNavItem, name: 'Customer Wallet',   to: '/franchise/customers',   icon: ic(Wallet),  accessKey: 'customers_wallet',    badge: { color: 'light', text: 'Select customer first' } },
+      { component: CNavItem, name: 'Purchase History',  to: '/franchise/customers',   icon: ic(History), accessKey: 'customers_history',   badge: { color: 'light', text: 'Select customer first' } },
+      { component: CNavItem, name: 'Medicine Reminder', to: '/franchise/customers',   icon: ic(Bell),    accessKey: 'customers_reminder',  badge: { color: 'light', text: 'Select customer first' } },
+      { component: CNavItem, name: 'Membership',        to: '/franchise/customers',   icon: ic(Crown),   accessKey: 'customers_membership',badge: { color: 'light', text: 'Select customer first' } },
+      // { component: CNavItem, name: 'Loyalty',           to: '/franchise/customers',   icon: ic(Star),    accessKey: 'customers_loyalty',   badge: { color: 'light', text: 'Select customer first' } },
+      { component: CNavItem, name: 'CareCoin',          to: '/franchise/customers',   icon: ic(Award),   accessKey: 'customers_carecoin',  badge: { color: 'light', text: 'Select customer first' } },
     ],
   },
 
   /* 12 ── Suppliers (group) ── */
-  {
-    component: CNavGroup,
-    name: 'Suppliers',
-    to: '/franchise/suppliers',
-    icon: ic(Truck),
-    accessKey: 'suppliers',
-    items: [
-      { component: CNavItem, name: 'Supplier List', to: '/franchise/suppliers',             icon: ic(List),        accessKey: 'suppliers_list'        },
-      { component: CNavItem, name: 'Add Supplier',  to: '/franchise/suppliers/add',         icon: ic(Plus),        accessKey: 'suppliers_add'         },
-      { component: CNavItem, name: 'Outstanding',   to: '/franchise/suppliers/outstanding', icon: ic(IndianRupee), accessKey: 'suppliers_outstanding' },
-    ],
-  },
+  // ❌ REMOVED: Tenant supplier management
+  // Suppliers are now global - managed through Supplier Portal
+  // Franchises can view suppliers through Live Rates section
+  // {
+  //   component: CNavGroup,
+  //   name: 'Suppliers',
+  //   to: '/franchise/suppliers',
+  //   icon: ic(Truck),
+  //   accessKey: 'suppliers',
+  //   items: [
+  //     { component: CNavItem, name: 'Supplier List', to: '/franchise/suppliers',             icon: ic(List),        accessKey: 'suppliers_list'        },
+  //     { component: CNavItem, name: 'Add Supplier',  to: '/franchise/suppliers/add',         icon: ic(Plus),        accessKey: 'suppliers_add'         },
+  //     { component: CNavItem, name: 'Outstanding',   to: '/franchise/suppliers/outstanding', icon: ic(IndianRupee), accessKey: 'suppliers_outstanding' },
+  //   ],
+  // },
 
   /* 13 ── Accounts (group) ── */
   {
@@ -261,13 +266,13 @@ const franchiseNav = [
   },
 
   /* 15 ── CRM & Loyalty ── */
-  {
-    component: CNavItem,
-    name: 'CRM & Loyalty',
-    to: '/franchise/customers/CUS001/loyalty',
-    icon: ic(Star),
-    accessKey: 'customers_loyalty',
-  },
+  // {
+  //   component: CNavItem,
+  //   name: 'CRM & Loyalty',
+  //   to: '/franchise/customers',
+  //   icon: ic(Star),
+  //   accessKey: 'customers_loyalty',
+  // },
 
   /* 16 ── Staff & Users ── */
   {
@@ -278,6 +283,7 @@ const franchiseNav = [
     accessKey: 'staff',
     items: [
       { component: CNavItem, name: 'Staff List',          to: '/franchise/staff',             icon: ic(List),        accessKey: 'staff_list'   },
+      { component: CNavItem, name: 'Role Master',         to: '/franchise/staff/roles',       icon: ic(ShieldCheck), accessKey: 'staff_access' },
       { component: CNavItem, name: 'Menu Access Control', to: '/franchise/staff/menu-access', icon: ic(ShieldCheck), accessKey: 'staff_access' },
     ],
   },

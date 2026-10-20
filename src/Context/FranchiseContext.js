@@ -14,7 +14,7 @@
  * Loaded from localStorage on mount (persisted after FranchiseLogin).
  * Cleared on logout.
  */
-import React, { createContext, useContext, useState, useCallback } from 'react'
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react'
 import Cookies from 'js-cookie'
 
 export const FranchiseContext = createContext()
@@ -58,6 +58,10 @@ export const ROLE_DEFAULT_ACCESS = {
     'accounts_receipts', 'accounts_payments', 'accounts_expenses', 'accounts_income',
     'accounts_journal', 'accounts_ledger', 'accounts_trial', 'accounts_pl', 'accounts_bs',
     'reports', 'reports_sales', 'reports_purchase', 'reports_stock', 'reports_expiry',
+    // ✅ ADDED: Live Rates permissions for Accounts
+    'liverates', 'liverates_dashboard', 'liverates_compare', 'liverates_stock', 
+    'liverates_scheme', 'liverates_bestdeal', 'liverates_cart', 'liverates_order', 
+    'liverates_tracking',
   ],
   Staff: [
     'dashboard', 'dashboard_main',
@@ -66,16 +70,31 @@ export const ROLE_DEFAULT_ACCESS = {
     'medicines', 'medicines_list',
     'inventory', 'inventory_dashboard', 'inventory_stock', 'inventory_nearexpiry',
     'customers', 'customers_list',
+    // ✅ ADDED: Purchase permissions for Staff
+    'purchase', 'purchase_dashboard', 'purchase_orders', 'purchase_grn', 
+    'purchase_returns', 'purchase_ledger', 'purchase_liverates',
+    // ✅ ADDED: Live Rates permissions for Staff
+    'liverates', 'liverates_dashboard', 'liverates_compare', 'liverates_stock', 
+    'liverates_scheme', 'liverates_bestdeal', 'liverates_cart', 'liverates_order', 
+    'liverates_tracking',
   ],
   Customer: [
     'dashboard', 'dashboard_main',
     'pos', 'pos_billing',
     'customers', 'customers_list', 'customers_wallet', 'customers_history', 'customers_loyalty',
+    // ✅ ADDED: Live Rates permissions for Customer
+    'liverates', 'liverates_dashboard', 'liverates_compare', 'liverates_stock', 
+    'liverates_scheme', 'liverates_bestdeal', 'liverates_cart', 'liverates_order', 
+    'liverates_tracking',
   ],
   Vendor: [
     'dashboard', 'dashboard_main',
     'b2b', 'b2b_orders',
     'suppliers', 'suppliers_list',
+    // ✅ ADDED: Live Rates permissions for Vendor
+    'liverates', 'liverates_dashboard', 'liverates_compare', 'liverates_stock', 
+    'liverates_scheme', 'liverates_bestdeal', 'liverates_cart', 'liverates_order', 
+    'liverates_tracking',
   ],
 }
 
@@ -174,12 +193,24 @@ export const FranchiseProvider = ({ children }) => {
     localStorage.removeItem('franchise_subdomain')
     setFranchiseUserState(null)
     setFranchiseInfoState(null)
-    setMenuAccessState({ ...FULL_MENU_ACCESS })
+    // Clear menuAccess on logout — do NOT leave FULL_MENU_ACCESS in memory
+    setMenuAccessState({})
   }, [])
 
   const isAuthenticated = !!Cookies.get('LMS') && !!franchiseUser
 
   // Re-check auth whenever franchiseUser changes (covers logout + login cycles)
+  // Also re-check periodically for cookie expiry mid-session
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const cookieAlive = !!Cookies.get('LMS')
+      // If cookie expired but user is still "logged in", trigger logout
+      if (!cookieAlive && franchiseUser) {
+        logoutFranchise()
+      }
+    }, 60 * 1000) // check every 60 seconds
+    return () => clearInterval(interval)
+  }, [franchiseUser, logoutFranchise])
 
   return (
     <FranchiseContext.Provider

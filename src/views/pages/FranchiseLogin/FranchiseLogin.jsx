@@ -68,7 +68,14 @@ const FranchiseLogin = () => {
 
       const { token, user, franchise } = res?.data?.data
 
-      Cookies.set('LMS', token, { expires: 30, path: '/' })
+      // Set cookie with 30 day expiry — persists across browser refreshes
+      Cookies.set('LMS', token, {
+        expires: 30,
+        path: '/',
+        sameSite: 'Lax',
+        secure: false,
+      })
+
       setFranchiseUser(user)
       setFranchiseInfo(franchise)
 

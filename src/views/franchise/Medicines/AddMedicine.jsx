@@ -45,11 +45,11 @@ const Section = ({ title, children }) => (
   </div>
 )
 
-const UNITS     = ['Tablet','Capsule','Syrup','Injection','Ointment','Drops','Strip','Bottle','Sachet','Cream','Gel','Powder']
 const GST_RATES = ['0%','5%','12%','18%']
-const CATEGORIES_DEFAULT = ['Analgesic','Antibiotic','Antifungal','Antiviral','Antacid','Vitamin','Supplement','Cardiac','Diabetic','Other']
+const CATEGORIES_DEFAULT   = ['Analgesic','Antibiotic','Antifungal','Antiviral','Antacid','Vitamin','Supplement','Cardiac','Diabetic','Other']
 const FORMULATIONS_DEFAULT = ['Tablet','Capsule','Syrup','Injection','Ointment','Cream','Gel','Drops','Powder','Sachet']
-const COMPANIES_DEFAULT = ['Sun Pharma','Cipla','Lupin','Dr. Reddy\'s','Alkem','Mankind','Torrent','Abbott','GSK','Pfizer','Other']
+const COMPANIES_DEFAULT    = ['Sun Pharma','Cipla','Lupin','Dr. Reddy\'s','Alkem','Mankind','Torrent','Abbott','GSK','Pfizer','Other']
+const UNITS_DEFAULT        = ['Tablet','Capsule','Syrup','Injection','Ointment','Drops','Strip','Bottle','Sachet','Cream','Gel','Powder']
 
 export default function AddMedicine() {
   const navigate = useNavigate()
@@ -59,19 +59,22 @@ export default function AddMedicine() {
     gst: '12%', mrp: '', purchasePrice: '', reorderLevel: '100',
     openingStock: '0', description: '', prescription: false,
   })
-  const [saving, setSaving]     = useState(false)
+  const [saving, setSaving]         = useState(false)
   const [categories, setCategories]     = useState(CATEGORIES_DEFAULT)
   const [formulations, setFormulations] = useState(FORMULATIONS_DEFAULT)
   const [companies, setCompanies]       = useState(COMPANIES_DEFAULT)
+  const [units, setUnits]               = useState(UNITS_DEFAULT)
 
-  // Load dynamic categories/companies from API if available
+  // Load categories, units, companies from Medicine Masters
   useEffect(() => {
-    getRequest('/franchise/medicines/meta').then(res => {
-      const d = res.data?.data
-      if (d?.categories?.length)   setCategories(d.categories)
-      if (d?.formulations?.length) setFormulations(d.formulations)
-      if (d?.companies?.length)    setCompanies(d.companies)
-    }).catch(() => { /* use defaults */ })
+    getRequest('/franchise/medicines/masters/all').then(res => {
+      const d = res?.data?.data
+      if (d?.categories?.length) setCategories(d.categories.map(c => c.name))
+      if (d?.units?.length)      setUnits(d.units.map(u => u.name))
+      if (d?.companies?.length)  setCompanies(d.companies.map(c => c.name))
+    }).catch(() => {
+      // fallback to defaults if API fails — already set via useState
+    })
   }, [])
 
   const set = k => e => setForm(p => ({ ...p, [k]: e.target.value }))
@@ -134,7 +137,7 @@ export default function AddMedicine() {
               <Input value={form.strength} onChange={set('strength')} placeholder="e.g. 650 mg" />
             </FL>
             <FL label="Unit">
-              <Sel value={form.unit} onChange={set('unit')} opts={UNITS} />
+              <Sel value={form.unit} onChange={set('unit')} opts={units} />
             </FL>
             <FL label="Company / Manufacturer">
               <Sel value={form.company} onChange={set('company')} opts={companies} />

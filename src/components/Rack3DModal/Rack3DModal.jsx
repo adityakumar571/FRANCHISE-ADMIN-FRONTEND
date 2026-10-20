@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import PropTypes from 'prop-types'
 import './Rack3DModal.css'
 
@@ -26,28 +26,26 @@ const STATUS_LABEL = {
 }
 
 // Build a demo shelf layout if no shelves are provided
+// useMemo se bahar — stable seed use karo taaki re-render pe naya value na bane
 function buildDemoShelves(capacity = 40, currentStock = 20) {
   const shelves = 4
   const boxesPerShelf = Math.ceil(capacity / shelves)
-  const filled = currentStock
 
-  let placed = 0
+  // Deterministic pseudo-random based on index (no Math.random — stable across renders)
+  const pseudoRand = (i) => ((i * 2654435761) >>> 0) / 4294967296
+
   return Array.from({ length: shelves }, (_, si) => ({
     id: si,
     label: si === 0 ? 'Top' : si === 1 ? 'Upper' : si === 2 ? 'Middle' : 'Bottom',
     boxes: Array.from({ length: boxesPerShelf }, (_, bi) => {
       const index = si * boxesPerShelf + bi
-      const isFilled = index < filled
-      placed++
-      const rand = Math.random()
-      const status =
-        !isFilled
-          ? 'empty'
-          : rand < 0.15
-          ? 'out'
-          : rand < 0.35
-          ? 'low'
-          : 'available'
+      const isFilled = index < currentStock
+      const rand = pseudoRand(index)
+      const status = !isFilled
+        ? 'empty'
+        : rand < 0.15 ? 'out'
+        : rand < 0.35 ? 'low'
+        : 'available'
       return {
         id: `${si}-${bi}`,
         status,
@@ -101,7 +99,12 @@ function ShelfRow({ shelf, activeBox, setActiveBox }) {
 
 function Rack3DView({ rackData }) {
   const [activeBox, setActiveBox] = useState(null)
-  const shelves = rackData.shelves || buildDemoShelves(rackData.capacity, rackData.currentStock)
+
+  // useMemo — shelves har render pe rebuild na ho
+  const shelves = useMemo(
+    () => rackData.shelves || buildDemoShelves(rackData.capacity, rackData.currentStock),
+    [rackData.shelves, rackData.capacity, rackData.currentStock]
+  )
 
   // Find active box details
   const activeBoxData = activeBox

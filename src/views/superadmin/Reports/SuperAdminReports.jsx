@@ -1,14 +1,14 @@
 /* eslint-disable prettier/prettier */
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   BarChart2, Download, Building2, CreditCard, Truck, Pill,
   Package, FileText, TrendingUp, Users, AlertCircle, CheckCircle,
-  MapPin, Calendar, Search, Clock,
+  MapPin, Calendar, Search, Clock, RefreshCw, ChevronLeft, ChevronRight,
 } from 'lucide-react'
+import { getRequest } from '../../../Helpers'
+import toast from 'react-hot-toast'
 
-/* ─────────────────────────────────────────────
-   PALETTE & PRIMITIVES
-───────────────────────────────────────────── */
+/* ─── palette ─── */
 const C = {
   primary: '#0c3b73', accent: '#fabf22', success: '#16a34a',
   danger: '#dc2626', border: '#e5e7eb', bg: '#f8f9fb',
@@ -20,7 +20,21 @@ const inputStyle = {
   fontFamily: 'Inter, -apple-system, sans-serif', boxSizing: 'border-box',
 }
 
-const StatCard = ({ icon: Icon, label, value, sub, color, bg }) => (
+/* ─── helpers ─── */
+const fmt  = (n)  => (n || 0).toLocaleString('en-IN')
+const fmtC = (n)  => `₹${fmt(n)}`
+const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'
+const timeAgo = (d) => {
+  if (!d) return '—'
+  const diff = Math.floor((Date.now() - new Date(d)) / 1000)
+  if (diff < 60)   return `${diff}s ago`
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
+  return `${Math.floor(diff / 86400)}d ago`
+}
+
+/* ─── shared primitives ─── */
+const StatCard = ({ icon: Icon, label, value, sub, color, bg, loading }) => (
   <div style={{ background: '#fff', border: `1px solid ${C.border}`, borderRadius: 12,
     padding: '16px 20px', flex: '1 1 160px', display: 'flex', alignItems: 'center', gap: 14 }}>
     <div style={{ width: 44, height: 44, borderRadius: 11, background: bg,
@@ -28,9 +42,11 @@ const StatCard = ({ icon: Icon, label, value, sub, color, bg }) => (
       <Icon size={20} color={color} />
     </div>
     <div>
-      <p style={{ fontSize: 22, fontWeight: 800, color: '#111827', margin: 0 }}>{value}</p>
+      <p style={{ fontSize: 22, fontWeight: 800, color: '#111827', margin: 0 }}>
+        {loading ? <span style={{ display: 'inline-block', width: 48, height: 20, background: '#f3f4f6', borderRadius: 6 }} /> : value}
+      </p>
       <p style={{ fontSize: 12, color: '#6b7280', margin: '2px 0 0', fontWeight: 500 }}>{label}</p>
-      {sub && <p style={{ fontSize: 11, color: '#9ca3af', margin: '2px 0 0' }}>{sub}</p>}
+      {sub && <p style={{ fontSize: 11, color: '#9ca3af', margin: '2px 0 0' }}>{loading ? '…' : sub}</p>}
     </div>
   </div>
 )
@@ -42,58 +58,21 @@ const StatusBadge = ({ status }) => {
     Suspended: { bg: '#fef2f2', color: '#dc2626', border: '#fecaca' },
     Pending:   { bg: '#fffbeb', color: '#d97706', border: '#fde68a' },
     Approved:  { bg: '#f0fdf4', color: '#16a34a', border: '#bbf7d0' },
+    true:      { bg: '#f0fdf4', color: '#16a34a', border: '#bbf7d0' },
+    false:     { bg: '#fef2f2', color: '#dc2626', border: '#fecaca' },
   }
-  const s = map[status] || map.Inactive
+  const key = String(status)
+  const s   = map[key] || map.Inactive
+  const label = key === 'true' ? 'Active' : key === 'false' ? 'Inactive' : status
   return (
     <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20,
       background: s.bg, color: s.color, border: `1px solid ${s.border}` }}>
-      {status}
+      {label}
     </span>
   )
 }
 
-/* ─────────────────────────────────────────────
-   MOCK DATA
-───────────────────────────────────────────── */
-const FRANCHISE_ROWS = [
-  { id: 'FRN-001', name: 'MedPlus Pharmacy - Andheri',       state: 'Maharashtra', city: 'Mumbai',     plan: 'Enterprise',   status: 'Active',    regDate: '12 Jan 2025', lastActivity: '2 hrs ago' },
-  { id: 'FRN-002', name: 'HealthCare Plus - Koramangala',    state: 'Karnataka',   city: 'Bengaluru',  plan: 'Professional', status: 'Active',    regDate: '20 Jan 2025', lastActivity: '5 hrs ago' },
-  { id: 'FRN-003', name: 'Wellness Pharma - Banjara Hills',  state: 'Telangana',   city: 'Hyderabad',  plan: 'Professional', status: 'Active',    regDate: '01 Feb 2025', lastActivity: '1 day ago' },
-  { id: 'FRN-004', name: 'Apollo Medicals - Sector 18',      state: 'Uttar Pradesh', city: 'Noida',    plan: 'Basic',        status: 'Suspended', regDate: '15 Feb 2025', lastActivity: '3 days ago' },
-  { id: 'FRN-005', name: 'Shree Ram Medicals - Kothrud',     state: 'Maharashtra', city: 'Pune',       plan: 'Enterprise',   status: 'Active',    regDate: '10 Mar 2025', lastActivity: '30 min ago' },
-  { id: 'FRN-006', name: 'Lifeline Pharmacy - Vastrapur',    state: 'Gujarat',     city: 'Ahmedabad',  plan: 'Professional', status: 'Inactive',  regDate: '22 Mar 2025', lastActivity: '12 days ago' },
-  { id: 'FRN-007', name: 'Jana Aushadhi - Anna Nagar',       state: 'Tamil Nadu',  city: 'Chennai',    plan: 'Basic',        status: 'Active',    regDate: '05 Apr 2025', lastActivity: '4 hrs ago' },
-  { id: 'FRN-008', name: 'Raj Medicos - Salt Lake',          state: 'West Bengal', city: 'Kolkata',    plan: 'Professional', status: 'Active',    regDate: '18 Apr 2025', lastActivity: '1 hr ago' },
-]
-
-const SUBSCRIPTION_ROWS = [
-  { plan: 'Enterprise',   franchises: 38, revenue: '₹1,89,962', avgDuration: '8.4 months' },
-  { plan: 'Professional', franchises: 58, revenue: '₹1,44,942', avgDuration: '7.1 months' },
-  { plan: 'Basic',        franchises: 22, revenue: '₹21,978',   avgDuration: '5.2 months' },
-]
-
-const SUPPLIER_ROWS = [
-  { name: 'Gupta Pharma Distributors', type: 'Distributor',  status: 'Active',   franchises: 32, orders: 128, lastActivity: '2 hrs ago' },
-  { name: 'MedLife Wholesale',          type: 'Wholesaler',   status: 'Active',   franchises: 24, orders: 89,  lastActivity: '5 hrs ago' },
-  { name: 'Shree Balaji Pharma',        type: 'Distributor',  status: 'Active',   franchises: 18, orders: 67,  lastActivity: '1 day ago' },
-  { name: 'HealthCore Distributors',    type: 'Distributor',  status: 'Inactive', franchises: 10, orders: 34,  lastActivity: '5 days ago' },
-  { name: 'R.K. Pharma Agency',         type: 'Wholesaler',   status: 'Suspended',franchises: 5,  orders: 12,  lastActivity: '10 days ago' },
-  { name: 'Sunrise Medicals Supply',    type: 'Distributor',  status: 'Active',   franchises: 14, orders: 55,  lastActivity: '3 hrs ago' },
-]
-
-const TABS = [
-  { key: 'franchise',    label: 'Franchise',    icon: Building2 },
-  { key: 'subscription', label: 'Subscription', icon: CreditCard },
-  { key: 'supplier',     label: 'Supplier',     icon: Truck },
-  { key: 'medicine',     label: 'Medicine',     icon: Pill },
-  { key: 'inventory',    label: 'Inventory',    icon: Package },
-  { key: 'audit',        label: 'Audit',        icon: FileText },
-]
-
-/* ─────────────────────────────────────────────
-   TABLE WRAPPER
-───────────────────────────────────────────── */
-const TableWrap = ({ headers, children }) => (
+const TableWrap = ({ headers, children, loading, colSpan, emptyMsg = 'No data' }) => (
   <div style={{ background: '#fff', border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden' }}>
     <div style={{ overflowX: 'auto' }}>
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -105,69 +84,196 @@ const TableWrap = ({ headers, children }) => (
             ))}
           </tr>
         </thead>
-        <tbody>{children}</tbody>
+        <tbody>
+          {loading ? (
+            Array.from({ length: 5 }).map((_, i) => (
+              <tr key={i}>
+                {headers.map((_, j) => (
+                  <td key={j} style={{ padding: '13px 14px', borderBottom: `1px solid #f3f4f6` }}>
+                    <div style={{ height: 12, borderRadius: 6, background: '#f3f4f6', width: j === 1 ? '70%' : '50%' }} />
+                  </td>
+                ))}
+              </tr>
+            ))
+          ) : children}
+        </tbody>
       </table>
     </div>
   </div>
 )
 
-const Tr = ({ children }) => {
+const Tr = ({ children, onClick }) => {
   const [hover, setHover] = useState(false)
   return (
-    <tr onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
-      style={{ borderBottom: '1px solid #f3f4f6', background: hover ? '#f8f9fb' : '#fff', transition: 'background .1s' }}>
+    <tr onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)} onClick={onClick}
+      style={{ borderBottom: '1px solid #f3f4f6', background: hover ? '#f8f9fb' : '#fff', transition: 'background .1s', cursor: onClick ? 'pointer' : 'default' }}>
       {children}
     </tr>
   )
 }
-
 const Td = ({ children, style = {} }) => (
   <td style={{ padding: '11px 14px', ...style }}>{children}</td>
 )
 
-/* ─────────────────────────────────────────────
-   FILTER BAR
-───────────────────────────────────────────── */
-const FranchiseFilterBar = ({ filters, setFilters }) => (
-  <div style={{ background: '#fff', border: `1px solid ${C.border}`, borderRadius: 10, padding: '12px 16px',
-    display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', marginBottom: 14 }}>
-    <select value={filters.state} onChange={e => setFilters(f => ({ ...f, state: e.target.value }))}
-      style={{ ...inputStyle, minWidth: 140, cursor: 'pointer' }}>
-      {['All States', 'Maharashtra', 'Karnataka', 'Telangana', 'Tamil Nadu', 'Gujarat', 'West Bengal', 'Uttar Pradesh'].map(s => <option key={s}>{s}</option>)}
-    </select>
-    <select value={filters.city} onChange={e => setFilters(f => ({ ...f, city: e.target.value }))}
-      style={{ ...inputStyle, minWidth: 130, cursor: 'pointer' }}>
-      {['All Cities', 'Mumbai', 'Pune', 'Bengaluru', 'Hyderabad', 'Chennai', 'Kolkata', 'Ahmedabad', 'Noida'].map(c => <option key={c}>{c}</option>)}
-    </select>
-    <select value={filters.status} onChange={e => setFilters(f => ({ ...f, status: e.target.value }))}
-      style={{ ...inputStyle, minWidth: 130, cursor: 'pointer' }}>
-      {['All Status', 'Active', 'Inactive', 'Suspended', 'Pending'].map(s => <option key={s}>{s}</option>)}
-    </select>
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-      <Calendar size={13} color="#9ca3af" />
-      <input type="date" value={filters.from} onChange={e => setFilters(f => ({ ...f, from: e.target.value }))}
-        style={{ ...inputStyle, minWidth: 140 }} />
-      <span style={{ fontSize: 12, color: '#9ca3af' }}>to</span>
-      <input type="date" value={filters.to} onChange={e => setFilters(f => ({ ...f, to: e.target.value }))}
-        style={{ ...inputStyle, minWidth: 140 }} />
+/* ─── pagination bar ─── */
+const PaginationBar = ({ page, totalPages, total, perPage, setPage }) => (
+  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    padding: '10px 16px', borderTop: `1px solid ${C.border}`, flexWrap: 'wrap', gap: 8 }}>
+    <span style={{ fontSize: 12, color: '#6b7280' }}>
+      {total === 0 ? 'No records' : `Showing ${(page - 1) * perPage + 1}–${Math.min(page * perPage, total)} of ${total}`}
+    </span>
+    <div style={{ display: 'flex', gap: 4 }}>
+      <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+        style={{ width: 30, height: 30, borderRadius: 7, border: `1px solid ${C.border}`, background: '#fff',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          cursor: page === 1 ? 'not-allowed' : 'pointer', opacity: page === 1 ? 0.4 : 1 }}>
+        <ChevronLeft size={14} />
+      </button>
+      {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+        const n = totalPages <= 7 ? i + 1 : i === 0 ? 1 : i === 6 ? totalPages : page - 3 + i
+        return (
+          <button key={n} onClick={() => setPage(n)}
+            style={{ width: 30, height: 30, borderRadius: 7,
+              border: `1px solid ${n === page ? C.primary : C.border}`,
+              background: n === page ? C.primary : '#fff',
+              color: n === page ? '#fff' : '#374151',
+              fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>{n}</button>
+        )
+      })}
+      <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}
+        style={{ width: 30, height: 30, borderRadius: 7, border: `1px solid ${C.border}`, background: '#fff',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          cursor: page >= totalPages ? 'not-allowed' : 'pointer', opacity: page >= totalPages ? 0.4 : 1 }}>
+        <ChevronRight size={14} />
+      </button>
     </div>
   </div>
 )
 
-/* ─────────────────────────────────────────────
+const TABS = [
+  { key: 'franchise',    label: 'Franchise',    icon: Building2 },
+  { key: 'subscription', label: 'Subscription', icon: CreditCard },
+  { key: 'supplier',     label: 'Supplier',     icon: Truck },
+  { key: 'medicine',     label: 'Medicine',     icon: Pill },
+  { key: 'inventory',    label: 'Inventory',    icon: Package },
+  { key: 'audit',        label: 'Audit',        icon: FileText },
+]
+
+const PLAN_COLORS = {
+  Enterprise:   { color: C.primary,   bg: '#eff6ff' },
+  Professional: { color: '#7c3aed',   bg: '#faf5ff' },
+  Basic:        { color: '#6b7280',   bg: '#f9fafb' },
+}
+
+/* ══════════════════════════════════════════════════
    MAIN COMPONENT
-───────────────────────────────────────────── */
+══════════════════════════════════════════════════ */
 export default function SuperAdminReports() {
   const [activeTab, setActiveTab] = useState('franchise')
-  const [filters, setFilters]     = useState({ state: 'All States', city: 'All Cities', status: 'All Status', from: '', to: '' })
 
-  /* ── filter franchise rows ── */
-  const filteredFranchises = FRANCHISE_ROWS.filter(r => {
-    const matchSt  = filters.state  === 'All States'  || r.state  === filters.state
-    const matchCi  = filters.city   === 'All Cities'  || r.city   === filters.city
-    const matchSta = filters.status === 'All Status'  || r.status === filters.status
-    return matchSt && matchCi && matchSta
-  })
+  /* ── shared loading ── */
+  const [dashLoading, setDashLoading] = useState(false)
+  const [dashboard,   setDashboard]   = useState(null)
+
+  /* ── franchise tab ── */
+  const [franchises,      setFranchises]      = useState([])
+  const [franchiseTotal,  setFranchiseTotal]  = useState(0)
+  const [franchisePage,   setFranchisePage]   = useState(1)
+  const [franchisePages,  setFranchisePages]  = useState(1)
+  const [franchiseLoading,setFranchiseLoading]= useState(false)
+  const [fFilters, setFFilters] = useState({ search: '', state: 'All', status: 'All' })
+
+  /* ── subscription tab ── */
+  const [planDist,     setPlanDist]     = useState([])
+  const [subscriptions,setSubscriptions]= useState([])
+  const [subTotal,     setSubTotal]     = useState(0)
+  const [subPage,      setSubPage]      = useState(1)
+  const [subPages,     setSubPages]     = useState(1)
+  const [subLoading,   setSubLoading]   = useState(false)
+
+  /* ── supplier tab ── */
+  const [suppliers,     setSuppliers]     = useState([])
+  const [supplierTotal, setSupplierTotal] = useState(0)
+  const [supplierPage,  setSupplierPage]  = useState(1)
+  const [supplierPages, setSupplierPages] = useState(1)
+  const [supplierLoading,setSupplierLoading] = useState(false)
+  const [supplierSearch, setSupplierSearch]  = useState('')
+
+  const PER = 10
+
+  /* ── load dashboard stats once ── */
+  useEffect(() => {
+    setDashLoading(true)
+    getRequest('saas/dashboard')
+      .then(res => setDashboard(res?.data?.data || null))
+      .catch(() => toast.error('Dashboard load failed'))
+      .finally(() => setDashLoading(false))
+  }, [])
+
+  /* ── franchise fetch ── */
+  const fetchFranchises = useCallback(() => {
+    setFranchiseLoading(true)
+    const p = new URLSearchParams({ page: franchisePage, limit: PER })
+    if (fFilters.search)          p.set('search', fFilters.search)
+    if (fFilters.status !== 'All') p.set('isActive', fFilters.status === 'Active' ? 'true' : 'false')
+    getRequest(`schools?${p}`)
+      .then(res => {
+        const d = res?.data?.data
+        const list = Array.isArray(d?.data) ? d.data : Array.isArray(d) ? d : []
+        setFranchises(list)
+        setFranchiseTotal(d?.total || list.length)
+        setFranchisePages(d?.totalPages || 1)
+      })
+      .catch(() => toast.error('Failed to load franchises'))
+      .finally(() => setFranchiseLoading(false))
+  }, [franchisePage, fFilters])
+
+  useEffect(() => { if (activeTab === 'franchise') fetchFranchises() }, [activeTab, fetchFranchises])
+
+  /* ── subscription fetch ── */
+  const fetchSubscriptions = useCallback(() => {
+    setSubLoading(true)
+    getRequest(`subscription?page=${subPage}&limit=${PER}`)
+      .then(res => {
+        const d = res?.data?.data
+        const list = Array.isArray(d?.data) ? d.data : Array.isArray(d) ? d : []
+        setSubscriptions(list)
+        setSubTotal(d?.total || list.length)
+        setSubPages(d?.totalPages || 1)
+      })
+      .catch(() => toast.error('Failed to load subscriptions'))
+      .finally(() => setSubLoading(false))
+  }, [subPage])
+
+  useEffect(() => { if (activeTab === 'subscription') fetchSubscriptions() }, [activeTab, fetchSubscriptions])
+
+  /* ── supplier fetch ── */
+  const fetchSuppliers = useCallback(() => {
+    setSupplierLoading(true)
+    const p = new URLSearchParams({ page: supplierPage, limit: PER })
+    if (supplierSearch) p.set('search', supplierSearch)
+    getRequest(`distributor/all?${p}`)
+      .then(res => {
+        const d = res?.data?.data
+        const list = Array.isArray(d?.data) ? d.data : Array.isArray(d?.distributors) ? d.distributors : Array.isArray(d) ? d : []
+        setSuppliers(list)
+        setSupplierTotal(d?.total || list.length)
+        setSupplierPages(d?.totalPages || 1)
+      })
+      .catch(() => toast.error('Failed to load suppliers'))
+      .finally(() => setSupplierLoading(false))
+  }, [supplierPage, supplierSearch])
+
+  useEffect(() => { if (activeTab === 'supplier') fetchSuppliers() }, [activeTab, fetchSuppliers])
+
+  /* ── plan distribution from dashboard ── */
+  useEffect(() => {
+    if (dashboard?.planDistribution) setPlanDist(dashboard.planDistribution)
+  }, [dashboard])
+
+  /* ── stat helpers ── */
+  const d = dashboard
+  const totalRevenue = d?.subscriptions?.totalRevenue || 0
 
   return (
     <div style={{ fontFamily: 'Inter, -apple-system, sans-serif', fontSize: 13, background: C.bg, minHeight: '100vh', padding: 4 }}>
@@ -180,14 +286,26 @@ export default function SuperAdminReports() {
             <BarChart2 size={20} color={C.accent} />
           </div>
           <div>
-            <h1 style={{ fontSize: 20, fontWeight: 800, color: '#111827', margin: 0 }}>Reports & Analytics</h1>
-            <p style={{ fontSize: 12, color: '#9ca3af', margin: '2px 0 0' }}>Comprehensive insights across your pharmacy franchise network</p>
+            <h1 style={{ fontSize: 20, fontWeight: 800, color: '#111827', margin: 0 }}>Reports &amp; Analytics</h1>
+            <p style={{ fontSize: 12, color: '#9ca3af', margin: '2px 0 0' }}>Comprehensive insights across your franchise network</p>
           </div>
         </div>
-        <button style={{ display: 'flex', alignItems: 'center', gap: 6, background: C.success, color: '#fff',
-          border: 'none', borderRadius: 9, padding: '9px 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-          <Download size={15} /> Export Report
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            onClick={() => {
+              if (activeTab === 'franchise')    fetchFranchises()
+              if (activeTab === 'subscription') fetchSubscriptions()
+              if (activeTab === 'supplier')     fetchSuppliers()
+            }}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', color: '#374151',
+              border: `1px solid ${C.border}`, borderRadius: 9, padding: '9px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+            <RefreshCw size={14} /> Refresh
+          </button>
+          <button style={{ display: 'flex', alignItems: 'center', gap: 6, background: C.success, color: '#fff',
+            border: 'none', borderRadius: 9, padding: '9px 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+            <Download size={15} /> Export Report
+          </button>
+        </div>
       </div>
 
       {/* ── TAB BAR ── */}
@@ -198,168 +316,251 @@ export default function SuperAdminReports() {
             style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 15px', borderRadius: 7, border: 'none',
               fontSize: 12, fontWeight: 600, cursor: 'pointer',
               background: activeTab === key ? C.primary : 'transparent',
-              color: activeTab === key ? '#fff' : '#6b7280' }}>
-            <Icon size={13} />
-            {label}
+              color:      activeTab === key ? '#fff' : '#6b7280' }}>
+            <Icon size={13} />{label}
           </button>
         ))}
       </div>
 
-      {/* ══════════════════════════════
+      {/* ════════════════════════════════
           FRANCHISE TAB
-      ══════════════════════════════ */}
+      ════════════════════════════════ */}
       {activeTab === 'franchise' && (
         <>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
-            <StatCard icon={Building2}   label="Total Registered" value="142" sub="+8 this month"  color={C.primary}  bg="#eff6ff" />
-            <StatCard icon={CheckCircle} label="Active"           value="128" sub="90.1% active"   color={C.success}  bg="#f0fdf4" />
-            <StatCard icon={TrendingUp}  label="New This Month"   value="8"   sub="↑ 3 vs last"   color="#d97706"    bg="#fffbeb" />
-            <StatCard icon={AlertCircle} label="Churned"          value="2"   sub="This month"    color={C.danger}   bg="#fef2f2" />
+            <StatCard icon={Building2}   label="Total Registered" value={fmt(d?.franchises?.total   || 0)} sub={`+${fmt(d?.franchises?.thisMonth || 0)} this month`} color={C.primary}  bg="#eff6ff" loading={dashLoading} />
+            <StatCard icon={CheckCircle} label="Active"           value={fmt(d?.franchises?.active  || 0)} sub={d?.franchises?.total ? `${Math.round((d.franchises.active / d.franchises.total) * 100)}% active` : ''} color={C.success} bg="#f0fdf4" loading={dashLoading} />
+            <StatCard icon={TrendingUp}  label="New This Month"   value={fmt(d?.franchises?.thisMonth || 0)} color="#d97706" bg="#fffbeb" loading={dashLoading} />
+            <StatCard icon={AlertCircle} label="Inactive"         value={fmt(d?.franchises?.inactive || 0)} color={C.danger} bg="#fef2f2" loading={dashLoading} />
           </div>
 
-          <FranchiseFilterBar filters={filters} setFilters={setFilters} />
+          {/* Filters */}
+          <div style={{ background: '#fff', border: `1px solid ${C.border}`, borderRadius: 10, padding: '12px 16px',
+            display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', marginBottom: 14 }}>
+            <div style={{ position: 'relative', flex: '1 1 200px', minWidth: 160 }}>
+              <Search size={14} color="#9ca3af" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)' }} />
+              <input value={fFilters.search}
+                onChange={e => { setFFilters(f => ({ ...f, search: e.target.value })); setFranchisePage(1) }}
+                placeholder="Search franchise name…"
+                style={{ ...inputStyle, paddingLeft: 32, width: '100%' }} />
+            </div>
+            <select value={fFilters.status}
+              onChange={e => { setFFilters(f => ({ ...f, status: e.target.value })); setFranchisePage(1) }}
+              style={{ ...inputStyle, minWidth: 130, cursor: 'pointer' }}>
+              {['All', 'Active', 'Inactive'].map(s => <option key={s}>{s}</option>)}
+            </select>
+          </div>
 
-          <TableWrap headers={['Franchise ID', 'Name', 'State', 'City', 'Plan', 'Status', 'Registered Date', 'Last Activity']}>
-            {filteredFranchises.map(r => (
-              <Tr key={r.id}>
-                <Td><span style={{ fontSize: 11, color: '#6b7280', fontWeight: 600 }}>{r.id}</span></Td>
+          <TableWrap
+            headers={['#', 'Franchise Name', 'Subdomain', 'City / State', 'Contact', 'Status', 'Registered', 'Last Updated']}
+            loading={franchiseLoading}>
+            {franchises.length === 0 && !franchiseLoading ? (
+              <tr><td colSpan={8} style={{ padding: 40, textAlign: 'center', color: '#9ca3af' }}>No franchises found</td></tr>
+            ) : franchises.map((r, i) => (
+              <Tr key={r._id}>
+                <Td><span style={{ fontSize: 11, color: '#9ca3af' }}>{(franchisePage - 1) * PER + i + 1}</span></Td>
                 <Td>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <div style={{ width: 30, height: 30, borderRadius: 8, background: `${C.primary}12`,
                       display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                       <Building2 size={13} color={C.primary} />
                     </div>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>{r.name}</span>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>{r.schoolName}</span>
                   </div>
                 </Td>
+                <Td><span style={{ fontFamily: 'monospace', fontSize: 11, color: '#6b7280' }}>{r.subdomain}</span></Td>
                 <Td>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                     <MapPin size={11} color="#9ca3af" />
-                    <span style={{ fontSize: 12, color: '#374151' }}>{r.state}</span>
+                    <span style={{ fontSize: 12, color: '#374151' }}>{[r.city, r.state].filter(Boolean).join(', ') || '—'}</span>
                   </div>
                 </Td>
-                <Td><span style={{ fontSize: 12, color: '#374151' }}>{r.city}</span></Td>
-                <Td>
-                  <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 8,
-                    background: r.plan === 'Enterprise' ? '#eff6ff' : r.plan === 'Professional' ? '#faf5ff' : '#f9fafb',
-                    color: r.plan === 'Enterprise' ? C.primary : r.plan === 'Professional' ? '#7c3aed' : '#6b7280' }}>
-                    {r.plan}
-                  </span>
-                </Td>
-                <Td><StatusBadge status={r.status} /></Td>
+                <Td><span style={{ fontSize: 12, color: '#6b7280' }}>{r.schoolEmail || r.schoolContact || '—'}</span></Td>
+                <Td><StatusBadge status={r.isActive ? 'Active' : 'Inactive'} /></Td>
                 <Td>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                     <Calendar size={11} color="#9ca3af" />
-                    <span style={{ fontSize: 12, color: '#374151' }}>{r.regDate}</span>
+                    <span style={{ fontSize: 12, color: '#374151' }}>{fmtDate(r.createdAt)}</span>
                   </div>
                 </Td>
                 <Td>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                     <Clock size={11} color="#9ca3af" />
-                    <span style={{ fontSize: 12, color: '#9ca3af' }}>{r.lastActivity}</span>
+                    <span style={{ fontSize: 12, color: '#9ca3af' }}>{timeAgo(r.updatedAt)}</span>
                   </div>
                 </Td>
               </Tr>
             ))}
-            {filteredFranchises.length === 0 && (
-              <tr><td colSpan={8} style={{ padding: 32, textAlign: 'center', color: '#9ca3af' }}>No records match your filters.</td></tr>
-            )}
           </TableWrap>
+          {!franchiseLoading && franchisePages > 1 && (
+            <PaginationBar page={franchisePage} totalPages={franchisePages} total={franchiseTotal} perPage={PER} setPage={setFranchisePage} />
+          )}
         </>
       )}
 
-      {/* ══════════════════════════════
+      {/* ════════════════════════════════
           SUBSCRIPTION TAB
-      ══════════════════════════════ */}
+      ════════════════════════════════ */}
       {activeTab === 'subscription' && (
         <>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
-            <StatCard icon={TrendingUp}  label="Total Revenue"    value="₹4.8L" sub="This year"     color={C.success}  bg="#f0fdf4" />
-            <StatCard icon={CheckCircle} label="Active Plans"     value="118"   sub="Across all"   color={C.primary}  bg="#eff6ff" />
-            <StatCard icon={AlertCircle} label="Expiring Soon"    value="8"     sub="Within 30d"   color="#d97706"    bg="#fffbeb" />
-            <StatCard icon={Users}       label="Expired"          value="14"    sub="Needs renewal" color={C.danger}   bg="#fef2f2" />
+            <StatCard icon={TrendingUp}  label="Total Revenue"    value={fmtC(totalRevenue)} sub="All plans combined" color={C.success}  bg="#f0fdf4" loading={dashLoading} />
+            <StatCard icon={CheckCircle} label="Active Subs"      value={fmt(d?.subscriptions?.active || 0)} sub="Currently active" color={C.primary}  bg="#eff6ff" loading={dashLoading} />
+            <StatCard icon={AlertCircle} label="Expiring Soon"    value={fmt(d?.alerts?.expiringSoonCount || 0)} sub="Within 30 days" color="#d97706" bg="#fffbeb" loading={dashLoading} />
+            <StatCard icon={Users}       label="Trial Plans"      value={fmt(d?.subscriptions?.trial || 0)} sub="Free trial active" color="#7c3aed" bg="#faf5ff" loading={dashLoading} />
           </div>
 
-          <TableWrap headers={['Plan Name', 'Franchises Count', 'Revenue Generated', 'Avg Duration']}>
-            {SUBSCRIPTION_ROWS.map(r => (
-              <Tr key={r.plan}>
-                <Td>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: r.plan === 'Enterprise' ? C.primary : r.plan === 'Professional' ? '#7c3aed' : '#6b7280' }}>
-                    {r.plan}
-                  </span>
-                </Td>
-                <Td><span style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>{r.franchises}</span></Td>
-                <Td><span style={{ fontSize: 13, fontWeight: 700, color: C.success }}>{r.revenue}</span></Td>
-                <Td><span style={{ fontSize: 12, color: '#6b7280' }}>{r.avgDuration}</span></Td>
-              </Tr>
-            ))}
+          {/* Plan distribution summary */}
+          {planDist.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
+              {planDist.map((p, i) => {
+                const colors = [C.primary, '#7c3aed', '#d97706', C.success, '#0891b2', C.danger]
+                const color  = colors[i % colors.length]
+                return (
+                  <div key={p._id} style={{ background: '#fff', border: `1px solid ${C.border}`, borderRadius: 10,
+                    padding: '12px 18px', flex: '1 1 140px', borderLeft: `4px solid ${color}` }}>
+                    <p style={{ fontSize: 18, fontWeight: 800, color, margin: 0 }}>{p.count}</p>
+                    <p style={{ fontSize: 12, color: '#6b7280', margin: '3px 0 0', fontWeight: 500 }}>{p._id || 'Unknown Plan'}</p>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {/* Subscription records table */}
+          <TableWrap
+            headers={['Franchise', 'Plan Name', 'Billing', 'Start Date', 'End Date', 'Paid Status', 'Status']}
+            loading={subLoading}>
+            {subscriptions.length === 0 && !subLoading ? (
+              <tr><td colSpan={7} style={{ padding: 40, textAlign: 'center', color: '#9ca3af' }}>No subscriptions found</td></tr>
+            ) : subscriptions.map((s, i) => {
+              const pc = PLAN_COLORS[s.currentPlan?.name] || PLAN_COLORS.Basic
+              return (
+                <Tr key={s._id}>
+                  <Td>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>
+                      {s.tenantId?.schoolName || s.tenantId || '—'}
+                    </span>
+                  </Td>
+                  <Td>
+                    <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 8, background: pc.bg, color: pc.color }}>
+                      {s.currentPlan?.name || '—'}
+                    </span>
+                  </Td>
+                  <Td><span style={{ fontSize: 12, color: '#6b7280' }}>{s.currentPlan?.billingCycle || '—'}</span></Td>
+                  <Td>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <Calendar size={11} color="#9ca3af" />
+                      <span style={{ fontSize: 12, color: '#374151' }}>{fmtDate(s.currentPlan?.startDate)}</span>
+                    </div>
+                  </Td>
+                  <Td>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <Calendar size={11} color="#9ca3af" />
+                      <span style={{ fontSize: 12, color: '#374151' }}>{fmtDate(s.currentPlan?.endDate)}</span>
+                    </div>
+                  </Td>
+                  <Td><StatusBadge status={s.paidStatus === 'PAID' ? 'Active' : s.paidStatus === 'OVERDUE' ? 'Suspended' : 'Pending'} /></Td>
+                  <Td><StatusBadge status={s.status === 'ACTIVE' ? 'Active' : s.status === 'EXPIRED' ? 'Inactive' : 'Pending'} /></Td>
+                </Tr>
+              )
+            })}
           </TableWrap>
+          {!subLoading && subPages > 1 && (
+            <PaginationBar page={subPage} totalPages={subPages} total={subTotal} perPage={PER} setPage={setSubPage} />
+          )}
         </>
       )}
 
-      {/* ══════════════════════════════
+      {/* ════════════════════════════════
           SUPPLIER TAB
-      ══════════════════════════════ */}
+      ════════════════════════════════ */}
       {activeTab === 'supplier' && (
         <>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
-            <StatCard icon={Truck}       label="Total Suppliers"     value="24"  sub="Registered"   color={C.primary}  bg="#eff6ff" />
-            <StatCard icon={CheckCircle} label="Active"              value="19"  sub="79.2% active" color={C.success}  bg="#f0fdf4" />
-            <StatCard icon={AlertCircle} label="Inactive/Suspended"  value="5"   sub="Needs review" color={C.danger}   bg="#fef2f2" />
-            <StatCard icon={TrendingUp}  label="Total Orders"        value="385" sub="This month"   color="#d97706"    bg="#fffbeb" />
+            <StatCard icon={Truck}       label="Total Suppliers"    value={fmt(d?.distributors?.total       || 0)} sub="Registered"   color={C.primary}  bg="#eff6ff" loading={dashLoading} />
+            <StatCard icon={CheckCircle} label="Active"             value={fmt(d?.distributors?.active      || 0)} sub={d?.distributors?.total ? `${Math.round((d.distributors.active / d.distributors.total) * 100)}% active` : ''} color={C.success} bg="#f0fdf4" loading={dashLoading} />
+            <StatCard icon={Truck}       label="Distributors"       value={fmt(d?.distributors?.distributors|| 0)} color="#7c3aed"    bg="#faf5ff" loading={dashLoading} />
+            <StatCard icon={TrendingUp}  label="Wholesalers"        value={fmt(d?.distributors?.wholesalers || 0)} color="#d97706"    bg="#fffbeb" loading={dashLoading} />
           </div>
 
-          <TableWrap headers={['Supplier Name', 'Type', 'Status', 'Assigned Franchises', 'Orders Placed', 'Last Activity']}>
-            {SUPPLIER_ROWS.map(r => (
-              <Tr key={r.name}>
+          {/* Search */}
+          <div style={{ background: '#fff', border: `1px solid ${C.border}`, borderRadius: 10, padding: '12px 16px',
+            display: 'flex', gap: 10, marginBottom: 14 }}>
+            <div style={{ position: 'relative', flex: 1 }}>
+              <Search size={14} color="#9ca3af" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)' }} />
+              <input value={supplierSearch}
+                onChange={e => { setSupplierSearch(e.target.value); setSupplierPage(1) }}
+                placeholder="Search supplier name…"
+                style={{ ...inputStyle, paddingLeft: 32, width: '100%' }} />
+            </div>
+          </div>
+
+          <TableWrap
+            headers={['Supplier Name', 'Type', 'Contact Person', 'Phone', 'City / State', 'GST No.', 'Status', 'Joined']}
+            loading={supplierLoading}>
+            {suppliers.length === 0 && !supplierLoading ? (
+              <tr><td colSpan={8} style={{ padding: 40, textAlign: 'center', color: '#9ca3af' }}>No suppliers found</td></tr>
+            ) : suppliers.map((s) => (
+              <Tr key={s._id}>
                 <Td>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <div style={{ width: 30, height: 30, borderRadius: 8, background: `${C.primary}12`,
                       display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                       <Truck size={13} color={C.primary} />
                     </div>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>{r.name}</span>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>{s.name}</span>
                   </div>
                 </Td>
                 <Td>
                   <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 8,
-                    background: r.type === 'Distributor' ? '#eff6ff' : '#faf5ff',
-                    color: r.type === 'Distributor' ? C.primary : '#7c3aed' }}>
-                    {r.type}
+                    background: s.type === 'Distributor' ? '#eff6ff' : '#faf5ff',
+                    color: s.type === 'Distributor' ? C.primary : '#7c3aed' }}>
+                    {s.type || 'Distributor'}
                   </span>
                 </Td>
-                <Td><StatusBadge status={r.status} /></Td>
-                <Td><span style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>{r.franchises}</span></Td>
-                <Td><span style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>{r.orders}</span></Td>
+                <Td><span style={{ fontSize: 12, color: '#374151' }}>{s.contactPerson || '—'}</span></Td>
+                <Td><span style={{ fontSize: 12, color: '#6b7280' }}>{s.mobile || '—'}</span></Td>
+                <Td>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <MapPin size={11} color="#9ca3af" />
+                    <span style={{ fontSize: 12, color: '#374151' }}>{[s.city, s.state].filter(Boolean).join(', ') || '—'}</span>
+                  </div>
+                </Td>
+                <Td><span style={{ fontSize: 11, fontFamily: 'monospace', color: '#6b7280' }}>{s.gstNo || '—'}</span></Td>
+                <Td><StatusBadge status={s.isActive ? 'Active' : 'Inactive'} /></Td>
                 <Td>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                     <Clock size={11} color="#9ca3af" />
-                    <span style={{ fontSize: 12, color: '#9ca3af' }}>{r.lastActivity}</span>
+                    <span style={{ fontSize: 12, color: '#9ca3af' }}>{fmtDate(s.createdAt)}</span>
                   </div>
                 </Td>
               </Tr>
             ))}
           </TableWrap>
+          {!supplierLoading && supplierPages > 1 && (
+            <PaginationBar page={supplierPage} totalPages={supplierPages} total={supplierTotal} perPage={PER} setPage={setSupplierPage} />
+          )}
         </>
       )}
 
-      {/* ══════════════════════════════
+      {/* ════════════════════════════════
           COMING SOON TABS
-      ══════════════════════════════ */}
+      ════════════════════════════════ */}
       {['medicine', 'inventory', 'audit'].includes(activeTab) && (
         <div style={{ background: '#fff', border: `1px solid ${C.border}`, borderRadius: 14,
           padding: '60px 40px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14 }}>
           <div style={{ width: 60, height: 60, borderRadius: 16, background: `${C.primary}12`,
             display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            {activeTab === 'medicine'   && <Pill size={28} color={C.primary} />}
-            {activeTab === 'inventory'  && <Package size={28} color={C.primary} />}
-            {activeTab === 'audit'      && <FileText size={28} color={C.primary} />}
+            {activeTab === 'medicine'  && <Pill size={28} color={C.primary} />}
+            {activeTab === 'inventory' && <Package size={28} color={C.primary} />}
+            {activeTab === 'audit'     && <FileText size={28} color={C.primary} />}
           </div>
           <h3 style={{ fontSize: 18, fontWeight: 800, color: '#111827', margin: 0, textTransform: 'capitalize' }}>
             {activeTab} Reports
           </h3>
           <p style={{ fontSize: 13, color: '#9ca3af', margin: 0, textAlign: 'center', maxWidth: 360 }}>
-            This report module is currently under development and will be available in the next release.
+            This report module is under development and will be available in the next release.
           </p>
           <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 14px', borderRadius: 20,
             background: '#fffbeb', color: '#d97706', border: '1px solid #fde68a' }}>
@@ -367,7 +568,6 @@ export default function SuperAdminReports() {
           </span>
         </div>
       )}
-
     </div>
   )
 }

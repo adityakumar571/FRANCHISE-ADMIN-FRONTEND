@@ -34,7 +34,7 @@ const DayClosing = () => {
     const fetchSummary = async () => {
       setLoading(true)
       try {
-        const res = await getRequest('/franchise/pos/day-closing/summary')
+        const res = await getRequest('franchise/pos/day-closing/summary')
         setSummary(res.data?.data)
       } catch {
         toast.error('Failed to load day closing summary')
@@ -51,7 +51,7 @@ const DayClosing = () => {
     if (!cashCount) { toast.error('Please enter physical cash count'); return }
     setSubmitting(true)
     try {
-      await postRequest({ url: '/franchise/pos/day-closing', cred: { physicalCash: cashCount, closingNote: note } })
+      await postRequest({ url: 'franchise/pos/day-closing', cred: { physicalCash: cashCount, closingNote: note } })
       toast.success('Day closed successfully')
       setClosed(true)
     } catch (err) {

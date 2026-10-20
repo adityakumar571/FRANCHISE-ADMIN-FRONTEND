@@ -127,9 +127,9 @@ const SUGGESTIONS = [
   { label: "Today's fee collection amount?", icon: '💰' },
   { label: 'Show fee defaulters list', icon: '📋' },
   { label: "Today's attendance summary", icon: '📅' },
-  { label: 'How many teachers are there?', icon: '👨‍🏫' },
-  { label: 'How to add a new student?', icon: '➕' },
-  { label: 'Nursery class topper', icon: '🏆' },
+  { label: 'How many staff are there?', icon: '👨‍🏫' },
+  { label: 'How to add new staff?', icon: '➕' },
+  { label: 'Top franchise performance', icon: '🏆' },
 ]
 
 /* ════════════════════════════════════════════════════════════════
@@ -274,7 +274,7 @@ const AiChatWidget = () => {
 
   const INITIAL_MSG = {
     role: 'assistant', ts: Date.now(),
-    content: `👋 Hey! Main **Franchise AI** hoon — ${schoolName || 'aapki franchise'} ka built-in assistant.\n\n**Kya kar sakta hoon:**\n• Individual student ki complete profile (naam batao)\n• Fees, attendance, results — koi bhi data\n• Software ka koi bhi sawal\n\nBejhijhak poochho! 😊`,
+    content: `👋 Hey! Main **Franchise AI** hoon — ${schoolName || 'aapki franchise'} ka built-in assistant.\n\n**Kya kar sakta hoon:**\n• Individual staff ki complete profile (naam batao)\n• Fees, attendance, reports — koi bhi data\n• Software ka koi bhi sawal\n\nBejhijhak poochho! 😊`,
   }
 
   const [isOpen,    setIsOpen]    = useState(false)

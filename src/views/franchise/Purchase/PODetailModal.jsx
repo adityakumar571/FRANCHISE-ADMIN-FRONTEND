@@ -19,14 +19,14 @@ const PODetailModal = ({ open, onClose, data }) => {
             <div style={{ width: 36, height: 36, borderRadius: 8, background: '#7c3aed18', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <FileText size={18} color="#7c3aed" />
             </div>
-            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>PO Details — {data._id}</h3>
+            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>PO Details — {data.poNo}</h3>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}><X size={20} /></button>
         </div>
 
         <div style={{ marginBottom: 14 }}><StatusBadge status={data.status} /></div>
 
-        <Row label="PO Number"    value={data._id} />
+        <Row label="PO Number"    value={data.poNo} />
         <Row label="Supplier"     value={data.supplier} />
         <Row label="Items"        value={data.items} />
         <Row label="Total Amount" value={`₹${data.totalAmount?.toLocaleString()}`} />

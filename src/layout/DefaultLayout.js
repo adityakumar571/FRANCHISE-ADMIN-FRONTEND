@@ -16,11 +16,14 @@ const DefaultLayout = () => {
   const navigate = useNavigate()
 
   useEffect(() => {
+    // Single cookie check on mount - no location dependency
     const token = Cookies.get('LMS')
+    
     if (!token) {
+      console.log('❌ No LMS cookie - redirecting to login')
       navigate('/franchise-login', { replace: true })
     }
-  }, [navigate])
+  }, [navigate]) // Only depend on navigate, not location
 
   return (
     <div>

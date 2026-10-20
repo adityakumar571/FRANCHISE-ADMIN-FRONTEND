@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { ClipboardList, Search, AlertTriangle, ChevronLeft, ChevronRight, BarChart2, RefreshCw } from 'lucide-react'
 import { getRequest } from '../../../Helpers'
+import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 
 const MOCK = [
@@ -32,6 +33,7 @@ const Td = ({ children, style = {} }) => <td style={{ padding: '10px 12px', font
 const STATUSES = ['All Status', 'In Stock', 'Low Stock', 'Out of Stock', 'Near Expiry']
 
 export default function Inventory() {
+  const navigate = useNavigate()
   const [search, setSearch]       = useState('')
   const [status, setStatus]       = useState('All Status')
   const [stock, setStock]         = useState([])
@@ -81,10 +83,14 @@ export default function Inventory() {
           <p style={{ fontSize: 12, color: '#9ca3af', margin: '2px 0 0' }}>Real-time stock overview and management</p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f3f4f6', color: '#374151', border: '1px solid #e5e7eb', borderRadius: 8, padding: '9px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+          <button
+            onClick={() => navigate('/franchise/inventory/adjustments')}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f3f4f6', color: '#374151', border: '1px solid #e5e7eb', borderRadius: 8, padding: '9px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
             Stock Adjustment
           </button>
-          <button style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#0c3b73', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+          <button
+            onClick={() => navigate('/franchise/reports/stock')}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#0c3b73', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
             <BarChart2 size={15} /> Stock Report
           </button>
         </div>

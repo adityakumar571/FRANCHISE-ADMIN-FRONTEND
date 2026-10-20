@@ -8,14 +8,9 @@
  *  1. NO_SUBSCRIPTION
  *  2. EXPIRED
  *  3. PAYMENT_OVERDUE
- *  4. SESSION_BILLING_OVERDUE
- *  5. ADMISSIONS_RESTRICTED
- *  6. REGISTRATION_RESTRICTED
- *  7. LIMIT_CRITICAL
- *  8. TRIAL_EXPIRING_SOON
- *  9. EXPIRING_SOON
- * 10. LIMIT_WARNING
- * 11. PAYMENT_UNPAID
+ *  4. TRIAL_EXPIRING_SOON
+ *  5. EXPIRING_SOON
+ *  6. PAYMENT_UNPAID
  */
 
 import { useState } from 'react'
@@ -35,25 +30,10 @@ const IconClock = () => (
   </svg>
 )
 
-const IconUsers = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-    <circle cx="9" cy="7" r="4"/>
-    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-  </svg>
-)
-
 const IconCard = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
     <line x1="1" y1="10" x2="23" y2="10"/>
-  </svg>
-)
-
-const IconLock = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-    <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
   </svg>
 )
 
@@ -78,7 +58,7 @@ const WARNINGS = {
     Icon: IconAlert,
     priority: 1,
     message: () =>
-      'Your school has not been activated yet. Please contact the administrator to set up your subscription.',
+      'Your account has not been activated yet. Please contact the administrator to set up your subscription.',
   },
   EXPIRED: {
     bg: '#fef2f2', border: '#fca5a5', textColor: '#7f1d1d',
@@ -94,59 +74,24 @@ const WARNINGS = {
     message: (d) =>
       `Payment is overdue since ${fmt(d.dueDate)}. Access will be suspended after the grace period. Please clear the payment immediately.`,
   },
-  SESSION_BILLING_OVERDUE: {
-    bg: '#fef2f2', border: '#fca5a5', textColor: '#7f1d1d',
-    Icon: IconCard,
-    priority: 4,
-    message: () =>
-      'One or more monthly billing installments are overdue for this session. Contact your administrator to avoid service restrictions.',
-  },
-  ADMISSIONS_RESTRICTED: {
-    bg: '#fff7ed', border: '#fdba74', textColor: '#7c2d12',
-    Icon: IconLock,
-    priority: 5,
-    message: () =>
-      'New student admissions are currently blocked due to pending subscription payments. Please contact your administrator.',
-  },
-  REGISTRATION_RESTRICTED: {
-    bg: '#fff7ed', border: '#fdba74', textColor: '#7c2d12',
-    Icon: IconLock,
-    priority: 6,
-    message: () =>
-      'New student registrations are currently blocked due to pending subscription payments. Please contact your administrator.',
-  },
-  LIMIT_CRITICAL: {
-    bg: '#fff7ed', border: '#fdba74', textColor: '#7c2d12',
-    Icon: IconUsers,
-    priority: 7,
-    message: (d) =>
-      `Student enrollment is almost at capacity — ${d.usedStudents ?? 0} of ${d.totalStudentLimit ?? 0} seats used (${d.usagePercent ?? 0}%). Contact your administrator to upgrade the plan.`,
-  },
   TRIAL_EXPIRING_SOON: {
     bg: '#fffbeb', border: '#fde68a', textColor: '#78350f',
     Icon: IconClock,
-    priority: 8,
+    priority: 4,
     message: (d) =>
       `Your free trial expires in ${d.daysLeft} day${d.daysLeft === 1 ? '' : 's'}. Contact your administrator to activate a paid plan before access is lost.`,
   },
   EXPIRING_SOON: {
     bg: '#fffbeb', border: '#fde68a', textColor: '#78350f',
     Icon: IconClock,
-    priority: 9,
+    priority: 5,
     message: (d) =>
       `Your subscription expires in ${d.daysLeft} day${d.daysLeft === 1 ? '' : 's'} (${fmt(d.endDate)}). Contact your administrator to renew before it lapses.`,
-  },
-  LIMIT_WARNING: {
-    bg: '#fffbeb', border: '#fde68a', textColor: '#78350f',
-    Icon: IconUsers,
-    priority: 10,
-    message: (d) =>
-      `${d.usagePercent ?? 0}% of your student seats are filled (${d.usedStudents ?? 0}/${d.totalStudentLimit ?? 0}). Consider requesting a plan upgrade soon.`,
   },
   PAYMENT_UNPAID: {
     bg: '#fff7ed', border: '#fdba74', textColor: '#7c2d12',
     Icon: IconCard,
-    priority: 11,
+    priority: 6,
     message: () =>
       'Subscription payment has not been received yet. Please contact your administrator to confirm payment.',
   },

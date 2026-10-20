@@ -4,22 +4,53 @@ import { CDropdown, CDropdownItem, CDropdownMenu, CDropdownToggle } from '@coreu
 import { cilLockLocked, cilUser } from '@coreui/icons'
 import CIcon from '@coreui/icons-react'
 import { MdArrowDropDown } from 'react-icons/md'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { FranchiseContext } from '../../Context/FranchiseContext'
+import { logoutSupplier } from '../../utils/supplierAuth'
 
 const AppHeaderDropdown = () => {
   const navigate = useNavigate()
+  const location = useLocation()
   const { franchiseUser, logoutFranchise } = useContext(FranchiseContext)
 
-  const handleLogout = (e) => {
+  // Detect if we're in supplier portal
+  const isSupplierPortal = location.pathname.startsWith('/supplier')
+
+  const handleLogout = async (e) => {
     e.preventDefault()
-    logoutFranchise()
-    navigate('/franchise-login', { replace: true })
+    
+    if (isSupplierPortal) {
+      // Supplier logout using utility function
+      try {
+        await logoutSupplier()
+        // Redirect to login page
+        navigate('/supplier/login', { replace: true })
+        // Force reload to ensure all state is cleared
+        window.location.reload()
+      } catch (error) {
+        console.error('Logout failed:', error)
+        // Force redirect anyway
+        navigate('/supplier/login', { replace: true })
+        window.location.reload()
+      }
+    } else {
+      // Franchise logout
+      logoutFranchise()
+      navigate('/franchise-login', { replace: true })
+    }
   }
 
-  const name = franchiseUser?.name || franchiseUser?.userId || 'Admin'
-  const role = franchiseUser?.role || 'Franchise Admin'
-  const initial = name.slice(0, 1).toUpperCase()
+  // Get name and role based on portal type
+  let name, role, initial
+  if (isSupplierPortal) {
+    name = localStorage.getItem('supplierName') || 'Supplier'
+    role = 'Supplier'
+    initial = name.slice(0, 1).toUpperCase()
+  } else {
+    name = franchiseUser?.name || franchiseUser?.userId || 'Admin'
+    role = franchiseUser?.role || 'Franchise Admin'
+    initial = name.slice(0, 1).toUpperCase()
+  }
 
   return (
     <CDropdown variant="nav-item">
@@ -46,18 +77,37 @@ const AppHeaderDropdown = () => {
           <div style={{ fontWeight: 600, fontSize: 13 }}>{name}</div>
           <div style={{ fontSize: 11, color: '#9ca3af' }}>{role}</div>
         </div>
-        <CDropdownItem onClick={() => navigate('/franchise/settings')}>
-          <CIcon icon={cilUser} className="me-2" />
-          Profile
-        </CDropdownItem>
-        <CDropdownItem onClick={() => navigate('/franchise/settings')}>
-          <CIcon icon={cilLockLocked} className="me-2" />
-          Change Password
-        </CDropdownItem>
-        <CDropdownItem onClick={handleLogout} style={{ color: '#ef4444' }}>
-          <CIcon icon={cilLockLocked} className="me-2" />
-          Log Out
-        </CDropdownItem>
+        {isSupplierPortal ? (
+          <>
+            <CDropdownItem onClick={() => navigate('/supplier/profile')}>
+              <CIcon icon={cilUser} className="me-2" />
+              Profile
+            </CDropdownItem>
+            <CDropdownItem onClick={() => navigate('/supplier/settings')}>
+              <CIcon icon={cilLockLocked} className="me-2" />
+              Change Password
+            </CDropdownItem>
+            <CDropdownItem onClick={handleLogout} style={{ color: '#ef4444' }}>
+              <CIcon icon={cilLockLocked} className="me-2" />
+              Log Out
+            </CDropdownItem>
+          </>
+        ) : (
+          <>
+            <CDropdownItem onClick={() => navigate('/franchise/settings')}>
+              <CIcon icon={cilUser} className="me-2" />
+              Profile
+            </CDropdownItem>
+            <CDropdownItem onClick={() => navigate('/franchise/settings')}>
+              <CIcon icon={cilLockLocked} className="me-2" />
+              Change Password
+            </CDropdownItem>
+            <CDropdownItem onClick={handleLogout} style={{ color: '#ef4444' }}>
+              <CIcon icon={cilLockLocked} className="me-2" />
+              Log Out
+            </CDropdownItem>
+          </>
+        )}
       </CDropdownMenu>
     </CDropdown>
   )

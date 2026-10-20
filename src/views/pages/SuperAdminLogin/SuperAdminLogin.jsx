@@ -29,6 +29,7 @@ export default function SuperAdminLogin() {
       if (token) {
         Cookies.set('SA_TOKEN', token, { expires: 1, path: '/' })
         Cookies.set('LMS', token, { expires: 1, path: '/' }) // shared token for API calls
+        Cookies.set('accessToken', token, { expires: 1, path: '/' }) // For Super Admin API calls
         localStorage.setItem('sa_user', JSON.stringify(user || { email: form.email, role: 'SuperAdmin' }))
         toast.success('Welcome, Super Admin!')
         navigate('/superadmin/dashboard', { replace: true })

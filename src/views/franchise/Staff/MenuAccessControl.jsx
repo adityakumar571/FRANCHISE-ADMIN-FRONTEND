@@ -5,7 +5,9 @@
  * Tab 2: Menu Access  (select user → module cards with switches)
  * Exact replication of TFMS UserAccess + UserMenuAccess — franchise design system
  */
-import { useState, useContext } from 'react'
+import { useState, useContext, useEffect, useCallback } from 'react'
+import axios from 'axios'
+import Cookies from 'js-cookie'
 import {
   ShieldCheck, Save, CheckSquare, Search, Download,
   Edit2, Lock, RefreshCw, X, Eye, EyeOff, Users,
@@ -15,6 +17,33 @@ import {
 import toast from 'react-hot-toast'
 import PageHeader from '../components/PageHeader'
 import { useFranchise } from '../../../Context/FranchiseContext'
+
+/* ── API Setup ── */
+const BASE_URL    = import.meta.env.VITE_API_BASE_URL
+const getSubdomain = () => localStorage.getItem('franchise_subdomain') || import.meta.env.VITE_TENANT_ID || ''
+const getToken     = () => Cookies.get('LMS') || ''
+const api = axios.create({ baseURL: BASE_URL })
+api.interceptors.request.use(cfg => {
+  cfg.headers['Authorization'] = `Bearer ${getToken()}`
+  cfg.headers['x-tenant-id']   = getSubdomain()
+  return cfg
+})
+
+/* ── Helper: map API user → component user ── */
+const mapUser = (u) => ({
+  _id:        u._id,
+  id:         u.userId || u._id,
+  userId:     u.userId,
+  name:       u.name || '—',
+  role:       u.role  || 'Staff',
+  phone:      u.phone || '',
+  email:      u.email || '',
+  loginAccess: u.isActive !== false,
+  status:     u.isActive !== false ? 'Active' : 'Inactive',
+  lastLogin:  u.lastLogin
+    ? new Date(u.lastLogin).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+    : '—',
+})
 
 /* ═══════════════════════════════════════════════════════
    CONSTANTS — MODULES (franchise menus)
@@ -94,16 +123,17 @@ const MODULES = [
       { key: 'medicines_barcode', label: 'Barcode & Label' },
     ],
   },
-  {
-    key: 'suppliers', label: 'Suppliers', icon: '🚚',
-    items: [
-      { key: 'suppliers_list',        label: 'Supplier List' },
-      { key: 'suppliers_add',         label: 'Add Supplier' },
-      { key: 'suppliers_outstanding', label: 'Outstanding' },
-      { key: 'suppliers_ledger',      label: 'Supplier Ledger' },
-      { key: 'suppliers_payments',    label: 'Payment History' },
-    ],
-  },
+  // ❌ REMOVED: Tenant supplier menu items
+  // {
+  //   key: 'suppliers', label: 'Suppliers', icon: '🚚',
+  //   items: [
+  //     { key: 'suppliers_list',        label: 'Supplier List' },
+  //     { key: 'suppliers_add',         label: 'Add Supplier' },
+  //     { key: 'suppliers_outstanding', label: 'Outstanding' },
+  //     { key: 'suppliers_ledger',      label: 'Supplier Ledger' },
+  //     { key: 'suppliers_payments',    label: 'Payment History' },
+  //   ],
+  // },
   {
     key: 'customers', label: 'Customers', icon: '👥',
     items: [
@@ -187,47 +217,79 @@ const NO_ACCESS     = buildAllKeys()
 const buildAccess = (keys) => Object.fromEntries(ALL_KEYS.map(k => [k, keys.includes(k)]))
 
 const ROLE_DEFAULTS = {
+  SuperAdmin: FULL_ACCESS,
+  Admin: FULL_ACCESS,
   'Franchise Owner': FULL_ACCESS,
+  Accounts: buildAccess([
+    'dashboard','dashboard_main',
+    'accounts','accounts_cashbook','accounts_bankbook','accounts_daybook','accounts_receipts',
+    'accounts_payments','accounts_expenses','accounts_income','accounts_journal',
+    'accounts_ledger','accounts_trial','accounts_pl','accounts_bs',
+    'reports','reports_sales','reports_purchase','reports_stock','reports_expiry',
+  ]),
+  Staff: buildAccess([
+    'dashboard','dashboard_main',
+    'pos','pos_billing','pos_barcode','pos_prescription','pos_payment','pos_hold','pos_return','pos_dayclosing',
+    'inventory','inventory_stock','inventory_nearexpiry',
+    'medicines','medicines_list',
+    'customers','customers_list',
+  ]),
+  HRManager: buildAccess([
+    'dashboard','dashboard_main',
+    'staff','staff_list','staff_add','staff_access',
+    'reports','reports_sales',
+  ]),
+  HRStaff: buildAccess([
+    'dashboard','dashboard_main',
+    'staff','staff_list',
+  ]),
+  Customer: buildAccess(['dashboard','dashboard_main']),
+  Vendor: buildAccess(['dashboard','dashboard_main','b2b','b2b_orders']),
   'Branch Manager': buildAccess([
     'dashboard','dashboard_main',
     'purchase','purchase_dashboard','purchase_orders','purchase_grn','purchase_returns',
     'inventory','inventory_dashboard','inventory_stock','inventory_nearexpiry','inventory_rack',
     'medicines','medicines_list','medicines_rack',
-    'suppliers','suppliers_list','suppliers_outstanding',
+    // ❌ REMOVED: 'suppliers','suppliers_list','suppliers_outstanding',
     'reports','reports_sales','reports_purchase','reports_stock',
     'staff','staff_list',
   ]),
-  'Pharmacist': buildAccess([
+  Pharmacist: buildAccess([
     'dashboard','dashboard_main',
     'pos','pos_billing','pos_barcode','pos_prescription','pos_payment','pos_hold','pos_return',
     'inventory','inventory_stock','inventory_nearexpiry',
     'medicines','medicines_list',
     'customers','customers_list',
   ]),
-  'Cashier': buildAccess([
+  Cashier: buildAccess([
     'dashboard','dashboard_main',
     'pos','pos_billing','pos_payment','pos_split','pos_hold','pos_credit','pos_dayclosing',
     'customers','customers_list',
   ]),
 }
 
-const ROLE_COLORS = {
+const ROLE_COLOR_MAP = {
   'Franchise Owner': '#7c3aed',
   'Branch Manager':  '#0891b2',
   'Pharmacist':      '#0c3b73',
   'Cashier':         '#16a34a',
+  'SuperAdmin':      '#7c3aed',
+  'Admin':           '#0c3b73',
+  'Accounts':        '#0891b2',
+  'Staff':           '#16a34a',
+  'HRManager':       '#d97706',
+  'HRStaff':         '#ea580c',
+  'Customer':        '#9333ea',
+  'Vendor':          '#dc2626',
 }
 
-/* ═══════════════════════════════════════════════════════
-   MOCK STAFF DATA
-═══════════════════════════════════════════════════════ */
-const INIT_STAFF = [
-  { id: 'U-001', name: 'Ajay Sharma',  role: 'Franchise Owner', phone: '9876543201', email: 'ajay@pharma.com',   loginAccess: true,  status: 'Active',   lastLogin: '22 Aug 2026, 9:00 AM'  },
-  { id: 'U-002', name: 'Sunita Rao',   role: 'Branch Manager',  phone: '9812340001', email: 'sunita@pharma.com', loginAccess: true,  status: 'Active',   lastLogin: '22 Aug 2026, 8:45 AM'  },
-  { id: 'U-003', name: 'Amit Kumar',   role: 'Pharmacist',      phone: '9988001122', email: 'amit@pharma.com',   loginAccess: true,  status: 'Active',   lastLogin: '22 Aug 2026, 9:15 AM'  },
-  { id: 'U-004', name: 'Neha Gupta',   role: 'Cashier',         phone: '8877001122', email: 'neha@pharma.com',   loginAccess: true,  status: 'Active',   lastLogin: '22 Aug 2026, 9:30 AM'  },
-  { id: 'U-005', name: 'Ravi Singh',   role: 'Pharmacist',      phone: '7766001122', email: 'ravi@pharma.com',   loginAccess: false, status: 'Inactive', lastLogin: '10 Aug 2026, 6:00 PM'  },
-]
+// Dynamic color for any unknown role
+const ROLE_PALETTE_COLORS = ['#7c3aed','#0c3b73','#0891b2','#16a34a','#d97706','#dc2626','#9333ea','#ea580c']
+const getRoleColor = (role) => {
+  if (ROLE_COLOR_MAP[role]) return ROLE_COLOR_MAP[role]
+  const idx = [...(role||'')].reduce((a,c) => a + c.charCodeAt(0), 0) % ROLE_PALETTE_COLORS.length
+  return ROLE_PALETTE_COLORS[idx]
+}
 
 /* ═══════════════════════════════════════════════════════
    SMALL SHARED COMPONENTS
@@ -255,52 +317,211 @@ function Toggle({ checked, onChange, disabled = false }) {
   )
 }
 
-/* Reset Password Modal */
+/* Reset Password Modal — User ID + Current Password + Set New Password */
 function ResetPasswordModal({ user, onClose, onSave }) {
-  const [pwd, setPwd]   = useState('')
-  const [show, setShow] = useState(false)
+  const [pwd, setPwd]           = useState('')
+  const [showNew, setShowNew]   = useState(false)
+  const [showCurr, setShowCurr] = useState(false)
+  const [creds, setCreds]       = useState(null)
+  const [credsLoading, setCredsLoading] = useState(true)
+  const [copiedId, setCopiedId] = useState(false)
+  const [copiedPw, setCopiedPw] = useState(false)
+
+  // Fetch User ID + current password from backend
+  useEffect(() => {
+    if (!user?._id) return
+    setCredsLoading(true)
+
+    const timeout = setTimeout(() => {
+      setCreds({ userId: user.userId || user.id || null, password: null, _err: 'Request timed out' })
+      setCredsLoading(false)
+    }, 8000)
+
+    api.get(`users/${user._id}/credentials`)
+      .then(r => {
+        clearTimeout(timeout)
+        const data = r.data?.data || {}
+        setCreds({
+          userId:   data.userId   || user.userId || user.id || null,
+          password: data.password || null,
+        })
+      })
+      .catch(err => {
+        clearTimeout(timeout)
+        const status = err?.response?.status
+        const msg = status === 401 || status === 403
+          ? 'Permission denied'
+          : err?.response?.data?.message || 'Failed to load'
+        setCreds({ userId: user.userId || user.id || null, password: null, _err: msg })
+      })
+      .finally(() => { clearTimeout(timeout); setCredsLoading(false) })
+  }, [user?._id])
+
+  const copy = (text, type) => {
+    if (!text) return
+    navigator.clipboard.writeText(text).then(() => {
+      if (type === 'id') { setCopiedId(true); setTimeout(() => setCopiedId(false), 2000) }
+      else               { setCopiedPw(true); setTimeout(() => setCopiedPw(false), 2000) }
+    })
+  }
+
+  const copyBoth = () => {
+    if (!creds?.userId) return
+    navigator.clipboard.writeText(`User ID: ${creds.userId}\nPassword: ${creds.password || '(not set)'}`)
+      .then(() => { setCopiedId(true); setCopiedPw(true); setTimeout(() => { setCopiedId(false); setCopiedPw(false) }, 2000) })
+  }
+
   const handleSave = () => {
     if (pwd.length < 6) { toast.error('Password must be at least 6 characters'); return }
     onSave(pwd)
     toast.success(`Password reset for ${user.name}`)
     onClose()
   }
+
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-      <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 400, boxShadow: '0 20px 60px rgba(0,0,0,0.18)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 22px', borderBottom: '1px solid #f3f4f6' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 36, height: 36, borderRadius: 9, background: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Lock size={16} color="#d97706" />
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 460, boxShadow: '0 32px 80px rgba(0,0,0,0.22)', overflow: 'hidden', maxHeight: '95vh', overflowY: 'auto' }}>
+
+        {/* Header */}
+        <div style={{ background: 'linear-gradient(135deg, #0c3b73 0%, #1e5ba8 100%)', padding: '18px 22px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ width: 42, height: 42, borderRadius: '50%', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, fontWeight: 700, color: '#fff', border: '2px solid rgba(255,255,255,0.35)' }}>
+                {(user?.name || '?').charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#fff' }}>{user?.name}</h3>
+                <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.75)' }}>{user?.role}</span>
+              </div>
             </div>
-            <div>
-              <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#111827' }}>Reset Password</h3>
-              <p style={{ margin: 0, fontSize: 11, color: '#9ca3af' }}>{user.name} · {user.role}</p>
-            </div>
-          </div>
-          <button onClick={onClose} style={{ background: '#f3f4f6', border: 'none', borderRadius: 8, width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-            <X size={14} color="#6b7280" />
-          </button>
-        </div>
-        <div style={{ padding: '20px 22px' }}>
-          <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 6 }}>New Password *</label>
-          <div style={{ position: 'relative' }}>
-            <input
-              type={show ? 'text' : 'password'}
-              value={pwd}
-              onChange={e => setPwd(e.target.value)}
-              placeholder="Minimum 6 characters"
-              style={{ width: '100%', padding: '9px 40px 9px 12px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
-            />
-            <button onClick={() => setShow(s => !s)} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af' }}>
-              {show ? <EyeOff size={15} /> : <Eye size={15} />}
+            <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 8, width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+              <X size={14} color="#fff" />
             </button>
           </div>
-          <p style={{ margin: '6px 0 0', fontSize: 11, color: '#9ca3af' }}>Password will be updated immediately after saving.</p>
         </div>
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', padding: '14px 22px', borderTop: '1px solid #f3f4f6' }}>
-          <button onClick={onClose} style={{ padding: '9px 20px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', color: '#374151' }}>Cancel</button>
-          <button onClick={handleSave} style={{ padding: '9px 20px', borderRadius: 8, border: 'none', background: '#d97706', fontSize: 13, fontWeight: 600, cursor: 'pointer', color: '#fff', display: 'flex', alignItems: 'center', gap: 6 }}>
+
+        <div style={{ padding: '18px 22px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+          {/* ── Current Credentials ── */}
+          <div style={{ background: '#f0f9ff', border: '1.5px solid #bae6fd', borderRadius: 12, padding: '14px 16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
+              <Lock size={13} color="#0369a1" />
+              <span style={{ fontSize: 11, fontWeight: 700, color: '#0369a1', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
+                Login Credentials
+              </span>
+              <span style={{ marginLeft: 'auto', fontSize: 10, color: '#9ca3af', fontStyle: 'italic' }}>Admin View Only</span>
+            </div>
+
+            {credsLoading ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0' }}>
+                <div style={{ width: 14, height: 14, border: '2px solid #bae6fd', borderTopColor: '#0c3b73', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                <span style={{ fontSize: 12, color: '#6b7280' }}>Loading credentials…</span>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+
+                {creds?._err && (
+                  <div style={{ padding: '8px 12px', background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 8, fontSize: 12, color: '#92400e' }}>
+                    ⚠ {creds._err}
+                  </div>
+                )}
+
+                {/* User ID */}
+                <div style={{ background: '#fff', border: '1.5px solid #93c5fd', borderRadius: 10, padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                  <div>
+                    <p style={{ margin: 0, fontSize: 10, color: '#6b7280', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px' }}>👤 User ID (Login)</p>
+                    <p style={{ margin: '5px 0 0', fontSize: 20, fontWeight: 800, color: '#0c3b73', fontFamily: 'monospace', letterSpacing: '1.5px', wordBreak: 'break-all' }}>
+                      {creds?.userId || <span style={{ fontSize: 13, color: '#dc2626', fontFamily: 'Inter, sans-serif', fontWeight: 500, fontStyle: 'italic' }}>Not assigned</span>}
+                    </p>
+                  </div>
+                  {creds?.userId && (
+                    <button onClick={() => copy(creds.userId, 'id')}
+                      style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4, padding: '7px 12px', borderRadius: 8, border: `1.5px solid ${copiedId ? '#86efac' : '#93c5fd'}`, background: copiedId ? '#dcfce7' : '#eff6ff', cursor: 'pointer', fontSize: 11, fontWeight: 700, color: copiedId ? '#16a34a' : '#0c3b73', transition: 'all .2s' }}>
+                      {copiedId ? '✓ Copied!' : '⎘ Copy'}
+                    </button>
+                  )}
+                </div>
+
+                {/* Password */}
+                <div style={{ background: '#fff', border: `1.5px solid ${creds?.password ? '#d1d5db' : '#fde68a'}`, borderRadius: 10, padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ margin: 0, fontSize: 10, color: '#6b7280', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px' }}>🔑 Password</p>
+                    {creds?.password ? (
+                      <p style={{ margin: '5px 0 0', fontSize: 20, fontWeight: 800, color: '#111827', fontFamily: 'monospace', letterSpacing: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {showCurr ? creds.password : '•'.repeat(Math.min(creds.password.length, 12))}
+                      </p>
+                    ) : (
+                      <p style={{ margin: '5px 0 0', fontSize: 12, color: '#d97706', fontStyle: 'italic' }}>
+                        ⚠ Not set — use below to set one
+                      </p>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                    {creds?.password && (
+                      <>
+                        <button onClick={() => setShowCurr(p => !p)}
+                          style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '5px 9px', borderRadius: 7, border: '1px solid #e5e7eb', background: '#f9fafb', cursor: 'pointer', fontSize: 11, color: '#6b7280' }}>
+                          {showCurr ? <EyeOff size={12} /> : <Eye size={12} />}
+                        </button>
+                        <button onClick={() => copy(creds.password, 'pw')}
+                          style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', borderRadius: 7, border: `1.5px solid ${copiedPw ? '#86efac' : '#d1d5db'}`, background: copiedPw ? '#dcfce7' : '#fff', cursor: 'pointer', fontSize: 11, fontWeight: 700, color: copiedPw ? '#16a34a' : '#374151' }}>
+                          {copiedPw ? '✓ Copied!' : '⎘ Copy'}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Copy Both */}
+                {creds?.userId && creds?.password && (
+                  <button onClick={copyBoth}
+                    style={{ width: '100%', padding: '9px 0', borderRadius: 9, border: '2px dashed #93c5fd', background: '#f0f9ff', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#0c3b73', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                    ⎘ {copiedId && copiedPw ? '✓ Copied!' : 'Copy User ID + Password Together'}
+                  </button>
+                )}
+
+                {/* Tip */}
+                <p style={{ margin: 0, fontSize: 11, color: '#15803d', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '8px 12px' }}>
+                  💡 Share this User ID and Password with <strong>{user?.name}</strong> so they can login.
+                  {!creds?.password && ' Please set a new password below first.'}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* ── Set New Password ── */}
+          <div style={{ border: '1.5px solid #e5e7eb', borderRadius: 12, padding: '14px 16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+              <Lock size={13} color="#d97706" />
+              <span style={{ fontSize: 11, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.6px' }}>Set New Password</span>
+            </div>
+            <div style={{ position: 'relative' }}>
+              <input
+                type={showNew ? 'text' : 'password'}
+                value={pwd}
+                onChange={e => setPwd(e.target.value)}
+                placeholder="Minimum 6 characters"
+                style={{ width: '100%', padding: '10px 40px 10px 12px', border: '1.5px solid #e5e7eb', borderRadius: 9, fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'monospace' }}
+                onFocus={e => e.target.style.borderColor = '#0c3b73'}
+                onBlur={e => e.target.style.borderColor = '#e5e7eb'}
+              />
+              <button onClick={() => setShowNew(s => !s)} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af' }}>
+                {showNew ? <EyeOff size={15} /> : <Eye size={15} />}
+              </button>
+            </div>
+            <p style={{ margin: '6px 0 0', fontSize: 11, color: '#9ca3af' }}>
+              Password will be updated immediately. Copy the new credentials above and share with the staff member.
+            </p>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div style={{ display: 'flex', gap: 10, padding: '14px 22px', borderTop: '1px solid #f3f4f6', background: '#f9fafb' }}>
+          <button onClick={onClose} style={{ flex: 1, padding: '10px 0', borderRadius: 9, border: '1px solid #e5e7eb', background: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', color: '#374151' }}>
+            Cancel
+          </button>
+          <button onClick={handleSave} disabled={!pwd}
+            style={{ flex: 2, padding: '10px 0', borderRadius: 9, border: 'none', background: !pwd ? '#94a3b8' : '#d97706', fontSize: 13, fontWeight: 700, cursor: !pwd ? 'not-allowed' : 'pointer', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
             <Lock size={13} /> Reset Password
           </button>
         </div>
@@ -347,7 +568,7 @@ function EditUserModal({ user, roles, onClose, onSave }) {
         </div>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', padding: '14px 22px', borderTop: '1px solid #f3f4f6' }}>
           <button onClick={onClose} style={{ padding: '9px 20px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', color: '#374151' }}>Cancel</button>
-          <button onClick={() => { onSave(form); toast.success('User updated successfully'); onClose() }} style={{ padding: '9px 20px', borderRadius: 8, border: 'none', background: '#0c3b73', fontSize: 13, fontWeight: 600, cursor: 'pointer', color: '#fff', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button onClick={() => { onSave(form); onClose() }} style={{ padding: '9px 20px', borderRadius: 8, border: 'none', background: '#0c3b73', fontSize: 13, fontWeight: 600, cursor: 'pointer', color: '#fff', display: 'flex', alignItems: 'center', gap: 6 }}>
             <Save size={13} /> Update User
           </button>
         </div>
@@ -359,7 +580,7 @@ function EditUserModal({ user, roles, onClose, onSave }) {
 /* ═══════════════════════════════════════════════════════
    TAB 1 — USER ACCESS (table)
 ═══════════════════════════════════════════════════════ */
-function UserAccessTab({ staff, setStaff }) {
+function UserAccessTab({ staff, setStaff, fetchStaff }) {
   const [search, setSearch]       = useState('')
   const [roleFilter, setRoleFilter] = useState('All')
   const [loginFilter, setLoginFilter] = useState('All')
@@ -367,7 +588,7 @@ function UserAccessTab({ staff, setStaff }) {
   const [resetUser, setResetUser] = useState(null)
   const [editUser, setEditUser]   = useState(null)
 
-  const ROLES = ['All', 'Franchise Owner', 'Branch Manager', 'Pharmacist', 'Cashier']
+  const ROLES = ['All', ...new Set(staff.map(s => s.role).filter(Boolean))].sort()
 
   const filtered = staff.filter(s => {
     const q = search.toLowerCase()
@@ -375,24 +596,48 @@ function UserAccessTab({ staff, setStaff }) {
       (roleFilter   === 'All' || s.role === roleFilter) &&
       (loginFilter  === 'All' || (loginFilter === 'Enabled' ? s.loginAccess : !s.loginAccess)) &&
       (statusFilter === 'All' || s.status === statusFilter) &&
-      (search === '' || s.name.toLowerCase().includes(q) || s.email.toLowerCase().includes(q) || s.phone.includes(q) || s.id.toLowerCase().includes(q))
+      (search === '' || s.name.toLowerCase().includes(q) || (s.email||'').toLowerCase().includes(q) || (s.phone||'').includes(q) || (s.id||'').toLowerCase().includes(q) || (s.userId||'').toLowerCase().includes(q))
     )
   })
 
-  const toggleLogin = (id) => {
-    setStaff(p => p.map(s => s.id === id ? { ...s, loginAccess: !s.loginAccess } : s))
-    const user = staff.find(s => s.id === id)
-    toast.success(`Login access ${user.loginAccess ? 'disabled' : 'enabled'} for ${user.name}`)
+  const toggleLogin = async (s) => {
+    try {
+      await api.patch(`users/${s._id}/toggle`)
+      toast.success(`Login access ${s.loginAccess ? 'disabled' : 'enabled'} for ${s.name}`)
+      fetchStaff()
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Status update failed')
+    }
   }
 
-  const handleEdit = (updated) => {
-    setStaff(p => p.map(s => s.id === editUser.id ? { ...s, ...updated } : s))
+  const handleEdit = async (form) => {
+    try {
+      await api.put(`users/${editUser._id}`, {
+        name:  form.name,
+        phone: form.phone,
+        email: form.email,
+        role:  form.role,
+      })
+      toast.success('User updated successfully')
+      fetchStaff()
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Update failed')
+    }
+  }
+
+  const handleResetPassword = async (newPassword) => {
+    try {
+      await api.patch(`users/${resetUser._id}/reset-password`, { newPassword })
+      toast.success(`Password reset for ${resetUser.name}`)
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Reset failed')
+    }
   }
 
   const resetFilters = () => { setSearch(''); setRoleFilter('All'); setLoginFilter('All'); setStatusFilter('All') }
 
-  const totalActive   = staff.filter(s => s.status   === 'Active').length
-  const totalInactive = staff.filter(s => s.status   !== 'Active').length
+  const totalActive   = staff.filter(s => s.status === 'Active').length
+  const totalInactive = staff.filter(s => s.status !== 'Active').length
   const totalEnabled  = staff.filter(s => s.loginAccess).length
 
   const Th = ({ c, align = 'left' }) => (
@@ -404,8 +649,8 @@ function UserAccessTab({ staff, setStaff }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-      {resetUser && <ResetPasswordModal user={resetUser} onClose={() => setResetUser(null)} onSave={() => {}} />}
-      {editUser  && <EditUserModal user={editUser} roles={['Franchise Owner','Branch Manager','Pharmacist','Cashier']} onClose={() => setEditUser(null)} onSave={handleEdit} />}
+      {resetUser && <ResetPasswordModal user={resetUser} onClose={() => setResetUser(null)} onSave={handleResetPassword} />}
+      {editUser  && <EditUserModal user={editUser} roles={['All', ...new Set(staff.map(s => s.role).filter(Boolean))].filter(r => r !== 'All')} onClose={() => setEditUser(null)} onSave={handleEdit} />}
 
       {/* KPI strip */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 12 }}>
@@ -458,7 +703,21 @@ function UserAccessTab({ staff, setStaff }) {
             { label: 'CSV',    color: '#0891b2', icon: FileText },
             { label: 'Print',  color: '#6b7280', icon: Printer  },
           ].map(b => (
-            <button key={b.label} onClick={() => toast.success(`Exporting as ${b.label}...`)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '8px 12px', border: 'none', borderRadius: 8, background: b.color, fontSize: 12, fontWeight: 600, cursor: 'pointer', color: '#fff' }}>
+            <button key={b.label} onClick={() => {
+              if (b.label === 'Print') { window.print(); return }
+              // CSV / Excel export from current filtered staff list
+              const headers = 'Name,User ID,Role,Phone,Email,Login Access,Status,Last Login'
+              const rows = filtered.map(s =>
+                `${s.name},${s.id},${s.role},${s.phone},${s.email},${s.loginAccess?'Enabled':'Disabled'},${s.status},${s.lastLogin}`
+              ).join('\n')
+              const csv = `${headers}\n${rows}`
+              const blob = new Blob([csv], { type: 'text/csv' })
+              const a = document.createElement('a')
+              a.href = URL.createObjectURL(blob)
+              a.download = `users_${new Date().toISOString().slice(0,10)}.${b.label === 'Excel' ? 'csv' : 'csv'}`
+              a.click()
+              toast.success(`Exported ${filtered.length} users as ${b.label}`)
+            }} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '8px 12px', border: 'none', borderRadius: 8, background: b.color, fontSize: 12, fontWeight: 600, cursor: 'pointer', color: '#fff' }}>
               <b.icon size={12} /> {b.label}
             </button>
           ))}
@@ -484,7 +743,7 @@ function UserAccessTab({ staff, setStaff }) {
               {filtered.length === 0 ? (
                 <tr><td colSpan={10} style={{ padding: 48, textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>No users found</td></tr>
               ) : filtered.map((s, i) => {
-                const rc = ROLE_COLORS[s.role] || '#6b7280'
+                const rc = getRoleColor(s.role)
                 return (
                   <tr key={s.id} onMouseEnter={e => e.currentTarget.style.background='#fafafa'} onMouseLeave={e => e.currentTarget.style.background=''}>
                     <Td style={{ color: '#9ca3af', fontSize: 12 }}>{i + 1}</Td>
@@ -501,7 +760,7 @@ function UserAccessTab({ staff, setStaff }) {
                     <Td style={{ fontSize: 12, color: '#6b7280' }}>{s.phone}</Td>
                     <Td style={{ fontSize: 12, color: '#6b7280' }}>{s.email}</Td>
                     <Td style={{ textAlign: 'center' }}>
-                      <Toggle checked={s.loginAccess} onChange={() => toggleLogin(s.id)} />
+                      <Toggle checked={s.loginAccess} onChange={() => toggleLogin(s)} />
                     </Td>
                     <Td style={{ textAlign: 'center' }}>
                       <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: s.status === 'Active' ? '#dcfce7' : '#f3f4f6', color: s.status === 'Active' ? '#16a34a' : '#6b7280' }}>
@@ -571,27 +830,35 @@ function MenuAccessTab({ staff }) {
     toast('All permissions enabled', { icon: '✅' })
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setSaving(true)
-    setTimeout(() => {
-      setSaving(false)
-      // If saving for the currently logged-in user, update sidebar immediately
+    try {
+      // Convert access map to array of enabled keys for API
+      const enabledKeys = Object.entries(access).filter(([, v]) => v).map(([k]) => k)
+
+      // Try real API first
+      await api.put(`users/${currentUser?._id || selectedId}/menu-access`, { items: access })
+
+      // If saving for currently logged-in user, update sidebar immediately
       const isCurrentUser = franchiseUser && (
-        franchiseUser._id === selectedId ||
+        franchiseUser._id === currentUser?._id ||
         franchiseUser.userId === selectedId ||
         franchiseUser.name === currentUser?.name
       )
       if (isCurrentUser) {
         setMenuAccess(access, franchiseUser._id || 'default')
-      } else {
-        // Save to localStorage for that user
-        localStorage.setItem(`franchise_menu_access_${selectedId}`, JSON.stringify(access))
       }
       toast.success(`Menu access saved for ${currentUser?.name}`)
-    }, 600)
+    } catch {
+      // Fallback: save to localStorage if API not available
+      localStorage.setItem(`franchise_menu_access_${selectedId}`, JSON.stringify(access))
+      toast.success(`Menu access saved for ${currentUser?.name}`)
+    } finally {
+      setSaving(false)
+    }
   }
 
-  const rc = ROLE_COLORS[currentUser?.role] || '#6b7280'
+  const rc = getRoleColor(currentUser?.role)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -729,12 +996,40 @@ function MenuAccessTab({ staff }) {
 export default function MenuAccessControl() {
   const { franchiseUser } = useFranchise()
   const [tab, setTab]     = useState('access')
-  const [staff, setStaff] = useState(INIT_STAFF)
+  const [staff, setStaff] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  /* ── Fetch users from API ── */
+  const fetchStaff = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await api.get('users?limit=200')
+      const users = res.data?.data?.users || []
+      setStaff(users.map(mapUser))
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Failed to load users')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { fetchStaff() }, [fetchStaff])
 
   const TABS = [
-    { id: 'access', label: 'User Access',      icon: Shield },
-    { id: 'menu',   label: 'Menu Access',       icon: ShieldCheck },
+    { id: 'access', label: 'User Access', icon: Shield },
+    { id: 'menu',   label: 'Menu Access', icon: ShieldCheck },
   ]
+
+  if (loading) {
+    return (
+      <div style={{ fontFamily: 'Inter, sans-serif', display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <PageHeader icon={ShieldCheck} title="User Access Management" subtitle="Control login access and menu permissions for each staff member" color="#0c3b73" />
+        <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: 48, textAlign: 'center', color: '#9ca3af', fontSize: 14 }}>
+          Loading users…
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div style={{ fontFamily: 'Inter, sans-serif', display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -764,8 +1059,13 @@ export default function MenuAccessControl() {
       </div>
 
       {/* Tab Content */}
-      {tab === 'access' && <UserAccessTab staff={staff} setStaff={setStaff} />}
-      {tab === 'menu'   && <MenuAccessTab staff={staff} />}
+      {tab === 'access' && <UserAccessTab staff={staff} setStaff={setStaff} fetchStaff={fetchStaff} />}
+      {tab === 'menu'   && staff.length > 0 && <MenuAccessTab staff={staff} />}
+      {tab === 'menu'   && staff.length === 0 && (
+        <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: 48, textAlign: 'center', color: '#9ca3af' }}>
+          No users found. Add users first.
+        </div>
+      )}
     </div>
   )
 }

@@ -26,10 +26,20 @@ export const getTenant = () => {
 
 // ── Build common headers ──────────────────────────────────────────────────────
 const getHeaders = () => {
-  const token    = Cookies.get('LMS')
-  const tenantId = getTenant()
-  const headers  = { 'x-tenant-id': tenantId }
-  if (token) headers['Authorization'] = token   // only set if token exists
+  // Check accessToken (for Super Admin), LMS (for franchise), and supplierToken (for suppliers)
+  const token = Cookies.get('accessToken') || Cookies.get('LMS') || Cookies.get('supplierToken')
+  const supplierToken = Cookies.get('supplierToken')
+  
+  // If supplier session, don't send tenant header
+  const headers = {}
+  
+  if (!supplierToken) {
+    // Only add tenant header for franchise users, not suppliers or super admin
+    const tenantId = getTenant()
+    headers['x-tenant-id'] = tenantId
+  }
+  
+  if (token) headers['Authorization'] = `Bearer ${token}`
   return headers
 }
 
@@ -56,8 +66,18 @@ api.interceptors.response.use(
   (res) => res,
   (err) => {
     if (err?.response?.status === 401) {
-      deleteCookie('LMS')
-      console.warn('[api] 401 — token cleared')
+      // Don't clear cookie for supplier comparison API (may not need auth)
+      const url = err?.config?.url || '';
+      const isSupplierAPI = url.includes('/franchise-suppliers/') || url.includes('/master-medicines/');
+      
+      if (!isSupplierAPI) {
+        deleteCookie('LMS')
+        deleteCookie('accessToken')
+        deleteCookie('supplierToken')
+        console.warn('[api] 401 — tokens cleared')
+      } else {
+        console.warn('[api] 401 on supplier API — cookie preserved (may not require auth)')
+      }
     }
     return Promise.reject(err)
   }
@@ -107,7 +127,7 @@ export const deleteRequest1 = async (url) => {
 }
 
 // ── Static token export (kept for backward compatibility — use getHeaders() for fresh value) ─────
-// NOTE: This is evaluated once at module load. Use Cookies.get('LMS') directly for live token.
-export const getToken = () => Cookies.get('LMS')
+// NOTE: This is evaluated once at module load. Use getToken() directly for live token.
+export const getToken = () => Cookies.get('accessToken') || Cookies.get('LMS') || Cookies.get('supplierToken')
 /** @deprecated Use getToken() for a fresh value. This snapshot may be stale. */
-export const token = Cookies.get('LMS')
+export const token = Cookies.get('accessToken') || Cookies.get('LMS') || Cookies.get('supplierToken')

@@ -1,12 +1,12 @@
 /* eslint-disable prettier/prettier */
 /**
- * Screen 19 — Barcode Label
+ * Screen 19 — Barcode Label (API Integrated)
  */
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Tag, ArrowLeft, Printer, Plus, Minus } from 'lucide-react'
 import PageHeader from '../components/PageHeader'
-import { MEDICINES } from './medicineMockData'
+import { getRequest } from '../../../Helpers'
 
 const Toggle = ({ label, checked, onChange }) => (
   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f3f4f6' }}>
@@ -21,7 +21,8 @@ const Toggle = ({ label, checked, onChange }) => (
 export default function BarcodeLabel() {
   const navigate = useNavigate()
   const { id }   = useParams()
-  const med      = MEDICINES.find(m => m._id === id) || MEDICINES[0]
+  const [med, setMed]   = useState(null)
+  const [loading, setLoading] = useState(true)
 
   const [labelSize, setLabelSize] = useState('Standard (60mm × 30mm)')
   const [qty, setQty]             = useState(1)
@@ -29,6 +30,29 @@ export default function BarcodeLabel() {
   const [showBatch, setShowBatch] = useState(true)
   const [showCompany, setShowCompany] = useState(false)
   const [showBarcode, setShowBarcode] = useState(true)
+
+  useEffect(() => {
+    if (id) {
+      getRequest(`franchise/medicines/${id}`)
+        .then(res => setMed(res?.data || res || null))
+        .catch(() => {})
+        .finally(() => setLoading(false))
+    } else {
+      setLoading(false)
+    }
+  }, [id])
+
+  if (loading) return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200, color: '#6b7280', fontSize: 14 }}>
+      Loading medicine...
+    </div>
+  )
+
+  if (!med) return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200, color: '#9ca3af', fontSize: 14 }}>
+      Medicine not found
+    </div>
+  )
 
   return (
     <div style={{ fontFamily: 'Inter, sans-serif', display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -60,10 +84,10 @@ export default function BarcodeLabel() {
           </div>
 
           <p style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: '#374151', margin: '0 0 8px' }}>Show on Label</p>
-          <Toggle label="Show MRP"     checked={showMRP}     onChange={setShowMRP} />
+          <Toggle label="Show MRP"       checked={showMRP}     onChange={setShowMRP} />
           <Toggle label="Show Batch No." checked={showBatch}   onChange={setShowBatch} />
-          <Toggle label="Show Company" checked={showCompany} onChange={setShowCompany} />
-          <Toggle label="Show Barcode" checked={showBarcode} onChange={setShowBarcode} />
+          <Toggle label="Show Company"   checked={showCompany} onChange={setShowCompany} />
+          <Toggle label="Show Barcode"   checked={showBarcode} onChange={setShowBarcode} />
 
           <div style={{ marginTop: 16 }}>
             <label style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: '#374151', display: 'block', marginBottom: 5 }}>Quantity</label>
@@ -85,28 +109,28 @@ export default function BarcodeLabel() {
         <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: 24 }}>
           <p style={{ fontSize: 13, fontWeight: 700, margin: '0 0 20px' }}>Label Preview</p>
 
-          {/* Preview Card */}
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
             <div style={{ border: '2px solid #374151', borderRadius: 8, padding: '14px 18px', width: 260, background: '#fff' }}>
               <p style={{ margin: '0 0 3px', fontSize: 13, fontWeight: 800, color: '#111827' }}>{med.name}</p>
-              <p style={{ margin: '0 0 8px', fontSize: 10, color: '#6b7280' }}>{med.salt}</p>
-              {showMRP && <p style={{ margin: '0 0 3px', fontSize: 12, fontWeight: 700 }}>MRP: ₹ {med.mrp.toFixed(2)}</p>}
-              {showBatch && <p style={{ margin: '0 0 3px', fontSize: 10, color: '#6b7280' }}>Batch: CR08023 &nbsp; Exp: 31/12/2027</p>}
-              {showCompany && <p style={{ margin: '0 0 6px', fontSize: 10, color: '#6b7280' }}>{med.company}</p>}
+              <p style={{ margin: '0 0 8px', fontSize: 10, color: '#6b7280' }}>{med.salt || med.genericName || ''}</p>
+              {showMRP && <p style={{ margin: '0 0 3px', fontSize: 12, fontWeight: 700 }}>MRP: ₹ {(med.mrp||0).toFixed(2)}</p>}
+              {showBatch && <p style={{ margin: '0 0 3px', fontSize: 10, color: '#6b7280' }}>Batch: {med.batch || 'N/A'} &nbsp; Exp: {med.expiry || 'N/A'}</p>}
+              {showCompany && <p style={{ margin: '0 0 6px', fontSize: 10, color: '#6b7280' }}>{med.company || med.manufacturer || ''}</p>}
               {showBarcode && (
                 <div style={{ marginTop: 8 }}>
                   <svg width="220" height="42" viewBox="0 0 220 42">
                     {Array.from({length:44},(_,i)=>(
                       <rect key={i} x={i*5} y={0} width={i%3===0?3:1.5} height={36} fill="#111827" />
                     ))}
-                    <text x="110" y="41" textAnchor="middle" fontSize="7.5" fill="#374151" fontFamily="monospace">{med.barcode}</text>
+                    <text x="110" y="41" textAnchor="middle" fontSize="7.5" fill="#374151" fontFamily="monospace">
+                      {med.barcode || med._id?.slice(-8) || '00000000'}
+                    </text>
                   </svg>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Grid Preview */}
           <div style={{ background: '#f9fafb', borderRadius: 10, padding: 16, border: '1px solid #e5e7eb' }}>
             <p style={{ fontSize: 12, fontWeight: 600, color: '#6b7280', margin: '0 0 12px' }}>Print Preview — {qty} Label(s)</p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(140px,1fr))', gap: 8 }}>
@@ -114,7 +138,7 @@ export default function BarcodeLabel() {
                 <div key={i} style={{ border: '1px solid #d1d5db', borderRadius: 4, padding: '8px', background: '#fff', fontSize: 9 }}>
                   <p style={{ margin: 0, fontWeight: 700, fontSize: 9 }}>{med.name}</p>
                   {showMRP && <p style={{ margin: '2px 0 0', fontSize: 8 }}>MRP: ₹{med.mrp}</p>}
-                  <p style={{ margin: '2px 0 0', fontSize: 7, color: '#9ca3af' }}>Mfg: 01/05/2025</p>
+                  <p style={{ margin: '2px 0 0', fontSize: 7, color: '#9ca3af' }}>Mfg: {med.mfgDate || 'N/A'}</p>
                 </div>
               ))}
               {qty > 6 && (
