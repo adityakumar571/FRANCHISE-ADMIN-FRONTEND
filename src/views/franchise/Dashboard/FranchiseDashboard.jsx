@@ -673,7 +673,8 @@ function AdminDashboard() {
               </tbody>
             </table>
           </div>
-        </Card> */}
+        </Card> 
+        
 
         {/* Stock Alerts */}
         <Card className="flex flex-col md:col-span-2 2xl:col-span-1">
