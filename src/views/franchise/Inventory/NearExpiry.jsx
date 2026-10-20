@@ -52,16 +52,32 @@ export default function NearExpiry() {
 
   return (
     <div style={{ fontFamily: 'Inter, sans-serif', display: 'flex', flexDirection: 'column', gap: 18 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
-        <div>
-          <h1 style={{ fontSize: 18, fontWeight: 700, color: '#111827', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <AlertTriangle size={20} color="#d97706" /> Near Expiry
-          </h1>
-          <p style={{ fontSize: 12, color: '#9ca3af', margin: '2px 0 0' }}>Medicines expiring within next {daysFilter} days</p>
+      {/* Header with gradient */}
+      <div style={{ 
+        background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', 
+        borderRadius: 16, 
+        padding: '28px 32px',
+        boxShadow: '0 4px 20px rgba(245, 158, 11, 0.15)',
+        position: 'relative',
+        overflow: 'hidden'
+      }}>
+        <div style={{ position: 'absolute', top: -20, right: -20, width: 150, height: 150, background: 'rgba(255,255,255,0.1)', borderRadius: '50%' }} />
+        <div style={{ position: 'absolute', bottom: -30, left: -30, width: 180, height: 180, background: 'rgba(255,255,255,0.08)', borderRadius: '50%' }} />
+        
+        <div style={{ position: 'relative', zIndex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+              <AlertTriangle size={28} color="#fff" />
+              <h1 style={{ fontSize: 28, fontWeight: 700, color: '#fff', margin: 0 }}>Near Expiry</h1>
+            </div>
+            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.9)', margin: 0 }}>
+              Medicines expiring within next {daysFilter} days
+            </p>
+          </div>
+          <button style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.2)', color: '#fff', border: '2px solid rgba(255,255,255,0.3)', borderRadius: 10, padding: '10px 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer', backdropFilter: 'blur(10px)' }}>
+            <Download size={14} /> Export
+          </button>
         </div>
-        <button style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#16a34a', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-          <Download size={14} /> Export
-        </button>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>

@@ -16,6 +16,7 @@ export default function ExpiredStock() {
   const [page, setPage]           = useState(1)
   const [total, setTotal]         = useState(0)
   const [totalPages, setTotalPages] = useState(1)
+  const [kpis, setKpis]           = useState({ total: 0, totalQty: 0, totalValue: 0, critical: 0 })
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -25,6 +26,7 @@ export default function ExpiredStock() {
       setItems(d?.items || [])
       setTotal(d?.total || 0)
       setTotalPages(d?.totalPages || 1)
+      setKpis(d?.kpis || { total: d?.total || 0, totalQty: 0, totalValue: 0, critical: 0 })
     } catch { toast.error('Failed to load expired stock') }
     finally { setLoading(false) }
   }, [page, search])
@@ -36,17 +38,47 @@ export default function ExpiredStock() {
 
   return (
     <div style={{ fontFamily: 'Inter, sans-serif', display: 'flex', flexDirection: 'column', gap: 18 }}>
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
-        <div>
-          <h1 style={{ fontSize: 18, fontWeight: 700, color: '#111827', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Trash2 size={20} color="#dc2626" /> Expired Stock
-          </h1>
-          <p style={{ fontSize: 12, color: '#9ca3af', margin: '2px 0 0' }}>Medicines that have crossed expiry date ({total} batches)</p>
+      {/* Header with gradient */}
+      <div style={{ 
+        background: 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)', 
+        borderRadius: 16, 
+        padding: '28px 32px',
+        boxShadow: '0 4px 20px rgba(220, 38, 38, 0.15)',
+        position: 'relative',
+        overflow: 'hidden'
+      }}>
+        <div style={{ position: 'absolute', top: -20, right: -20, width: 150, height: 150, background: 'rgba(255,255,255,0.1)', borderRadius: '50%' }} />
+        <div style={{ position: 'absolute', bottom: -30, left: -30, width: 180, height: 180, background: 'rgba(255,255,255,0.08)', borderRadius: '50%' }} />
+        
+        <div style={{ position: 'relative', zIndex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+              <Trash2 size={28} color="#fff" />
+              <h1 style={{ fontSize: 28, fontWeight: 700, color: '#fff', margin: 0 }}>Expired Stock</h1>
+            </div>
+            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.9)', margin: 0 }}>
+              Medicines that have crossed expiry date
+            </p>
+          </div>
+          <button style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.2)', color: '#fff', border: '2px solid rgba(255,255,255,0.3)', borderRadius: 10, padding: '10px 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer', backdropFilter: 'blur(10px)' }}>
+            <Download size={14} /> Export
+          </button>
         </div>
-        <button style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#16a34a', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-          <Download size={14} /> Export
-        </button>
+      </div>
+
+      {/* KPI Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14 }}>
+        {[
+          { label: 'Total Expired', value: loading ? '...' : kpis.total, color: '#dc2626', bg: '#fef2f2' },
+          { label: 'Total Quantity', value: loading ? '...' : kpis.totalQty, color: '#ea580c', bg: '#fff7ed' },
+          { label: 'Loss Value', value: loading ? '...' : `₹${Number(kpis.totalValue || 0).toLocaleString('en-IN')}`, color: '#9a3412', bg: '#ffedd5' },
+          { label: 'Critical (>6mo)', value: loading ? '...' : kpis.critical, color: '#7f1d1d', bg: '#fee2e2' },
+        ].map(c => (
+          <div key={c.label} style={{ background: c.bg, border: '2px solid ' + c.bg, borderRadius: 10, padding: '14px 16px' }}>
+            <p style={{ fontSize: 11, color: c.color, margin: '0 0 6px', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.5px' }}>{c.label}</p>
+            <p style={{ fontSize: 24, fontWeight: 800, color: c.color, margin: 0 }}>{c.value}</p>
+          </div>
+        ))}
       </div>
 
       {/* Filter bar */}

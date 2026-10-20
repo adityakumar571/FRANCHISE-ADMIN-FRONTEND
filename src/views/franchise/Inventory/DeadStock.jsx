@@ -1,6 +1,6 @@
 /* eslint-disable prettier/prettier */
 import { useState, useEffect, useCallback } from 'react'
-import { TrendingDown, Search, ChevronLeft, ChevronRight } from 'lucide-react'
+import { TrendingDown, Search, ChevronLeft, ChevronRight, Download } from 'lucide-react'
 import { getRequest } from '../../../Helpers'
 import toast from 'react-hot-toast'
 
@@ -16,6 +16,7 @@ export default function DeadStock() {
   const [page, setPage]           = useState(1)
   const [total, setTotal]         = useState(0)
   const [totalPages, setTotalPages] = useState(1)
+  const [kpis, setKpis]           = useState({ total: 0, capitalBlocked: 0, oldestDays: 0, potentialLoss: 0 })
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -25,6 +26,7 @@ export default function DeadStock() {
       setItems(d?.items || [])
       setTotal(d?.total || 0)
       setTotalPages(Math.ceil((d?.total || 0) / LIMIT) || 1)
+      setKpis(d?.kpis || { total: d?.total || 0, capitalBlocked: 0, oldestDays: 0, potentialLoss: 0 })
     } catch { toast.error('Failed to load dead stock') }
     finally { setLoading(false) }
   }, [page, search])
@@ -35,6 +37,49 @@ export default function DeadStock() {
 
   return (
     <div style={{ fontFamily: 'Inter, sans-serif', display: 'flex', flexDirection: 'column', gap: 18 }}>
+      {/* Header with gradient */}
+      <div style={{ 
+        background: 'linear-gradient(135deg, #64748b 0%, #475569 100%)', 
+        borderRadius: 16, 
+        padding: '28px 32px',
+        boxShadow: '0 4px 20px rgba(100, 116, 139, 0.15)',
+        position: 'relative',
+        overflow: 'hidden'
+      }}>
+        <div style={{ position: 'absolute', top: -20, right: -20, width: 150, height: 150, background: 'rgba(255,255,255,0.1)', borderRadius: '50%' }} />
+        <div style={{ position: 'absolute', bottom: -30, left: -30, width: 180, height: 180, background: 'rgba(255,255,255,0.08)', borderRadius: '50%' }} />
+        
+        <div style={{ position: 'relative', zIndex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+              <TrendingDown size={28} color="#fff" />
+              <h1 style={{ fontSize: 28, fontWeight: 700, color: '#fff', margin: 0 }}>Dead Stock</h1>
+            </div>
+            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.9)', margin: 0 }}>
+              Medicines with zero stock or no movement
+            </p>
+          </div>
+          <button style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.2)', color: '#fff', border: '2px solid rgba(255,255,255,0.3)', borderRadius: 10, padding: '10px 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer', backdropFilter: 'blur(10px)' }}>
+            <Download size={14} /> Export
+          </button>
+        </div>
+      </div>
+
+      {/* KPI Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14 }}>
+        {[
+          { label: 'Total Items', value: loading ? '...' : kpis.total, color: '#64748b', bg: '#f8fafc' },
+          { label: 'Capital Blocked', value: loading ? '...' : `₹${Number(kpis.capitalBlocked || 0).toLocaleString('en-IN')}`, color: '#475569', bg: '#f1f5f9' },
+          { label: 'Oldest Stock', value: loading ? '...' : `${kpis.oldestDays}d`, color: '#334155', bg: '#e2e8f0' },
+          { label: 'Potential Loss', value: loading ? '...' : `₹${Number(kpis.potentialLoss || 0).toLocaleString('en-IN')}`, color: '#1e293b', bg: '#cbd5e1' },
+        ].map(c => (
+          <div key={c.label} style={{ background: c.bg, border: '2px solid ' + c.bg, borderRadius: 10, padding: '14px 16px' }}>
+            <p style={{ fontSize: 11, color: c.color, margin: '0 0 6px', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.5px' }}>{c.label}</p>
+            <p style={{ fontSize: 24, fontWeight: 800, color: c.color, margin: 0 }}>{c.value}</p>
+          </div>
+        ))}
+      </div>
+
       <div>
         <h1 style={{ fontSize: 18, fontWeight: 700, color: '#111827', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
           <TrendingDown size={20} color="#6b7280" /> Dead Stock

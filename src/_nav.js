@@ -16,7 +16,7 @@ import {
   BookMarked, Scale, LayoutTemplate, Landmark,
   ArrowDownCircle, ArrowUpCircle, CalendarDays,
   Tag, GitCompare, Send, StarHalf, FlaskConical, Plus, IndianRupee,
-  Map,
+  Map, Package, MapPin, XCircle, AlertOctagon, Archive, CheckCircle,
 } from 'lucide-react'
 
 
@@ -103,16 +103,30 @@ const franchiseNav = [
     ],
   },
 
-  /* 5 ── Inventory (simplified to single dashboard) ── */
+  /* 5 ── Inventory (full menu with all screens) ── */
   {
-    component: CNavItem,
-    name: 'Inventory Dashboard',
+    component: CNavGroup,
+    name: 'Inventory',
     to: '/franchise/inventory',
     icon: ic(Warehouse),
     accessKey: 'inventory',
+    items: [
+      { component: CNavItem, name: 'Dashboard',           to: '/franchise/inventory',              icon: ic(LayoutDashboard), accessKey: 'inventory_dashboard'    },
+      { component: CNavItem, name: 'Stock Overview',      to: '/franchise/inventory/stock',        icon: ic(Package),         accessKey: 'inventory_stock'        },
+      { component: CNavItem, name: 'Rack Management',     to: '/franchise/inventory/rack',         icon: ic(MapPin),          accessKey: 'inventory_rack'         },
+      { component: CNavItem, name: 'Stock Adjustments',   to: '/franchise/inventory/adjustments',  icon: ic(Settings),        accessKey: 'inventory_adjustment'   },
+      { component: CNavItem, name: 'Quick Stock Entry',   to: '/franchise/inventory/quick-entry',  icon: ic(Plus),            accessKey: 'inventory_adjustment'   },
+      { component: CNavItem, name: 'Near Expiry',         to: '/franchise/inventory/near-expiry',  icon: ic(AlertTriangle),   accessKey: 'inventory_nearexpiry'   },
+      { component: CNavItem, name: 'Expired Stock',       to: '/franchise/inventory/expired',      icon: ic(XCircle),         accessKey: 'inventory_expired'      },
+      { component: CNavItem, name: 'Damage Stock',        to: '/franchise/inventory/damage',       icon: ic(AlertOctagon),    accessKey: 'inventory_damage'       },
+      { component: CNavItem, name: 'Dead Stock',          to: '/franchise/inventory/dead',         icon: ic(Archive),         accessKey: 'inventory_dead'         },
+      { component: CNavItem, name: 'Fast Moving',         to: '/franchise/inventory/fast-moving',  icon: ic(TrendingUp),      accessKey: 'inventory_fastmoving'   },
+      { component: CNavItem, name: 'Slow Moving',         to: '/franchise/inventory/slow-moving',  icon: ic(TrendingDown),    accessKey: 'inventory_slowmoving'   },
+      { component: CNavItem, name: 'Stock Ledger',        to: '/franchise/inventory/ledger',       icon: ic(BookOpen),        accessKey: 'inventory_ledger'       },
+      { component: CNavItem, name: 'Physical Verification', to: '/franchise/inventory/verification', icon: ic(CheckCircle),    accessKey: 'inventory_verification' },
+      { component: CNavItem, name: 'Inventory Audit',     to: '/franchise/inventory/audit',        icon: ic(FileText),        accessKey: 'inventory_audit'        },
+    ],
   },
-
-  /* Note: Other inventory pages (Stock, Adjustments, etc.) are consolidated into the main dashboard */
 
   /* 6 ── Live Wholesale Rates (group) ── */
   {
@@ -133,6 +147,7 @@ const franchiseNav = [
       { component: CNavItem, name: 'Order Tracking',    to: '/franchise/live-rates/order-tracking',    icon: ic(Truck),       accessKey: 'liverates_tracking'  },
       { component: CNavItem, name: 'Price History',     to: '/franchise/live-rates/price-history',     icon: ic(History),     accessKey: 'liverates_stock'     },
       { component: CNavItem, name: 'Supplier Rating',   to: '/franchise/live-rates/supplier-rating',   icon: ic(StarHalf),    accessKey: 'liverates_stock'     },
+      { component: CNavItem, name: 'Low Stock Alert',   to: '/franchise/live-rates/low-stock-alert',   icon: ic(Bell),        accessKey: 'liverates_alert'     },
     ],
   },
 

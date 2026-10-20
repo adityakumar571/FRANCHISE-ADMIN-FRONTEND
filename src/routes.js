@@ -62,6 +62,7 @@ const SlowMoving           = l(() => import('./views/franchise/Inventory/SlowMov
 const StockLedger          = l(() => import('./views/franchise/Inventory/StockLedger'))
 const PhysicalVerification = l(() => import('./views/franchise/Inventory/PhysicalVerification'))
 const InventoryAudit       = l(() => import('./views/franchise/Inventory/InventoryAudit'))
+const QuickStockEntry      = l(() => import('./views/franchise/Inventory/QuickStockEntry'))
 
 // ── Live Wholesale Rates ──────────────────────────────────────────────────────
 const LiveRatesDashboard = l(() => import('./views/franchise/LiveRates/LiveRatesDashboard'))
@@ -74,6 +75,7 @@ const PlaceOrder         = l(() => import('./views/franchise/LiveRates/PlaceOrde
 const OrderTracking      = l(() => import('./views/franchise/LiveRates/OrderTracking'))
 const PriceHistory       = l(() => import('./views/franchise/LiveRates/PriceHistory'))
 const SupplierRating     = l(() => import('./views/franchise/LiveRates/SupplierRating'))
+const LowStockAlert      = l(() => import('./views/franchise/LiveRates/LowStockAlert'))
 
 // ── Medicines ─────────────────────────────────────────────────────────────────
 const MedicineList         = l(() => import('./views/franchise/Medicines/MedicineList'))
@@ -224,6 +226,7 @@ const routes = [
   { path: '/franchise/inventory/ledger',       element: StockLedger,          accessKey: 'inventory_ledger'       },
   { path: '/franchise/inventory/verification', element: PhysicalVerification, accessKey: 'inventory_verification' },
   { path: '/franchise/inventory/audit',        element: InventoryAudit,       accessKey: 'inventory_audit'        },
+  { path: '/franchise/inventory/quick-entry',  element: QuickStockEntry,      accessKey: 'inventory_adjustment'   },
 
   /* ── Live Wholesale Rates ── */
   { path: '/franchise/live-rates',                   element: LiveRatesDashboard, accessKey: 'liverates'          },
@@ -236,6 +239,7 @@ const routes = [
   { path: '/franchise/live-rates/order-tracking',    element: OrderTracking,      accessKey: 'liverates_tracking' },
   { path: '/franchise/live-rates/price-history',     element: PriceHistory,       accessKey: 'liverates_stock'    },
   { path: '/franchise/live-rates/supplier-rating',   element: SupplierRating,     accessKey: 'liverates_stock'    },
+  { path: '/franchise/live-rates/low-stock-alert',   element: LowStockAlert,      accessKey: 'liverates_alert'    },
 
   /* ── Medicines ── */
   { path: '/franchise/medicines',                  element: MedicineList,             accessKey: 'medicines_list'    },

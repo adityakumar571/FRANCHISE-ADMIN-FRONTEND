@@ -48,11 +48,27 @@ export default function StockLedger() {
 
   return (
     <div style={{ fontFamily: 'Inter, sans-serif', display: 'flex', flexDirection: 'column', gap: 18 }}>
-      <div>
-        <h1 style={{ fontSize: 18, fontWeight: 700, color: '#111827', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <BookOpen size={20} color="#0891b2" /> Stock Ledger
-        </h1>
-        <p style={{ fontSize: 12, color: '#9ca3af', margin: '2px 0 0' }}>Item-wise stock movement history</p>
+      {/* Header with gradient */}
+      <div style={{ 
+        background: 'linear-gradient(135deg, #0891b2 0%, #0e7490 100%)', 
+        borderRadius: 16, 
+        padding: '28px 32px',
+        boxShadow: '0 4px 20px rgba(8, 145, 178, 0.15)',
+        position: 'relative',
+        overflow: 'hidden'
+      }}>
+        <div style={{ position: 'absolute', top: -20, right: -20, width: 150, height: 150, background: 'rgba(255,255,255,0.1)', borderRadius: '50%' }} />
+        <div style={{ position: 'absolute', bottom: -30, left: -30, width: 180, height: 180, background: 'rgba(255,255,255,0.08)', borderRadius: '50%' }} />
+        
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+            <BookOpen size={28} color="#fff" />
+            <h1 style={{ fontSize: 28, fontWeight: 700, color: '#fff', margin: 0 }}>Stock Ledger</h1>
+          </div>
+          <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.9)', margin: 0 }}>
+            Item-wise stock movement history with running balance
+          </p>
+        </div>
       </div>
 
       {/* Search bar */}
