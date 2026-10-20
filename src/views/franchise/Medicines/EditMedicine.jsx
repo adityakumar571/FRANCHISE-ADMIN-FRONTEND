@@ -48,8 +48,12 @@ export default function EditMedicine() {
       const res = await getRequest(`/franchise/medicines/${id}`)
       const d   = res.data?.data
       if (d) setForm({ ...d, gst: d.gst ? `${d.gst}%` : '12%', mrp: d.mrp ?? '', purchasePrice: d.purchasePrice ?? '', stock: d.stock ?? 0, reorderLevel: d.reorderLevel ?? 100 })
-    } catch { toast.error('Failed to load medicine') }
-    finally  { setLoading(false) }
+    } catch (err) { 
+      console.error('Failed to load:', err)
+      toast.error('Failed to load medicine')
+    } finally { 
+      setLoading(false)
+    }
   }, [id])
 
   useEffect(() => { fetchMed() }, [fetchMed])

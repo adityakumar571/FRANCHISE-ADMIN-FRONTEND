@@ -70,8 +70,8 @@ export default function MedicineList() {
     <div style={{ fontFamily: 'Inter, sans-serif', display: 'flex', flexDirection: 'column', gap: 18 }}>
       <PageHeader icon={FlaskConical} title="Medicine List" subtitle="Manage all your medicine items" color="#7c3aed">
         <button onClick={() => {
-          const rows = data.map(m => `"${m.name}","${m.salt||''}","${m.formulation||''}","${m.company||''}",${m.mrp||0},${m.stock||0},"${m.isActive?'Active':'Inactive'}"`)
-          const csv = `Name,Salt,Formulation,Company,MRP,Stock,Status\n${rows.join('\n')}`
+          const rows = data.map(m => `"${m.name}","${m.salt||''}","${m.formulation||''}","${m.company||''}","${m.rackLocation?.position||''}",${m.mrp||0},${m.stock||0},"${m.isActive?'Active':'Inactive'}"`)
+          const csv = `Name,Salt,Formulation,Company,Rack Location,MRP,Stock,Status\n${rows.join('\n')}`
           const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download='medicines.csv'; a.click()
           toast.success(`Exported ${data.length} medicines`)
         }} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '8px 14px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 12, background: '#fff', cursor: 'pointer' }}>
@@ -123,21 +123,62 @@ export default function MedicineList() {
       <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead><tr>{['Medicine Name', 'Salt / Strength', 'Formulation', 'Company', 'MRP (₹)', 'Stock', 'Status', 'Action'].map(h => <Th key={h} c={h} />)}</tr></thead>
+            <thead><tr>{['Image', 'Medicine Name', 'Salt / Strength', 'Formulation', 'Company', 'Rack Location', 'MRP (₹)', 'Stock', 'Status', 'Action'].map(h => <Th key={h} c={h} />)}</tr></thead>
             <tbody>
               {loading
-                ? Array(PER).fill(0).map((_, i) => <tr key={i}>{Array(8).fill(0).map((_, j) => <td key={j} style={{ padding: '10px 12px' }}><div style={{ height: 13, background: '#f3f4f6', borderRadius: 4 }} /></td>)}</tr>)
+                ? Array(PER).fill(0).map((_, i) => <tr key={i}>{Array(10).fill(0).map((_, j) => <td key={j} style={{ padding: '10px 12px' }}><div style={{ height: 13, background: '#f3f4f6', borderRadius: 4 }} /></td>)}</tr>)
                 : data.length === 0
-                  ? <tr><td colSpan={8} style={{ padding: 40, textAlign: 'center', color: '#9ca3af' }}>No medicines found</td></tr>
+                  ? <tr><td colSpan={10} style={{ padding: 40, textAlign: 'center', color: '#9ca3af' }}>No medicines found</td></tr>
                   : data.map(m => (
                     <tr key={m._id} onMouseEnter={e => e.currentTarget.style.background = '#fafafa'} onMouseLeave={e => e.currentTarget.style.background = ''}>
                       <Td>
+                        {m.imageUrl ? (
+                          <img 
+                            src={m.imageUrl} 
+                            alt={m.name}
+                            style={{ 
+                              width: 50, 
+                              height: 50, 
+                              borderRadius: 8, 
+                              objectFit: 'cover',
+                              border: '1px solid #e5e7eb',
+                              background: '#f9fafb'
+                            }}
+                            onError={(e) => {
+                              e.target.style.display = 'none'
+                              e.target.parentElement.innerHTML = '<div style="width: 50px; height: 50px; borderRadius: 8px; background: linear-gradient(135deg, #e0e7ff, #f0fdf4); display: flex; align-items: center; justify-content: center; font-size: 24px; border: 1px solid #e5e7eb;">💊</div>'
+                            }}
+                          />
+                        ) : (
+                          <div style={{ 
+                            width: 50, 
+                            height: 50, 
+                            borderRadius: 8, 
+                            background: 'linear-gradient(135deg, #e0e7ff, #f0fdf4)', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center', 
+                            fontSize: 24,
+                            border: '1px solid #e5e7eb'
+                          }}>💊</div>
+                        )}
+                      </Td>
+                      <Td>
                         <p style={{ margin: 0, fontWeight: 600, color: '#111827', fontSize: 13 }}>{m.name}</p>
-                        <p style={{ margin: 0, fontSize: 10, color: '#9ca3af' }}>{m.rackLabel || '—'}</p>
+                        <p style={{ margin: 0, fontSize: 10, color: '#9ca3af' }}>{m.category || '—'}</p>
                       </Td>
                       <Td style={{ fontSize: 12, color: '#6b7280' }}>{m.salt}</Td>
                       <Td style={{ fontSize: 12 }}>{m.formulation}</Td>
                       <Td style={{ fontSize: 12 }}>{m.company}</Td>
+                      <Td>
+                        {m.rackLocation?.position ? (
+                          <span style={{ fontSize: 11, fontWeight: 600, padding: '4px 8px', borderRadius: 6, background: '#eff6ff', color: '#0c3b73', fontFamily: 'monospace' }}>
+                            {m.rackLocation.position}
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: 11, color: '#9ca3af' }}>—</span>
+                        )}
+                      </Td>
                       <Td style={{ fontWeight: 700, color: '#0c3b73' }}>₹{Number(m.mrp || 0).toFixed(2)}</Td>
                       <Td style={{ fontWeight: 600, color: m.stock === 0 ? '#dc2626' : m.stock <= m.reorderLevel ? '#d97706' : '#16a34a' }}>{m.stock}</Td>
                       <Td>
@@ -146,7 +187,7 @@ export default function MedicineList() {
                         </span>
                       </Td>
                       <Td>
-                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
                           <button onClick={() => navigate(`/franchise/medicines/${m._id}`)}
                             style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '5px 9px', border: 'none', borderRadius: 6, background: '#e0e7ff', color: '#0c3b73', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
                             <Eye size={11} /> View
@@ -154,6 +195,11 @@ export default function MedicineList() {
                           <button onClick={() => navigate(`/franchise/medicines/${m._id}/edit`)}
                             style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '5px 9px', border: 'none', borderRadius: 6, background: '#fef3c7', color: '#d97706', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
                             <Edit2 size={11} /> Edit
+                          </button>
+                          <button onClick={() => navigate(`/franchise/medicines/${m._id}/images`)}
+                            style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '5px 9px', border: 'none', borderRadius: 6, background: '#dcfce7', color: '#16a34a', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}
+                            title="Manage Images">
+                            📸
                           </button>
                           <button onClick={() => toggleStatus(m._id)}
                             style={{ padding: '5px 7px', border: 'none', borderRadius: 6, background: m.isActive ? '#fee2e2' : '#dcfce7', cursor: 'pointer' }}>

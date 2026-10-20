@@ -95,11 +95,61 @@ export default function MedicineDetails() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {/* Medicine Image */}
           <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: 24, textAlign: 'center' }}>
-            {med.image ? (
-              <img src={med.image} alt={med.name} style={{ width: 100, height: 100, borderRadius: 12, objectFit: 'contain', margin: '0 auto 16px', display: 'block' }} />
+            {med.imageUrl ? (
+              <img 
+                src={med.imageUrl} 
+                alt={med.name} 
+                style={{ 
+                  width: '100%', 
+                  maxWidth: 200,
+                  height: 200, 
+                  borderRadius: 12, 
+                  objectFit: 'cover', 
+                  margin: '0 auto 16px', 
+                  display: 'block',
+                  border: '1px solid #e5e7eb'
+                }}
+                onError={(e) => {
+                  e.target.style.display = 'none'
+                  e.target.parentElement.innerHTML += '<div style="width: 200px; height: 200px; margin: 0 auto 16px; border-radius: 12px; background: linear-gradient(135deg, #e0e7ff, #f0fdf4); display: flex; align-items: center; justify-content: center; font-size: 80px; border: 1px solid #e5e7eb;">💊</div>'
+                }}
+              />
             ) : (
-              <div style={{ width: 100, height: 100, borderRadius: 16, background: 'linear-gradient(135deg,#e0e7ff,#f0fdf4)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 44, margin: '0 auto 16px' }}>💊</div>
+              <div style={{ 
+                width: 200, 
+                height: 200, 
+                margin: '0 auto 16px', 
+                borderRadius: 12, 
+                background: 'linear-gradient(135deg, #e0e7ff, #f0fdf4)', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                fontSize: 80,
+                border: '1px solid #e5e7eb'
+              }}>💊</div>
             )}
+            <button 
+              onClick={() => navigate(`/franchise/medicines/${med._id}/images`)}
+              style={{ 
+                width: '100%',
+                padding: '10px', 
+                background: '#0891b2', 
+                border: 'none', 
+                borderRadius: 8, 
+                color: '#fff', 
+                fontSize: 13, 
+                fontWeight: 600, 
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6
+              }}>
+              📸 Manage Images
+            </button>
+          </div>
+
+          <div style={{ textAlign: 'center', marginTop: 10 }}>
             <p style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#111827' }}>{med.name}</p>
             <p style={{ margin: '4px 0 8px', fontSize: 12, color: '#9ca3af' }}>{med.salt}</p>
             <div style={{ display: 'flex', justifyContent: 'center', gap: 8, flexWrap: 'wrap' }}>

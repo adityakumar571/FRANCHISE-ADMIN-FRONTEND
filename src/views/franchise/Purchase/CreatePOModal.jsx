@@ -2,11 +2,15 @@
 /**
  * CreatePOModal — Production-level Purchase Order creation
  * Features: Supplier dropdown, Medicine autocomplete, Auto-fill rates, Real API integration
+ * Enhanced: Smart PTR calculation, validation, margin display
  */
 import { useState, useEffect, useRef } from 'react'
 import { X, Plus, Trash2, ShoppingCart, Search, Package } from 'lucide-react'
 import { getRequest, postRequest } from '../../../Helpers'
 import toast from 'react-hot-toast'
+import PTRInput from '../../../components/PTRInput'
+import MarginCalculator from '../../../components/MarginCalculator'
+import { calculateStandardPTR, batchValidatePTR } from '../../../utils/ptrValidation'
 
 const EMPTY_ITEM = { 
   medicineId: '', 
@@ -108,6 +112,30 @@ const CreatePOModal = ({ open, onClose, onSaved, prefilledSupplier = null, prefi
     if (validItems.length === 0) { 
       toast.error('Add at least one medicine with valid details') 
       return 
+    }
+
+    // Batch validate all PTRs
+    const validation = batchValidatePTR(
+      validItems.map(item => ({
+        ptr: item.ptr,
+        mrp: item.mrp,
+        name: item.medicineName
+      }))
+    )
+
+    if (!validation.valid) {
+      toast.error(`${validation.invalidItems.length} item(s) have invalid PTR. Please check the errors.`)
+      return
+    }
+
+    // Show warning if low margins exist
+    if (validation.warningItems.length > 0) {
+      const proceed = window.confirm(
+        `⚠️ ${validation.warningItems.length} item(s) have low margins.\n\n` +
+        validation.warningItems.map(w => `${w.name}: ${w.validation.margin}%`).join('\n') +
+        '\n\nDo you want to proceed?'
+      )
+      if (!proceed) return
     }
 
     setLoading(true)
@@ -253,7 +281,7 @@ const CreatePOModal = ({ open, onClose, onSaved, prefilledSupplier = null, prefi
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
                   <tr style={{ background: '#f9fafb' }}>
-                    {['Medicine', 'Salt/Form', 'Qty', 'PTR (₹)', 'MRP (₹)', 'Scheme', 'Total', ''].map((h) => (
+                    {['Medicine', 'Salt/Form', 'Qty', 'PTR (₹)', 'MRP (₹)', 'Scheme', 'Margin', 'Total', ''].map((h) => (
                       <th key={h} style={{ padding: '10px 8px', textAlign: 'left', fontWeight: 600, color: '#374151', fontSize: 12, borderBottom: '1px solid #e5e7eb' }}>{h}</th>
                     ))}
                   </tr>
@@ -586,13 +614,14 @@ const MedicineRow = ({ index, item, supplier, onChange, onDelete, canDelete }) =
         />
       </td>
       <td style={{ padding: '6px 8px', width: 90 }}>
-        <input 
-          type="number" 
-          step="0.01" 
-          value={item.ptr} 
-          onChange={(e) => onChange('ptr', e.target.value)} 
-          placeholder="0.00" 
-          style={{ ...inputStyle, height: 32, width: '100%', fontSize: 12 }} 
+        <PTRInput
+          value={item.ptr}
+          onChange={(val) => onChange('ptr', val)}
+          mrp={item.mrp}
+          medicineName={item.medicineName}
+          showMargin={false}
+          showComparison={false}
+          style={{ fontSize: 12 }}
         />
       </td>
       <td style={{ padding: '6px 8px', width: 90 }}>
@@ -612,6 +641,18 @@ const MedicineRow = ({ index, item, supplier, onChange, onDelete, canDelete }) =
           placeholder="10+1" 
           style={{ ...inputStyle, height: 32, width: '100%', fontSize: 12 }} 
         />
+      </td>
+      <td style={{ padding: '6px 8px', width: 90 }}>
+        {item.ptr && item.mrp ? (
+          <MarginCalculator 
+            ptr={item.ptr}
+            mrp={item.mrp}
+            scheme={item.scheme}
+            compact={true}
+          />
+        ) : (
+          <span style={{ fontSize: 11, color: '#9ca3af' }}>—</span>
+        )}
       </td>
       <td style={{ padding: '6px 8px', fontWeight: 600, whiteSpace: 'nowrap', fontSize: 13 }}>
         ₹{(parseFloat(item.ptr || 0) * parseInt(item.qty || 0)).toFixed(2)}

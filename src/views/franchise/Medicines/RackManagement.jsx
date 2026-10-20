@@ -1,9 +1,10 @@
 /* eslint-disable prettier/prettier */
 import { useState, useEffect, useCallback } from 'react'
-import { Layers, Plus, Edit2, Search, Save, X } from 'lucide-react'
+import { Layers, Plus, Edit2, Search, Save, X, Box } from 'lucide-react'
 import toast from 'react-hot-toast'
 import PageHeader from '../components/PageHeader'
 import { getRequest, postRequest, putRequest } from '../../../Helpers'
+import Rack3DModal from '../../../components/Rack3DModal/Rack3DModal'
 
 const Th = ({ c, align = 'left' }) => <th style={{ padding: '9px 12px', fontSize: 11, color: '#6b7280', fontWeight: 700, textTransform: 'uppercase', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', textAlign: align, whiteSpace: 'nowrap' }}>{c}</th>
 const Td = ({ children, style = {} }) => <td style={{ padding: '10px 12px', fontSize: 13, color: '#374151', borderBottom: '1px solid #f3f4f6', verticalAlign: 'middle', ...style }}>{children}</td>
@@ -19,15 +20,23 @@ export default function RackManagement() {
   const [showAdd, setShowAdd]   = useState(false)
   const [editRack, setEditRack] = useState(null)
   const [saving, setSaving]     = useState(false)
+  const [show3D, setShow3D]     = useState(false)
+  const [rackData, setRackData] = useState(null)
   const [form, setForm]         = useState({ name: '', shelf: '', capacity: '', section: '', warehouse: 'Main Pharmacy', status: 'Active' })
 
   const fetchRacks = useCallback(async () => {
     setLoading(true)
     try {
       const res = await getRequest('/franchise/rack-management')
-      setRacks(res.data?.data || [])
-    } catch { toast.error('Failed to load racks') }
-    finally   { setLoading(false) }
+      const data = res.data?.data || res.data || []
+      setRacks(Array.isArray(data) ? data : [])
+    } catch (err) { 
+      console.error('Failed to load racks:', err)
+      toast.error(err?.response?.data?.message || 'Failed to load racks')
+      setRacks([])
+    } finally { 
+      setLoading(false)
+    }
   }, [])
 
   useEffect(() => { fetchRacks() }, [fetchRacks])
@@ -61,6 +70,27 @@ export default function RackManagement() {
       fetchRacks()
     } catch (err) { toast.error(err?.response?.data?.message || 'Failed to save rack') }
     finally { setSaving(false) }
+  }
+
+  const open3DView = (rack) => {
+    if (!rack) {
+      toast.error('Invalid rack data')
+      return
+    }
+    
+    // Prepare data for 3D modal
+    setRackData({
+      name: rack.name || 'Rack',
+      counter: rack.warehouse || 'Main Pharmacy',
+      shelf: rack.shelf || 'Middle',
+      capacity: parseInt(rack.capacity) || 40,
+      currentStock: parseInt(rack.currentItems) || 0,
+      remainingSpace: (parseInt(rack.capacity) || 40) - (parseInt(rack.currentItems) || 0),
+      status: !rack.currentItems || rack.currentItems === 0 
+        ? 'empty' 
+        : ((rack.currentItems / rack.capacity) > 0.8 ? 'low' : 'available')
+    })
+    setShow3D(true)
   }
 
   const filtered = racks.filter(r =>
@@ -159,10 +189,16 @@ export default function RackManagement() {
                               </span>
                             </Td>
                             <Td>
-                              <button onClick={() => openEdit(r)}
-                                style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 9px', border: 'none', borderRadius: 6, background: '#fef3c7', color: '#d97706', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
-                                <Edit2 size={11} /> Edit
-                              </button>
+                              <div style={{ display: 'flex', gap: 6 }}>
+                                <button onClick={() => openEdit(r)}
+                                  style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 9px', border: 'none', borderRadius: 6, background: '#fef3c7', color: '#d97706', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                                  <Edit2 size={11} /> Edit
+                                </button>
+                                <button onClick={() => open3DView(r)}
+                                  style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 9px', border: 'none', borderRadius: 6, background: '#dbeafe', color: '#2563eb', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                                  <Box size={11} /> View 3D
+                                </button>
+                              </div>
                             </Td>
                           </tr>
                         )
@@ -174,6 +210,13 @@ export default function RackManagement() {
             )
           })
       }
+      
+      {/* 3D Rack Modal */}
+      <Rack3DModal
+        visible={show3D}
+        onClose={() => setShow3D(false)}
+        rackData={rackData}
+      />
     </div>
   )
 }

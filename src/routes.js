@@ -40,11 +40,14 @@ const DayClosing          = l(() => import('./views/franchise/POS/DayClosing'))
 const PurchaseDashboard = l(() => import('./views/franchise/Purchase/PurchaseDashboard'))
 const LiveRateCompare   = l(() => import('./views/franchise/Purchase/LiveRateCompare'))
 const PurchaseOrders    = l(() => import('./views/franchise/Purchase/PurchaseOrders'))
+const UnifiedOrderTracking = l(() => import('./views/franchise/Purchase/UnifiedOrderTracking'))
 const GRNInward         = l(() => import('./views/franchise/Purchase/GRNInward'))
 const PurchaseReturns   = l(() => import('./views/franchise/Purchase/PurchaseReturns'))
 const SupplierLedger    = l(() => import('./views/franchise/Purchase/SupplierLedger'))
 
 // ── Inventory ─────────────────────────────────────────────────────────────────
+const UnifiedInventoryDashboard = l(() => import('./views/franchise/Inventory/UnifiedInventoryDashboard'))
+// Legacy inventory pages kept for backward compatibility
 const InventoryDashboard   = l(() => import('./views/franchise/Inventory/InventoryDashboard'))
 const StockOverview        = l(() => import('./views/franchise/Inventory/StockOverview'))
 const RackWarehouse        = l(() => import('./views/franchise/Inventory/RackWarehouse'))
@@ -84,6 +87,9 @@ const MedicineImages       = l(() => import('./views/franchise/Medicines/Medicin
 const GenericMapping       = l(() => import('./views/franchise/Medicines/GenericMapping'))
 const AlternativeMedicines = l(() => import('./views/franchise/Medicines/AlternativeMedicines'))
 const FranchiseMedicineMasters = l(() => import('./views/franchise/Medicines/MedicineMasters'))
+const ExpiryDashboard      = l(() => import('./views/franchise/Medicines/ExpiryDashboard'))
+const BarcodePrintLabel    = l(() => import('./views/franchise/Medicines/BarcodePrintLabel'))
+const BulkBarcodePrint     = l(() => import('./views/franchise/Medicines/BulkBarcodePrint'))
 
 // ── Suppliers ─────────────────────────────────────────────────────────────────
 // ❌ REMOVED: Tenant supplier management - using global suppliers only
@@ -197,13 +203,14 @@ const routes = [
   { path: '/franchise/purchase/dashboard',       element: PurchaseDashboard,   accessKey: 'purchase_dashboard' },
   { path: '/franchise/purchase/live-rate',       element: LiveRateCompare,     accessKey: 'purchase_liverates' },
   { path: '/franchise/purchase/orders',          element: PurchaseOrders,      accessKey: 'purchase_orders'    },
+  { path: '/franchise/purchase/unified-tracking', element: UnifiedOrderTracking, accessKey: 'purchase_orders'   },
   { path: '/franchise/purchase/grn',             element: GRNInward,           accessKey: 'purchase_grn'       },
   { path: '/franchise/purchase/returns',         element: PurchaseReturns,     accessKey: 'purchase_returns'   },
   { path: '/franchise/purchase/supplier-ledger', element: SupplierLedger,      accessKey: 'purchase_ledger'    },
 
   /* ── Inventory ── */
-  { path: '/franchise/inventory',              element: InventoryDashboard,   accessKey: 'inventory'              },
-  { path: '/franchise/inventory/dashboard',    element: InventoryDashboard,   accessKey: 'inventory_dashboard'    },
+  { path: '/franchise/inventory',              element: UnifiedInventoryDashboard, accessKey: 'inventory' },
+  { path: '/franchise/inventory/dashboard',    element: UnifiedInventoryDashboard, accessKey: 'inventory_dashboard' },
   { path: '/franchise/inventory/stock',        element: StockOverview,        accessKey: 'inventory_stock'        },
   { path: '/franchise/inventory/rack',         element: RackWarehouse,        accessKey: 'inventory_rack'         },
   { path: '/franchise/inventory/batch-expiry', element: BatchExpiry,          accessKey: 'inventory_nearexpiry'   },
@@ -233,12 +240,15 @@ const routes = [
   /* ── Medicines ── */
   { path: '/franchise/medicines',                  element: MedicineList,             accessKey: 'medicines_list'    },
   { path: '/franchise/medicines/add',              element: AddMedicine,              accessKey: 'medicines_add'     },
+  { path: '/franchise/medicines/expiry',           element: ExpiryDashboard,          accessKey: 'medicines_expiry'  },
+  { path: '/franchise/medicines/bulk-barcode',     element: BulkBarcodePrint,         accessKey: 'medicines_barcode' },
   { path: '/franchise/medicines/masters',          element: FranchiseMedicineMasters, accessKey: 'medicines_masters' },
   { path: '/franchise/medicines/racks',            element: RackManagement,           accessKey: 'medicines_rack'    },
   { path: '/franchise/medicines/:id',              element: MedicineDetails,          accessKey: 'medicines_list'    },
   { path: '/franchise/medicines/:id/edit',         element: EditMedicine,             accessKey: 'medicines_edit'    },
   { path: '/franchise/medicines/:id/batches',      element: BatchDetails,             accessKey: 'medicines_list'    },
   { path: '/franchise/medicines/:id/barcode',      element: BarcodeLabel,             accessKey: 'medicines_barcode' },
+  { path: '/franchise/medicines/:id/barcode-print', element: BarcodePrintLabel,       accessKey: 'medicines_barcode' },
   { path: '/franchise/medicines/:id/images',       element: MedicineImages,           accessKey: 'medicines_list'    },
   { path: '/franchise/medicines/:id/generic',      element: GenericMapping,           accessKey: 'medicines_list'    },
   { path: '/franchise/medicines/:id/alternatives', element: AlternativeMedicines,     accessKey: 'medicines_list'    },
