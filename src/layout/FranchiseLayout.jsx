@@ -104,7 +104,20 @@ function NavGroup({ icon: Icon, label, children }) {
 const FranchiseLayout = () => {
   const navigate = useNavigate()
   const { franchiseUser, franchiseInfo, logoutFranchise } = useFranchise()
-  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 1024)
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
+
+  /* Responsive sidebar auto-close on small screens */
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 768
+      setIsMobile(mobile)
+      if (mobile) setSidebarOpen(false)
+      else if (window.innerWidth >= 1024) setSidebarOpen(true)
+    }
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   /* Auth guard — only check LMS cookie (franchiseUser loads sync from localStorage) */
   useEffect(() => {
@@ -124,11 +137,22 @@ const FranchiseLayout = () => {
     : 'FR'
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc', fontFamily: 'Inter, sans-serif' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc', fontFamily: 'Inter, sans-serif', overflow: 'hidden' }}>
+
+      {/* ── Mobile Overlay (backdrop) ── */}
+      {isMobile && sidebarOpen && (
+        <div
+          onClick={() => setSidebarOpen(false)}
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
+            zIndex: 39, cursor: 'pointer',
+          }}
+        />
+      )}
 
       {/* ── Sidebar ── */}
       <aside style={{
-        width: sidebarOpen ? 240 : 0,
+        width: 240,
         minHeight: '100vh',
         background: '#fff',
         borderRight: '1px solid #e5e7eb',
@@ -139,8 +163,9 @@ const FranchiseLayout = () => {
         zIndex: 40,
         overflowY: 'auto',
         overflowX: 'hidden',
-        transition: 'width 0.2s ease',
-        boxShadow: '2px 0 8px rgba(0,0,0,0.04)',
+        transition: 'transform 0.2s ease',
+        transform: sidebarOpen ? 'translateX(0)' : 'translateX(-240px)',
+        boxShadow: '2px 0 8px rgba(0,0,0,0.06)',
       }}>
 
         {/* Brand */}
@@ -194,10 +219,13 @@ const FranchiseLayout = () => {
       {/* ── Main Content ── */}
       <div style={{
         flex: 1,
-        marginLeft: sidebarOpen ? 240 : 0,
+        marginLeft: (!isMobile && sidebarOpen) ? 240 : 0,
         display: 'flex', flexDirection: 'column',
         minHeight: '100vh',
-        transition: 'margin-left 0.2s ease',
+        minWidth: 0,
+        width: (!isMobile && sidebarOpen) ? 'calc(100% - 240px)' : '100%',
+        transition: 'margin-left 0.2s ease, width 0.2s ease',
+        overflow: 'hidden',
       }}>
 
         {/* Header */}
@@ -245,7 +273,7 @@ const FranchiseLayout = () => {
         </header>
 
         {/* Page content */}
-        <main style={{ flex: 1, padding: '24px', overflowY: 'auto' }}>
+        <main className="flex-1 p-3 sm:p-4 lg:p-5 overflow-x-hidden overflow-y-auto min-w-0">
           <Outlet />
         </main>
       </div>
