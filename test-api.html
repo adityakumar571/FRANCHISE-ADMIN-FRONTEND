@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Rack API</title>
+</head>
+<body>
+    <h1>Test Rack API</h1>
+    <button onclick="testAPI()">Click to Test API</button>
+    <pre id="result"></pre>
+
+    <script>
+        async function testAPI() {
+            console.log('🧪 Testing API call...');
+            document.getElementById('result').textContent = 'Loading...';
+            
+            try {
+                const response = await fetch('/api/franchise/rack-management', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        name: 'TEST-RACK',
+                        warehouse: 'Main Pharmacy',
+                        shelf: 'Test',
+                        capacity: 100,
+                        status: 'Active'
+                    })
+                });
+                
+                console.log('📊 Response Status:', response.status);
+                const data = await response.json();
+                console.log('📦 Response Data:', data);
+                
+                document.getElementById('result').textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                console.error('❌ Error:', error);
+                document.getElementById('result').textContent = 'Error: ' + error.message;
+            }
+        }
+    </script>
+</body>
+</html>

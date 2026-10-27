@@ -14,6 +14,8 @@ const Inp = ({ value, onChange, placeholder }) => (
 )
 
 export default function RackManagement() {
+  console.log('🚀 RackManagement component mounted/rendered');
+  
   const [racks, setRacks]       = useState([])
   const [loading, setLoading]   = useState(true)
   const [search, setSearch]     = useState('')
@@ -23,6 +25,15 @@ export default function RackManagement() {
   const [show3D, setShow3D]     = useState(false)
   const [rackData, setRackData] = useState(null)
   const [form, setForm]         = useState({ name: '', shelf: '', capacity: '', section: '', warehouse: 'Main Pharmacy', status: 'Active' })
+
+  console.log('📊 Component State:', { 
+    racksCount: racks.length, 
+    loading, 
+    showAdd, 
+    editRack: editRack?._id, 
+    saving,
+    formName: form.name 
+  });
 
   const fetchRacks = useCallback(async () => {
     setLoading(true)
@@ -56,20 +67,69 @@ export default function RackManagement() {
   }
 
   const handleSave = async () => {
-    if (!form.name.trim()) { toast.error('Rack name is required'); return }
-    setSaving(true)
+    console.log('🎯 handleSave START');
+    console.log('📋 Current form state:', form);
+    console.log('✏️ Edit mode:', !!editRack);
+    console.log('📊 Form values:', {
+      name: form.name,
+      shelf: form.shelf,
+      capacity: form.capacity,
+      section: form.section,
+      warehouse: form.warehouse,
+      status: form.status
+    });
+    
+    if (!form.name.trim()) { 
+      console.error('❌ Validation failed: Rack name is required');
+      toast.error('Rack name is required'); 
+      return;
+    }
+    
+    console.log('✅ Validation passed, preparing to save...');
+    setSaving(true);
+    
     try {
+      const payload = {
+        name: form.name.trim(),
+        shelf: form.shelf?.trim() || '',
+        capacity: parseInt(form.capacity) || 20,
+        section: form.section?.trim() || '',
+        warehouse: form.warehouse || 'Main Pharmacy',
+        status: form.status || 'Active'
+      };
+      
+      console.log('📤 API Request Details:');
+      console.log('   Method:', editRack ? 'PUT' : 'POST');
+      console.log('   URL:', editRack ? `/franchise/rack-management/${editRack._id}` : '/franchise/rack-management');
+      console.log('   Payload:', JSON.stringify(payload, null, 2));
+      
       if (editRack) {
-        await putRequest({ url: `/franchise/rack-management/${editRack._id}`, cred: form })
-        toast.success('Rack updated')
+        console.log('📝 Calling putRequest for UPDATE...');
+        const res = await putRequest({ url: `/franchise/rack-management/${editRack._id}`, cred: payload });
+        console.log('✅ PUT Response:', res);
+        toast.success('Rack updated');
       } else {
-        await postRequest({ url: '/franchise/rack-management', cred: form })
-        toast.success('Rack added')
+        console.log('➕ Calling postRequest for CREATE...');
+        const res = await postRequest({ url: '/franchise/rack-management', cred: payload });
+        console.log('✅ POST Response:', res);
+        toast.success('Rack added');
       }
-      setShowAdd(false)
-      fetchRacks()
-    } catch (err) { toast.error(err?.response?.data?.message || 'Failed to save rack') }
-    finally { setSaving(false) }
+      
+      console.log('🔄 Closing form and refreshing...');
+      setShowAdd(false);
+      fetchRacks();
+    } catch (err) { 
+      console.error('❌ SAVE ERROR:');
+      console.error('   Error object:', err);
+      console.error('   Error message:', err?.message);
+      console.error('   Response data:', err?.response?.data);
+      console.error('   Response status:', err?.response?.status);
+      console.error('   Full error:', JSON.stringify(err, Object.getOwnPropertyNames(err)));
+      toast.error(err?.response?.data?.message || 'Failed to save rack');
+    } finally { 
+      console.log('🏁 handleSave END, setting saving=false');
+      setSaving(false);
+    }
   }
 
   const open3DView = (rack) => {
@@ -78,17 +138,19 @@ export default function RackManagement() {
       return
     }
     
-    // Prepare data for 3D modal
+    // Prepare data for 3D modal with all required fields
     setRackData({
-      name: rack.name || 'Rack',
-      counter: rack.warehouse || 'Main Pharmacy',
+      _id: rack._id, // Important for API update
+      name: rack.name || rack.code || 'Rack',
+      counter: rack.warehouse || rack.area || 'Main Pharmacy', // Map warehouse to counter
       shelf: rack.shelf || 'Middle',
       capacity: parseInt(rack.capacity) || 40,
       currentStock: parseInt(rack.currentItems) || 0,
       remainingSpace: (parseInt(rack.capacity) || 40) - (parseInt(rack.currentItems) || 0),
       status: !rack.currentItems || rack.currentItems === 0 
         ? 'empty' 
-        : ((rack.currentItems / rack.capacity) > 0.8 ? 'low' : 'available')
+        : ((rack.currentItems / rack.capacity) > 0.8 ? 'low' : 'available'),
+      onUpdate: fetchRacks // Callback to refresh after update
     })
     setShow3D(true)
   }
@@ -121,11 +183,29 @@ export default function RackManagement() {
             ))}
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={handleSave} disabled={saving}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px', border: 'none', borderRadius: 8, background: saving ? '#9ca3af' : '#16a34a', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+            <button 
+              type="button"
+              onClick={(e) => {
+                console.log('🖱️ SAVE BUTTON CLICKED!');
+                console.log('   Event:', e);
+                console.log('   Button type:', e.currentTarget.type);
+                e.preventDefault();
+                e.stopPropagation();
+                handleSave();
+              }} 
+              disabled={saving}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px', border: 'none', borderRadius: 8, background: saving ? '#9ca3af' : '#16a34a', color: '#fff', fontSize: 13, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer' }}>
               <Save size={13} /> {saving ? 'Saving...' : editRack ? 'Update' : 'Save Rack'}
             </button>
-            <button onClick={() => setShowAdd(false)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px', border: '1px solid #e5e7eb', borderRadius: 8, background: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+            <button 
+              type="button"
+              onClick={(e) => {
+                console.log('🖱️ CANCEL BUTTON CLICKED!');
+                e.preventDefault();
+                e.stopPropagation();
+                setShowAdd(false);
+              }} 
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px', border: '1px solid #e5e7eb', borderRadius: 8, background: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
               <X size={13} /> Cancel
             </button>
           </div>

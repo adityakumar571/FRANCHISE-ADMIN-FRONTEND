@@ -57,6 +57,7 @@ export default function AddMedicine() {
   const [categories, setCategories] = useState([])
   const [formulations, setFormulations] = useState([])
   const [companies, setCompanies] = useState([])
+  const [racks, setRacks] = useState([]) // Dynamic racks from API
   const [imageFile, setImageFile] = useState(null)
   const [imagePreview, setImagePreview] = useState(null)
   
@@ -82,12 +83,43 @@ export default function AddMedicine() {
   const fetchMasters = useCallback(async () => {
     try {
       setLoadingMeta(true)
+      
+      // Fetch medicine masters (categories, formulations, companies)
       const res = await getRequest('/franchise/medicines/meta')
       if (res.data?.data) {
         const { categories: cats, formulations: forms, companies: comps } = res.data.data
         setCategories(cats || [])
         setFormulations(forms || [])
         setCompanies(comps || [])
+      }
+      
+      // Fetch racks from Rack Management
+      try {
+        const racksRes = await getRequest('/franchise/rack-management')
+        console.log('🏪 Racks API Response:', racksRes)
+        
+        // Backend returns {data: [...racks]}
+        let racksData = racksRes.data?.data || racksRes.data || []
+        
+        console.log('🏪 Processed Racks Data:', racksData)
+        
+        if (Array.isArray(racksData) && racksData.length > 0) {
+          // Transform racks: use 'code' as name if 'name' doesn't exist
+          const transformedRacks = racksData.map(rack => ({
+            ...rack,
+            name: rack.name || rack.code, // Use code as fallback
+            displayName: `${rack.name || rack.code} - ${rack.description || rack.area}` // Descriptive name
+          }))
+          setRacks(transformedRacks)
+          console.log('✅ Racks loaded:', transformedRacks.length, transformedRacks)
+        } else {
+          console.warn('⚠️ No racks found in API response')
+          setRacks([])
+        }
+      } catch (err) {
+        console.error('❌ Failed to load racks:', err)
+        toast.error('Failed to load racks')
+        setRacks([])
       }
     } catch (err) {
       console.error('Failed to fetch masters:', err)
@@ -96,6 +128,10 @@ export default function AddMedicine() {
       setCategories(['Analgesic', 'Antibiotic', 'Antacid', 'Antipyretic', 'Vitamin'])
       setFormulations(['Tablet', 'Capsule', 'Syrup', 'Injection', 'Ointment'])
       setCompanies(['Cipla', 'Sun Pharma', 'Dr. Reddy\'s', 'Lupin', 'Other'])
+      setRacks([
+        { name: 'RACK-A', _id: 'RACK-A' },
+        { name: 'RACK-B', _id: 'RACK-B' }
+      ])
     } finally {
       setLoadingMeta(false)
     }
@@ -347,7 +383,15 @@ export default function AddMedicine() {
         <Section title="📍 Rack Location (MANDATORY)">
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
             <FL label="Rack" required>
-              <Sel value={form.rackLocation.rackId} onChange={setNested('rackLocation', 'rackId')} opts={RACKS} placeholder="Select rack" />
+              <select value={form.rackLocation.rackId} onChange={setNested('rackLocation', 'rackId')} 
+                style={{ width: '100%', padding: '9px 12px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13, outline: 'none', background: '#fff', cursor: 'pointer' }}>
+                <option value="">Select Rack</option>
+                {racks.map(rack => (
+                  <option key={rack._id} value={rack.code}>
+                    {rack.displayName || `${rack.code} - ${rack.description || rack.area}`}
+                  </option>
+                ))}
+              </select>
             </FL>
             <FL label="Shelf (1-10)" required>
               <Input type="number" value={form.rackLocation.shelf} onChange={setNested('rackLocation', 'shelf')} placeholder="1" min="1" max="10" />

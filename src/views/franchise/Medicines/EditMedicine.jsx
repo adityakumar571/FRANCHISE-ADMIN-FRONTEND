@@ -27,12 +27,14 @@ const Sel = ({ value, onChange, opts }) => (
   </select>
 )
 
-const TABS      = ['Basic Information', 'Pricing & Stock', 'Other Information', 'Images']
+const TABS      = ['Basic Information', 'Pricing & Stock', 'Rack Location', 'Other Information', 'Images']
 const CATS      = ['Analgesic','Antibiotic','Antifungal','Antiviral','Antacid','Vitamin','Supplement','Cardiac','Diabetic','Other']
 const FORMS     = ['Tablet','Capsule','Syrup','Injection','Ointment','Cream','Gel','Drops','Powder','Sachet']
 const COMPANIES = ['Sun Pharma','Cipla','Lupin','Dr. Reddy\'s','Alkem','Mankind','Torrent','Abbott','GSK','Pfizer','Other']
 const UNITS     = ['Tablet','Capsule','Syrup','Injection','Ointment','Drops','Strip','Bottle','Sachet']
 const GST_RATES = ['0%','5%','12%','18%']
+const RACKS     = ['RACK-A', 'RACK-B', 'RACK-C', 'RACK-D', 'RACK-E', 'RACK-F']
+const ROWS      = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']
 
 export default function EditMedicine() {
   const navigate  = useNavigate()
@@ -41,13 +43,67 @@ export default function EditMedicine() {
   const [form, setForm]   = useState(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving]   = useState(false)
+  const [racks, setRacks]     = useState([]) // Dynamic racks from API
 
   const fetchMed = useCallback(async () => {
     setLoading(true)
     try {
+      // Fetch medicine data
       const res = await getRequest(`/franchise/medicines/${id}`)
       const d   = res.data?.data
-      if (d) setForm({ ...d, gst: d.gst ? `${d.gst}%` : '12%', mrp: d.mrp ?? '', purchasePrice: d.purchasePrice ?? '', stock: d.stock ?? 0, reorderLevel: d.reorderLevel ?? 100 })
+      if (d) {
+        setForm({ 
+          ...d, 
+          gst: d.gst ? `${d.gst}%` : '12%', 
+          mrp: d.mrp ?? '', 
+          purchasePrice: d.purchasePrice ?? '', 
+          stock: d.stock ?? 0, 
+          reorderLevel: d.reorderLevel ?? 100,
+          // Initialize rackLocation with fallback
+          rackLocation: d.rackLocation ? {
+            rackId: d.rackLocation.rackId || '',
+            shelf: d.rackLocation.shelf || '',
+            row: d.rackLocation.row || '',
+            column: d.rackLocation.column || '',
+            position: d.rackLocation.position || ''
+          } : {
+            rackId: '',
+            shelf: '',
+            row: '',
+            column: '',
+            position: ''
+          }
+        })
+      }
+      
+      // Fetch racks list for dropdown
+      try {
+        const racksRes = await getRequest('/franchise/rack-management')
+        console.log('🏪 Racks API Response:', racksRes)
+        
+        // Backend returns {data: [...racks]}
+        let racksData = racksRes.data?.data || racksRes.data || []
+        
+        console.log('🏪 Processed Racks Data:', racksData)
+        
+        if (Array.isArray(racksData) && racksData.length > 0) {
+          // Transform racks: use 'code' as name if 'name' doesn't exist
+          const transformedRacks = racksData.map(rack => ({
+            ...rack,
+            name: rack.name || rack.code, // Use code as fallback
+            displayName: `${rack.name || rack.code} - ${rack.description || rack.area}` // Descriptive name
+          }))
+          setRacks(transformedRacks)
+          console.log('✅ Racks loaded:', transformedRacks.length, transformedRacks)
+        } else {
+          console.warn('⚠️ No racks found in API response')
+          setRacks([])
+        }
+      } catch (err) {
+        console.error('❌ Failed to load racks:', err)
+        toast.error('Failed to load racks')
+        setRacks([])
+      }
     } catch (err) { 
       console.error('Failed to load:', err)
       toast.error('Failed to load medicine')
@@ -59,13 +115,50 @@ export default function EditMedicine() {
   useEffect(() => { fetchMed() }, [fetchMed])
 
   const set = k => e => setForm(p => ({ ...p, [k]: e.target.value }))
+  
+  const setNested = (parent, field) => e => {
+    setForm(p => ({
+      ...p,
+      [parent]: { ...p[parent], [field]: e.target.value }
+    }))
+  }
+
+  // Auto-generate position when rack location changes
+  useEffect(() => {
+    if (form?.rackLocation) {
+      const { rackId, shelf, row, column } = form.rackLocation
+      if (rackId && shelf && row && column) {
+        setForm(p => ({
+          ...p,
+          rackLocation: { 
+            ...p.rackLocation, 
+            position: `${rackId}-${shelf}-${row}-${column}` 
+          }
+        }))
+      }
+    }
+  }, [form?.rackLocation?.rackId, form?.rackLocation?.shelf, form?.rackLocation?.row, form?.rackLocation?.column])
 
   const handleUpdate = async () => {
     if (!form?.name?.trim()) { toast.error('Medicine name is required'); return }
     if (!form?.mrp)          { toast.error('MRP is required'); return }
     setSaving(true)
     try {
-      const payload = { ...form, mrp: parseFloat(form.mrp) || 0, purchasePrice: parseFloat(form.purchasePrice) || 0, reorderLevel: parseInt(form.reorderLevel) || 100, gst: parseFloat(form.gst) || 0 }
+      const payload = { 
+        ...form, 
+        mrp: parseFloat(form.mrp) || 0, 
+        purchasePrice: parseFloat(form.purchasePrice) || 0, 
+        reorderLevel: parseInt(form.reorderLevel) || 100, 
+        gst: parseFloat(form.gst) || 0,
+        // Include rack location in update
+        rackLocation: form.rackLocation && form.rackLocation.rackId ? {
+          rackId: form.rackLocation.rackId,
+          shelf: parseInt(form.rackLocation.shelf) || 0,
+          row: form.rackLocation.row,
+          column: parseInt(form.rackLocation.column) || 0,
+          position: form.rackLocation.position
+        } : undefined
+      }
       await putRequest({ url: `/franchise/medicines/${id}`, cred: payload })
       toast.success('Medicine updated successfully')
       navigate(`/franchise/medicines/${id}`)
@@ -120,6 +213,71 @@ export default function EditMedicine() {
                 <FL label="Reorder Level">       <Input value={form.reorderLevel}   onChange={set('reorderLevel')}  type="number" /></FL>
                 <FL label="Pack Size">           <Input value={form.packSize}       onChange={set('packSize')}      placeholder="1x15 Strips" /></FL>
                 <FL label="GST Rate">            <Sel   value={form.gst}            onChange={set('gst')}           opts={GST_RATES} /></FL>
+              </div>
+            )}
+            {tab === 'Rack Location' && (
+              <div>
+                {/* Debug: Show racks count */}
+                {console.log('📦 Racks state:', racks)}
+                
+                {/* Show loading/empty state */}
+                {racks.length === 0 && loading && (
+                  <div style={{ padding: 20, textAlign: 'center', color: '#9ca3af' }}>
+                    Loading racks...
+                  </div>
+                )}
+                
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 14, marginBottom: 16 }}>
+                  <FL label="Rack">
+                    <select value={form.rackLocation?.rackId || ''} onChange={setNested('rackLocation', 'rackId')} 
+                      style={{ width: '100%', padding: '9px 12px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13, outline: 'none', background: '#fff', cursor: 'pointer' }}>
+                      <option value="">Select Rack</option>
+                      {racks.length === 0 && !loading && (
+                        <option value="" disabled>No racks available - Add in Rack Management</option>
+                      )}
+                      {racks.map(rack => (
+                        <option key={rack._id} value={rack.code}>
+                          {rack.displayName || `${rack.code} - ${rack.description || rack.area}`}
+                        </option>
+                      ))}
+                    </select>
+                    {racks.length > 0 && (
+                      <p style={{ margin: '4px 0 0', fontSize: 11, color: '#16a34a' }}>
+                        ✅ {racks.length} racks available
+                      </p>
+                    )}
+                  </FL>
+                  <FL label="Shelf (1-10)">
+                    <Input type="number" value={form.rackLocation?.shelf || ''} onChange={setNested('rackLocation', 'shelf')} placeholder="1" min="1" max="10" />
+                  </FL>
+                  <FL label="Row">
+                    <Sel value={form.rackLocation?.row || ''} onChange={setNested('rackLocation', 'row')} opts={['', ...ROWS]} />
+                  </FL>
+                  <FL label="Column (1-20)">
+                    <Input type="number" value={form.rackLocation?.column || ''} onChange={setNested('rackLocation', 'column')} placeholder="1" min="1" max="20" />
+                  </FL>
+                </div>
+                {racks.length === 0 && (
+                  <div style={{ padding: 14, background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: 8, marginBottom: 14 }}>
+                    <p style={{ margin: 0, fontSize: 12, color: '#854d0e' }}>
+                      ⚠️ No racks found. Please add racks in Rack Management first.
+                    </p>
+                  </div>
+                )}
+                {form.rackLocation?.position && (
+                  <div style={{ padding: 14, background: '#dcfce7', border: '1px solid #86efac', borderRadius: 8 }}>
+                    <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#15803d' }}>
+                      📦 Position: <span style={{ fontFamily: 'monospace' }}>{form.rackLocation.position}</span>
+                    </p>
+                  </div>
+                )}
+                {!form.rackLocation?.rackId && racks.length > 0 && (
+                  <div style={{ padding: 14, background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: 8 }}>
+                    <p style={{ margin: 0, fontSize: 12, color: '#854d0e' }}>
+                      ⚠️ Rack location not assigned. Select rack details above to assign a location.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
             {tab === 'Other Information' && (

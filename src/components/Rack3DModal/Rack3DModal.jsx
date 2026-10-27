@@ -1,5 +1,7 @@
 import React, { useState, useMemo } from 'react'
 import PropTypes from 'prop-types'
+import toast from 'react-hot-toast'
+import { putRequest } from '../../Helpers'
 import './Rack3DModal.css'
 
 /**
@@ -156,6 +158,10 @@ function Rack3DView({ rackData }) {
 }
 
 export default function Rack3DModal({ visible, onClose, rackData }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState({});
+  const [saving, setSaving] = useState(false);
+
   if (!visible) return null
 
   const data = {
@@ -169,6 +175,68 @@ export default function Rack3DModal({ visible, onClose, rackData }) {
     status: 'available',
     ...rackData,
   }
+
+  // Initialize edit form when editing starts
+  const startEdit = () => {
+    setEditForm({
+      counter: data.counter || '',
+      shelf: data.shelf || '',
+      capacity: data.capacity || 40,
+    });
+    setIsEditing(true);
+  };
+
+  const cancelEdit = () => {
+    setIsEditing(false);
+    setEditForm({});
+  };
+
+  const handleSave = async () => {
+    if (!editForm.counter?.trim()) {
+      toast.error('Counter name is required');
+      return;
+    }
+    
+    if (!editForm.capacity || editForm.capacity < 1) {
+      toast.error('Capacity must be at least 1');
+      return;
+    }
+    
+    console.log('💾 Saving rack data:', editForm);
+    setSaving(true);
+    
+    try {
+      // Update rack via API
+      if (data._id) {
+        const payload = {
+          warehouse: editForm.counter, // 'counter' maps to 'warehouse' in backend
+          shelf: editForm.shelf,
+          capacity: parseInt(editForm.capacity),
+        };
+        
+        console.log('📤 Updating rack:', data._id, payload);
+        await putRequest({ 
+          url: `/franchise/rack-management/${data._id}`, 
+          cred: payload 
+        });
+        
+        toast.success('✅ Rack updated successfully!');
+        setIsEditing(false);
+        
+        // Refresh parent data if callback provided
+        if (rackData.onUpdate) {
+          rackData.onUpdate();
+        }
+      } else {
+        toast.error('Cannot update: Rack ID missing');
+      }
+    } catch (err) {
+      console.error('❌ Failed to save:', err);
+      toast.error(err?.response?.data?.message || 'Failed to save rack');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="rack3d__overlay" role="dialog" aria-modal="true" aria-label="Rack 3D View">
@@ -216,22 +284,117 @@ export default function Rack3DModal({ visible, onClose, rackData }) {
 
           {/* Right: Details */}
           <div className="rack3d__details-panel">
-            <div className="rack3d__details-title">Rack Details</div>
+            <div className="rack3d__details-title">
+              Rack Details
+              {!isEditing && (
+                <button 
+                  onClick={startEdit}
+                  style={{ 
+                    float: 'right', 
+                    padding: '4px 12px', 
+                    fontSize: 11, 
+                    background: '#3b82f6', 
+                    color: '#fff', 
+                    border: 'none', 
+                    borderRadius: 6, 
+                    cursor: 'pointer',
+                    fontWeight: 600
+                  }}
+                >
+                  ✏️ Edit
+                </button>
+              )}
+            </div>
 
             <div className="rack3d__details-grid">
-              {[
-                { label: 'Counter', value: data.counter },
-                { label: 'Shelf', value: data.shelf },
-                { label: 'Box', value: data.box },
-                { label: 'Capacity', value: `${data.capacity} Items` },
-                { label: 'Current Stock', value: `${data.currentStock} Items` },
-                { label: 'Remaining Space', value: `${data.remainingSpace} Items` },
-              ].map(({ label, value }) => (
-                <div key={label} className="rack3d__detail-row">
-                  <span className="rack3d__detail-label">{label}</span>
-                  <span className="rack3d__detail-value">{value}</span>
-                </div>
-              ))}
+              {/* Counter - Editable */}
+              <div className="rack3d__detail-row">
+                <span className="rack3d__detail-label">Counter</span>
+                {isEditing ? (
+                  <input 
+                    type="text"
+                    value={editForm.counter}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, counter: e.target.value }))}
+                    placeholder="e.g. Counter A"
+                    style={{
+                      padding: '6px 10px',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: 6,
+                      fontSize: 13,
+                      outline: 'none',
+                      width: '100%'
+                    }}
+                  />
+                ) : (
+                  <span className="rack3d__detail-value">{data.counter}</span>
+                )}
+              </div>
+
+              {/* Shelf - Editable */}
+              <div className="rack3d__detail-row">
+                <span className="rack3d__detail-label">Shelf</span>
+                {isEditing ? (
+                  <input 
+                    type="text"
+                    value={editForm.shelf}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, shelf: e.target.value }))}
+                    placeholder="e.g. Middle"
+                    style={{
+                      padding: '6px 10px',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: 6,
+                      fontSize: 13,
+                      outline: 'none',
+                      width: '100%'
+                    }}
+                  />
+                ) : (
+                  <span className="rack3d__detail-value">{data.shelf}</span>
+                )}
+              </div>
+
+              {/* Box - Read only */}
+              <div className="rack3d__detail-row">
+                <span className="rack3d__detail-label">Box</span>
+                <span className="rack3d__detail-value">{data.box}</span>
+              </div>
+
+              {/* Capacity - Editable */}
+              <div className="rack3d__detail-row">
+                <span className="rack3d__detail-label">Capacity</span>
+                {isEditing ? (
+                  <input 
+                    type="number"
+                    value={editForm.capacity}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, capacity: parseInt(e.target.value) || 0 }))}
+                    placeholder="40"
+                    min="1"
+                    max="200"
+                    style={{
+                      padding: '6px 10px',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: 6,
+                      fontSize: 13,
+                      outline: 'none',
+                      width: '100%'
+                    }}
+                  />
+                ) : (
+                  <span className="rack3d__detail-value">{`${data.capacity} Items`}</span>
+                )}
+              </div>
+
+              {/* Current Stock - Read only */}
+              <div className="rack3d__detail-row">
+                <span className="rack3d__detail-label">Current Stock</span>
+                <span className="rack3d__detail-value">{`${data.currentStock} Items`}</span>
+              </div>
+
+              {/* Remaining Space - Read only */}
+              <div className="rack3d__detail-row">
+                <span className="rack3d__detail-label">Remaining Space</span>
+                <span className="rack3d__detail-value">{`${data.remainingSpace} Items`}</span>
+              </div>
 
               <div className="rack3d__detail-row">
                 <span className="rack3d__detail-label">Status</span>
@@ -277,8 +440,32 @@ export default function Rack3DModal({ visible, onClose, rackData }) {
 
             {/* Action buttons */}
             <div className="rack3d__actions">
-              <button className="rack3d__btn rack3d__btn--primary">View Medicines</button>
-              <button className="rack3d__btn rack3d__btn--secondary">Edit Rack</button>
+              {isEditing ? (
+                <>
+                  <button 
+                    className="rack3d__btn rack3d__btn--primary" 
+                    onClick={handleSave}
+                    disabled={saving}
+                    style={{ opacity: saving ? 0.6 : 1 }}
+                  >
+                    {saving ? '💾 Saving...' : '💾 Save Changes'}
+                  </button>
+                  <button 
+                    className="rack3d__btn rack3d__btn--secondary"
+                    onClick={cancelEdit}
+                    disabled={saving}
+                  >
+                    ✕ Cancel
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button className="rack3d__btn rack3d__btn--primary">📦 View Medicines</button>
+                  <button className="rack3d__btn rack3d__btn--secondary" onClick={startEdit}>
+                    ✏️ Edit Rack
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>

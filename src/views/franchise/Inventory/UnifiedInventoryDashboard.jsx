@@ -37,12 +37,43 @@ export default function UnifiedInventoryDashboard() {
   const [filter, setFilter] = useState('All') // All, Low Stock, Near Expiry, Fast Moving, Dead Stock
   const [show3D, setShow3D] = useState(false)
   const [rackData, setRackData] = useState(null)
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalItems, setTotalItems] = useState(0)
+  const itemsPerPage = 50
 
-  const fetchInventory = useCallback(async () => {
+  const fetchInventory = useCallback(async (page = 1) => {
     setLoading(true)
     try {
-      const res = await getRequest('/franchise/medicines?limit=100')
+      // Include withLocation=true to get batches for stock calculation
+      // Add pagination parameters
+      const res = await getRequest(`/franchise/medicines?limit=${itemsPerPage}&page=${page}&withLocation=true`)
       const meds = res.data?.data?.medicines || []
+      const total = res.data?.data?.total || 0
+      const pages = res.data?.data?.totalPages || 1
+      
+      setTotalItems(total)
+      setTotalPages(pages)
+      setCurrentPage(page)
+      
+      console.log('📊 Inventory Data:', {
+        totalMedicines: meds.length,
+        sampleMedicine: meds[0] ? {
+          name: meds[0].name,
+          currentStock: meds[0].currentStock,
+          mrp: meds[0].mrp,
+          hasBatches: meds[0].batches?.length || 0,
+          rackLocation: meds[0].rackLocation,
+          rackLabel: meds[0].rackLabel,
+          batches: meds[0].batches?.map(b => ({
+            batchNo: b.batchNo,
+            quantity: b.quantity,
+            expiryDate: b.expiryDate
+          }))
+        } : null
+      })
       
       // Calculate KPIs
       let totalValue = 0
@@ -54,41 +85,44 @@ export default function UnifiedInventoryDashboard() {
       const sixtyDaysFromNow = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000)
       
       const processedMeds = meds.map(med => {
-        // Calculate current stock from batches
-        const currentStock = (med.batches || [])
-          .filter(b => new Date(b.expiryDate) > now)
-          .reduce((sum, b) => sum + (b.quantity || 0), 0)
+        // Use backend's calculated currentStock (already accurate from batches)
+        const currentStock = med.currentStock || 0;
         
-        // Find next expiry date
-        const validBatches = (med.batches || []).filter(b => new Date(b.expiryDate) > now)
-        const nextExpiry = validBatches.length > 0 
-          ? new Date(Math.min(...validBatches.map(b => new Date(b.expiryDate))))
-          : null
+        // Find next expiry date from batches (only if batches exist)
+        let nextExpiry = null;
+        if (med.batches && med.batches.length > 0) {
+          const validBatches = med.batches.filter(b => new Date(b.expiryDate) > now)
+          nextExpiry = validBatches.length > 0 
+            ? new Date(Math.min(...validBatches.map(b => new Date(b.expiryDate))))
+            : null
+        }
         
         // Check if near expiry (within 60 days)
         const isNearExpiry = nextExpiry && nextExpiry <= sixtyDaysFromNow
         
-        // Calculate stock value
+        // Calculate stock value using backend's currentStock and mrp
         const stockValue = currentStock * (med.mrp || 0)
         totalValue += stockValue
         
         // Check low stock
-        const isLowStock = currentStock <= (med.reorderLevel || 10)
+        const isLowStock = currentStock <= (med.reorderLevel || 10) && currentStock > 0
         if (isLowStock) lowStockCount++
         if (isNearExpiry) nearExpiryCount++
         
         // Check expired batches
-        const hasExpired = (med.batches || []).some(b => new Date(b.expiryDate) <= now)
+        const hasExpired = med.batches && med.batches.some(b => new Date(b.expiryDate) <= now)
         if (hasExpired) expiredCount++
         
         return {
           ...med,
-          currentStock,
+          currentStock,           // Use backend's value
           nextExpiry,
           isNearExpiry,
           isLowStock,
           hasExpired,
           stockValue,
+          // Use rackLocation.position from backend (already correct field)
+          rackLocationDisplay: med.rackLocation?.position || med.rackLabel || '—',
           stockStatus: currentStock === 0 ? 'Out' : isLowStock ? 'Low' : 'Available'
         }
       })
@@ -108,9 +142,9 @@ export default function UnifiedInventoryDashboard() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [itemsPerPage])
 
-  useEffect(() => { fetchInventory() }, [fetchInventory])
+  useEffect(() => { fetchInventory(1) }, [fetchInventory])
 
   const filtered = medicines.filter(m => {
     const matchSearch = search === '' || 
@@ -134,7 +168,7 @@ export default function UnifiedInventoryDashboard() {
         m.company || '',
         m.currentStock,
         m.stockStatus,
-        m.rackLocation?.position || 'Not Assigned',
+        m.rackLocationDisplay || 'Not Assigned',
         m.nextExpiry ? new Date(m.nextExpiry).toLocaleDateString() : 'N/A',
         `₹${m.stockValue?.toFixed(2) || 0}`
       ])
@@ -178,7 +212,7 @@ export default function UnifiedInventoryDashboard() {
             style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', border: '1px solid #e5e7eb', borderRadius: 8, background: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
             <Download size={14} /> Export
           </button>
-          <button onClick={fetchInventory}
+          <button onClick={() => fetchInventory(1)}
             style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', border: 'none', borderRadius: 8, background: '#7c3aed', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
             <RefreshCw size={14} /> Refresh
           </button>
@@ -255,15 +289,15 @@ export default function UnifiedInventoryDashboard() {
                       </span>
                     </Td>
                     <Td style={{ fontFamily: 'monospace', fontSize: 11, color: '#6b7280' }}>
-                      {m.rackLocation?.position ? (
+                      {m.rackLocationDisplay && m.rackLocationDisplay !== '—' ? (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                           <MapPin size={12} />
-                          {m.rackLocation.position}
+                          {m.rackLocationDisplay}
                         </div>
                       ) : '—'}
                     </Td>
                     <Td style={{ fontSize: 12, color: m.isNearExpiry ? '#dc2626' : '#6b7280', fontWeight: m.isNearExpiry ? 700 : 400 }}>
-                      {m.nextExpiry ? new Date(m.nextExpiry).toLocaleDateString() : '—'}
+                      {m.nextExpiry ? new Date(m.nextExpiry).toLocaleDateString('en-IN') : '—'}
                     </Td>
                     <Td style={{ fontWeight: 600 }}>₹{m.stockValue?.toFixed(2) || 0}</Td>
                     <Td>
@@ -293,6 +327,68 @@ export default function UnifiedInventoryDashboard() {
           </div>
         )}
       </div>
+
+      {/* Pagination */}
+      {!loading && filtered.length > 0 && totalPages > 1 && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', background: '#fff', borderTop: '1px solid #e5e7eb', borderRadius: '0 0 12px 12px', marginTop: -12 }}>
+          <div style={{ fontSize: 13, color: '#6b7280' }}>
+            Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems} items
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              onClick={() => fetchInventory(currentPage - 1)}
+              disabled={currentPage === 1}
+              style={{ padding: '6px 12px', border: '1px solid #e5e7eb', borderRadius: 6, background: currentPage === 1 ? '#f3f4f6' : '#fff', color: currentPage === 1 ? '#9ca3af' : '#374151', fontSize: 13, fontWeight: 600, cursor: currentPage === 1 ? 'not-allowed' : 'pointer' }}
+            >
+              ← Previous
+            </button>
+            
+            {/* Page numbers */}
+            <div style={{ display: 'flex', gap: 4 }}>
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let pageNum;
+                if (totalPages <= 5) {
+                  pageNum = i + 1;
+                } else if (currentPage <= 3) {
+                  pageNum = i + 1;
+                } else if (currentPage >= totalPages - 2) {
+                  pageNum = totalPages - 4 + i;
+                } else {
+                  pageNum = currentPage - 2 + i;
+                }
+                
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => fetchInventory(pageNum)}
+                    style={{ 
+                      padding: '6px 12px', 
+                      border: currentPage === pageNum ? 'none' : '1px solid #e5e7eb', 
+                      borderRadius: 6, 
+                      background: currentPage === pageNum ? '#7c3aed' : '#fff', 
+                      color: currentPage === pageNum ? '#fff' : '#374151', 
+                      fontSize: 13, 
+                      fontWeight: 600, 
+                      cursor: 'pointer',
+                      minWidth: 36
+                    }}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
+            </div>
+            
+            <button
+              onClick={() => fetchInventory(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              style={{ padding: '6px 12px', border: '1px solid #e5e7eb', borderRadius: 6, background: currentPage === totalPages ? '#f3f4f6' : '#fff', color: currentPage === totalPages ? '#9ca3af' : '#374151', fontSize: 13, fontWeight: 600, cursor: currentPage === totalPages ? 'not-allowed' : 'pointer' }}
+            >
+              Next →
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 3D Rack Modal */}
       <Rack3DModal
