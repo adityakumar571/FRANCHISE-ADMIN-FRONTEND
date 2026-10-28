@@ -177,8 +177,6 @@ export default function PharmacyLayout3D() {
   /* ── INITIAL LOAD ── */
   useEffect(() => {
     fetchAllData()
-    const timer = setInterval(fetchAllData, 30000)
-    return () => clearInterval(timer)
   }, [fetchAllData])
 
   /* ── DEBOUNCED SEARCH (Like Google - waits 800ms) ── */
@@ -196,35 +194,33 @@ export default function PharmacyLayout3D() {
         
         if (meds.length > 0) {
           const med = meds[0]
-          console.log('🔍 Found:', med.name, 'Counter:', med.counterId, 'Rack:', med.rackLocation?.rackId)
           setFoundMed(med)
           
-          // Auto-select counter if available
+          // Auto-select counter — compare both _id string forms
           if (med.counterId) {
-            const cId = med.counterId?._id || med.counterId
-            const counter = counters.find(c => c._id === cId)
-            if (counter) {
-              setCounter(counter)
-              console.log('📍 Auto-selected counter:', counter.code)
-            }
+            const cId = String(med.counterId?._id || med.counterId)
+            setCounters(prev => {
+              const counter = prev.find(c => String(c._id) === cId)
+              if (counter) setCounter(counter)
+              return prev
+            })
           }
           
-          // Auto-select rack if available
+          // Auto-select rack — rackLocation.rackId is rack CODE string
           if (med.rackLocation?.rackId) {
-            const rackData = racks.find(r => r.code === med.rackLocation.rackId)
-            if (rackData) {
-              setSelectedRack(rackData)
-              console.log('📦 Auto-selected rack:', rackData.code)
-            }
+            setRacks(prev => {
+              const rackData = prev.find(r => r.code === med.rackLocation.rackId)
+              if (rackData) setSelectedRack(rackData)
+              return prev
+            })
           }
-          
+
           toast.success('Found: ' + med.name)
         } else {
           setFoundMed(null)
           toast.error('Medicine not found')
         }
-      } catch (err) {
-        console.error('❌ Search error:', err)
+      } catch {
         setFoundMed(null)
         toast.error('Search failed')
       } finally {
@@ -233,7 +229,7 @@ export default function PharmacyLayout3D() {
     }
 
     performSearch()
-  }, [debouncedSearch, counters, racks])
+  }, [debouncedSearch])
 
   /* ── FILTERED DATA ── */
   const counterRacks = useMemo(() => {
@@ -287,7 +283,7 @@ export default function PharmacyLayout3D() {
       <div className="bg-slate-900 rounded-xl p-3 md:p-4 lg:p-6 mb-6 border border-slate-800">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 md:gap-4">
           <div>
-            <h1 className="m-0 text-xl md:text-2xl lg:text-3xl font-extrabold">📦 Pharmacy Layout</h1>
+            <h1 className="m-0 text-xl md:text-xl lg:text-xl font-extrabold">📦 Pharmacy Layout</h1>
             <p className="m-0 mt-1 text-xs md:text-sm text-slate-400">
               {stats.total} medicines • {counters.length} counters • {racks.length} racks
             </p>

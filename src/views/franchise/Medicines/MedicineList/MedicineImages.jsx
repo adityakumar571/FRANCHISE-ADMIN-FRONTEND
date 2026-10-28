@@ -6,8 +6,8 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Image, ArrowLeft, Upload, Trash2, Star } from 'lucide-react'
 import toast from 'react-hot-toast'
-import PageHeader from '../components/PageHeader'
-import { getRequest, fileUpload, deleteRequest, postRequest } from '../../../Helpers'
+import PageHeader from '../../components/PageHeader'
+import { getRequest, fileUpload, deleteRequest, postRequest } from '../../../../Helpers'
 
 export default function MedicineImages() {
   const navigate = useNavigate()

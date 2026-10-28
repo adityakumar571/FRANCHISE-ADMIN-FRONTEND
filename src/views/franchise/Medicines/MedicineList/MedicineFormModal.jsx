@@ -4,7 +4,7 @@
  */
 import { useState, useEffect } from 'react'
 import { X, FlaskConical } from 'lucide-react'
-import { postRequest, putRequest } from '../../../Helpers'
+import { postRequest, putRequest } from '../../../../Helpers'
 import toast from 'react-hot-toast'
 
 const INITIAL = {

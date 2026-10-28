@@ -1,4 +1,3 @@
-/* eslint-disable prettier/prettier */
 /**
  * Screen 16 — Medicine Details (API-connected)
  */
