@@ -172,16 +172,18 @@ const franchiseNav = [
   /* 9 ── Medicine Master (group) ── */
   {
     component: CNavGroup,
-    name: 'Medicine Master',
+    name: 'Medicine Management',
     to: '/franchise/medicines',
     icon: ic(FlaskConical),
     accessKey: 'medicines',
     items: [
+            { component: CNavItem, name: 'Counter Master',    to: '/franchise/medicines/counters',     icon: ic(Store),     accessKey: 'medicines_counter' },
+      { component: CNavItem, name: 'Rack Master',       to: '/franchise/medicines/racks-master', icon: ic(Layers),    accessKey: 'medicines_rack'    },
       { component: CNavItem, name: 'Medicine List',     to: '/franchise/medicines',              icon: ic(List),      accessKey: 'medicines_list'    },
-      { component: CNavItem, name: 'Add Medicine',      to: '/franchise/medicines/add',          icon: ic(Plus),      accessKey: 'medicines_add'     },
+      // { component: CNavItem, name: 'Add Medicine',      to: '/franchise/medicines/add',          icon: ic(Plus),      accessKey: 'medicines_add'     },
+
       { component: CNavItem, name: 'Expiry Dashboard',  to: '/franchise/medicines/expiry',       icon: ic(AlertTriangle), accessKey: 'medicines_expiry'  },
       { component: CNavItem, name: 'Bulk Barcode Print', to: '/franchise/medicines/bulk-barcode', icon: ic(ScanLine),  accessKey: 'medicines_barcode' },
-      { component: CNavItem, name: 'Rack Management',   to: '/franchise/medicines/racks',        icon: ic(Layers),    accessKey: 'medicines_rack'    },
       { component: CNavItem, name: 'Category & Units',  to: '/franchise/medicines/masters',      icon: ic(Settings),  accessKey: 'medicines_masters' },
     ],
   },

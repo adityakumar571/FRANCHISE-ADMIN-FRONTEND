@@ -92,6 +92,8 @@ const FranchiseMedicineMasters = l(() => import('./views/franchise/Medicines/Med
 const ExpiryDashboard      = l(() => import('./views/franchise/Medicines/ExpiryDashboard'))
 const BarcodePrintLabel    = l(() => import('./views/franchise/Medicines/BarcodePrintLabel'))
 const BulkBarcodePrint     = l(() => import('./views/franchise/Medicines/BulkBarcodePrint'))
+const CounterMaster        = l(() => import('./views/franchise/Medicines/CounterMaster'))
+const RackMaster           = l(() => import('./views/franchise/Medicines/RackMaster'))
 
 // ── Suppliers ─────────────────────────────────────────────────────────────────
 // ❌ REMOVED: Tenant supplier management - using global suppliers only
@@ -244,6 +246,8 @@ const routes = [
   /* ── Medicines ── */
   { path: '/franchise/medicines',                  element: MedicineList,             accessKey: 'medicines_list'    },
   { path: '/franchise/medicines/add',              element: AddMedicine,              accessKey: 'medicines_add'     },
+  { path: '/franchise/medicines/counters',         element: CounterMaster,            accessKey: 'medicines_counter' },
+  { path: '/franchise/medicines/racks-master',     element: RackMaster,               accessKey: 'medicines_rack'    },
   { path: '/franchise/medicines/expiry',           element: ExpiryDashboard,          accessKey: 'medicines_expiry'  },
   { path: '/franchise/medicines/bulk-barcode',     element: BulkBarcodePrint,         accessKey: 'medicines_barcode' },
   { path: '/franchise/medicines/masters',          element: FranchiseMedicineMasters, accessKey: 'medicines_masters' },

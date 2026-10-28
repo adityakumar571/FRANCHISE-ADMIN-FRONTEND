@@ -57,7 +57,9 @@ export default function AddMedicine() {
   const [categories, setCategories] = useState([])
   const [formulations, setFormulations] = useState([])
   const [companies, setCompanies] = useState([])
-  const [racks, setRacks] = useState([]) // Dynamic racks from API
+  const [counters, setCounters] = useState([])
+  const [racks, setRacks] = useState([])
+  const [filteredRacks, setFilteredRacks] = useState([])
   const [imageFile, setImageFile] = useState(null)
   const [imagePreview, setImagePreview] = useState(null)
   
@@ -74,16 +76,45 @@ export default function AddMedicine() {
     purchasePrice: '',
     gstPercent: 12,
     reorderLevel: '20',
+    sku: '',                // ← Unique medicine code
     barcode: '',
-    rackLocation: { rackId: '', shelf: '', row: '', column: '' },
+    counterId: '',        // ← Counter selection
+    rackId: '',           // ← Rack selection
     batches: [{ batchNo: '', expiryDate: '', quantity: '', mrp: '', purchasePrice: '' }]
   })
+
+  // Auto-generate short unique SKU for medicine
+  const generateSKU = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+    let sku = 'M'
+    for (let i = 0; i < 6; i++) {
+      sku += chars.charAt(Math.floor(Math.random() * chars.length))
+    }
+    return sku  // e.g., "MA7K9B5", "MB2M3X9"
+  }
 
   // Fetch master data dynamically from API
   const fetchMasters = useCallback(async () => {
     try {
       setLoadingMeta(true)
       
+      // Fetch counters using Helpers
+      const countersRes = await getRequest('/franchise/master/counters')
+      console.log('📍 [AddMedicine API] Counters response:', countersRes.data)
+      if (countersRes.data?.success) {
+        setCounters(countersRes.data.data || [])
+        console.log('✅ [AddMedicine] Counters set:', countersRes.data.data)
+      }
+
+      // Fetch racks using Helpers
+      const racksRes = await getRequest('/franchise/master/racks')
+      console.log('📦 [AddMedicine API] Racks response:', racksRes.data)
+      if (racksRes.data?.success) {
+        setRacks(racksRes.data.data || [])
+        setFilteredRacks(racksRes.data.data || [])
+        console.log('✅ [AddMedicine] Racks set:', racksRes.data.data)
+      }
+
       // Fetch medicine masters (categories, formulations, companies)
       const res = await getRequest('/franchise/medicines/meta')
       if (res.data?.data) {
@@ -92,60 +123,60 @@ export default function AddMedicine() {
         setFormulations(forms || [])
         setCompanies(comps || [])
       }
-      
-      // Fetch racks from Rack Management
-      try {
-        const racksRes = await getRequest('/franchise/rack-management')
-        console.log('🏪 Racks API Response:', racksRes)
-        
-        // Backend returns {data: [...racks]}
-        let racksData = racksRes.data?.data || racksRes.data || []
-        
-        console.log('🏪 Processed Racks Data:', racksData)
-        
-        if (Array.isArray(racksData) && racksData.length > 0) {
-          // Transform racks: use 'code' as name if 'name' doesn't exist
-          const transformedRacks = racksData.map(rack => ({
-            ...rack,
-            name: rack.name || rack.code, // Use code as fallback
-            displayName: `${rack.name || rack.code} - ${rack.description || rack.area}` // Descriptive name
-          }))
-          setRacks(transformedRacks)
-          console.log('✅ Racks loaded:', transformedRacks.length, transformedRacks)
-        } else {
-          console.warn('⚠️ No racks found in API response')
-          setRacks([])
-        }
-      } catch (err) {
-        console.error('❌ Failed to load racks:', err)
-        toast.error('Failed to load racks')
-        setRacks([])
-      }
     } catch (err) {
-      console.error('Failed to fetch masters:', err)
+      console.error('❌ [AddMedicine] Failed to fetch masters:', err)
       toast.error('Failed to load dropdown data')
-      // Fallback to hardcoded values if API fails
+      // Fallback values
       setCategories(['Analgesic', 'Antibiotic', 'Antacid', 'Antipyretic', 'Vitamin'])
       setFormulations(['Tablet', 'Capsule', 'Syrup', 'Injection', 'Ointment'])
       setCompanies(['Cipla', 'Sun Pharma', 'Dr. Reddy\'s', 'Lupin', 'Other'])
-      setRacks([
-        { name: 'RACK-A', _id: 'RACK-A' },
-        { name: 'RACK-B', _id: 'RACK-B' }
-      ])
     } finally {
       setLoadingMeta(false)
     }
   }, [])
 
-  useEffect(() => { fetchMasters() }, [fetchMasters])
+  useEffect(() => { 
+    fetchMasters() 
+    // Generate initial SKU on component mount
+    setForm(p => ({ ...p, sku: generateSKU() }))
+  }, [fetchMasters])
 
-  const set = (field) => (e) => setForm(p => ({ ...p, [field]: e.target.value }))
-  
-  const setNested = (parent, field) => (e) => {
-    setForm(p => ({
-      ...p,
-      [parent]: { ...p[parent], [field]: e.target.value }
-    }))
+  // When counter is selected, filter racks by that counter
+  useEffect(() => {
+    console.log('🔍 [AddMedicine] Counter selected:', form.counterId)
+    
+    if (form.counterId) {
+      const filtered = racks.filter(r => {
+        // counterId can be:
+        // 1. String ID: "6ae1aef94bf667257b418aba"
+        // 2. Object: { _id: "6ae1aef94bf667257b418aba", code: "...", name: "..." }
+        
+        const rCounterId = typeof r.counterId === 'object' && r.counterId?._id 
+          ? r.counterId._id 
+          : r.counterId
+        
+        const isMatch = rCounterId === form.counterId
+        console.log(`  📊 Rack: ${r.code} | rCounterId: ${rCounterId} | selectedCounterId: ${form.counterId} | Match: ${isMatch}`)
+        return isMatch
+      })
+      
+      console.log(`✅ Filtered: ${filtered.length} racks match counter ${form.counterId}`)
+      setFilteredRacks(filtered)
+      
+      // Reset rack selection if not in filtered list
+      if (form.rackId && !filtered.find(r => r._id === form.rackId)) {
+        setForm(p => ({ ...p, rackId: '' }))
+      }
+    } else {
+      console.log('⚠️ No counter selected')
+      setFilteredRacks([])
+    }
+  }, [form.counterId, racks])
+
+  const set = (field) => (e) => {
+    const value = e.target.value
+    console.log(`🎯 [AddMedicine] Field "${field}" changed to:`, value)
+    setForm(p => ({ ...p, [field]: value }))
   }
 
   const updateBatch = (index, field, value) => {
@@ -218,11 +249,9 @@ export default function AddMedicine() {
     if (!form.salt) { toast.error('Salt is required'); return }
     if (!form.mrp) { toast.error('MRP is required'); return }
     
-    // Rack validation
-    if (!form.rackLocation.rackId) { toast.error('Rack is required'); return }
-    if (!form.rackLocation.shelf) { toast.error('Shelf is required'); return }
-    if (!form.rackLocation.row) { toast.error('Row is required'); return }
-    if (!form.rackLocation.column) { toast.error('Column is required'); return }
+    // Rack validation - simplified
+    if (!form.counterId) { toast.error('Counter is required'); return }
+    if (!form.rackId) { toast.error('Rack is required'); return }
     
     // Batch validation
     const validBatches = form.batches.filter(b => b.batchNo && b.expiryDate && b.quantity)
@@ -236,22 +265,29 @@ export default function AddMedicine() {
       const response = await postRequest({
         url: '/franchise/medicines',
         cred: {
-          ...form,
-          batches: validBatches.map(b => ({
-            ...b,
-            quantity: parseInt(b.quantity),
-            mrp: parseFloat(b.mrp) || parseFloat(form.mrp),
-            purchasePrice: parseFloat(b.purchasePrice) || parseFloat(form.purchasePrice)
-          })),
-          rackLocation: {
-            rackId: form.rackLocation.rackId,
-            shelf: parseInt(form.rackLocation.shelf),
-            row: form.rackLocation.row,
-            column: parseInt(form.rackLocation.column)
-          },
+          name: form.name,
+          salt: form.salt,
+          genericName: form.genericName,
+          category: form.category,
+          formulation: form.formulation,
+          company: form.company,
+          strength: form.strength,
+          packSize: form.packSize,
           mrp: parseFloat(form.mrp),
           purchasePrice: parseFloat(form.purchasePrice) || 0,
+          gstPercent: form.gstPercent,
           reorderLevel: parseInt(form.reorderLevel) || 10,
+          sku: form.sku || generateSKU(),  // Auto-generate if empty
+          barcode: form.barcode,
+          counterId: form.counterId,      // ← Counter ID
+          rackId: form.rackId,            // ← Rack ID
+          batches: validBatches.map(b => ({
+            batchNo: b.batchNo,
+            expiryDate: b.expiryDate,
+            quantity: parseInt(b.quantity),
+            mrp: parseFloat(b.mrp) || parseFloat(form.mrp),
+            purchasePrice: parseFloat(b.purchasePrice) || parseFloat(form.purchasePrice) || 0
+          })),
           isBatchTracked: true
         }
       })
@@ -286,16 +322,7 @@ export default function AddMedicine() {
     }
   }
 
-  useEffect(() => {
-    // Auto-generate position
-    const { rackId, shelf, row, column } = form.rackLocation
-    if (rackId && shelf && row && column) {
-      setForm(p => ({
-        ...p,
-        rackLocation: { ...p.rackLocation, position: `${rackId}-${shelf}-${row}-${column}` }
-      }))
-    }
-  }, [form.rackLocation.rackId, form.rackLocation.shelf, form.rackLocation.row, form.rackLocation.column])
+
 
   return (
     <div style={{ fontFamily: 'Inter, sans-serif', padding: '0 0 40px' }}>
@@ -379,35 +406,104 @@ export default function AddMedicine() {
           </div>
         </Section>
 
-        {/* Section 3: Rack Location */}
-        <Section title="📍 Rack Location (MANDATORY)">
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+        {/* Section 3: Counter & Rack Assignment with Space Info */}
+        <Section title="🏪 Counter & Rack Assignment">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
+            <FL label="Counter" required>
+              <select 
+                value={form.counterId} 
+                onChange={set('counterId')}
+                style={{ width: '100%', padding: '9px 12px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13, outline: 'none', background: '#f9fafb', cursor: 'pointer' }}
+              >
+                <option value="">Select Counter</option>
+                {counters.map(c => (
+                  <option key={c._id} value={c._id}>{c.code} - {c.name}</option>
+                ))}
+              </select>
+            </FL>
             <FL label="Rack" required>
-              <select value={form.rackLocation.rackId} onChange={setNested('rackLocation', 'rackId')} 
-                style={{ width: '100%', padding: '9px 12px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13, outline: 'none', background: '#fff', cursor: 'pointer' }}>
+              <select 
+                value={form.rackId} 
+                onChange={set('rackId')}
+                disabled={!form.counterId}
+                style={{ width: '100%', padding: '9px 12px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13, outline: 'none', background: form.counterId ? '#f9fafb' : '#f3f4f6', cursor: form.counterId ? 'pointer' : 'not-allowed' }}
+              >
                 <option value="">Select Rack</option>
-                {racks.map(rack => (
-                  <option key={rack._id} value={rack.code}>
-                    {rack.displayName || `${rack.code} - ${rack.description || rack.area}`}
+                {filteredRacks.map(r => (
+                  <option key={r._id} value={r._id}>
+                    {r.code} - {r.name} ({r.shelves || 5} shelves)
                   </option>
                 ))}
               </select>
             </FL>
-            <FL label="Shelf (1-10)" required>
-              <Input type="number" value={form.rackLocation.shelf} onChange={setNested('rackLocation', 'shelf')} placeholder="1" min="1" max="10" />
-            </FL>
-            <FL label="Row" required>
-              <Sel value={form.rackLocation.row} onChange={setNested('rackLocation', 'row')} opts={ROWS} placeholder="Select row" />
-            </FL>
-            <FL label="Column (1-20)" required>
-              <Input type="number" value={form.rackLocation.column} onChange={setNested('rackLocation', 'column')} placeholder="1" min="1" max="20" />
-            </FL>
           </div>
-          {form.rackLocation.position && (
-            <div style={{ marginTop: 12, padding: 12, background: '#dcfce7', border: '1px solid #86efac', borderRadius: 8 }}>
-              <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#15803d' }}>
-                📦 Position: <span style={{ fontFamily: 'monospace' }}>{form.rackLocation.position}</span>
-              </p>
+
+          {/* Rack Space Information */}
+          {form.rackId && (
+            <div style={{
+              marginTop: 16,
+              padding: 14,
+              background: '#f0fdf4',
+              border: '2px solid #16a34a',
+              borderRadius: 8,
+              fontSize: 13
+            }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                <div style={{ fontSize: 20 }}>�</div>
+                <div style={{ flex: 1 }}>
+                  <p style={{ margin: '0 0 12px', fontWeight: 700, color: '#15803d', fontSize: 14 }}>Rack Space & Auto-Assignment</p>
+                  {(() => {
+                    const selectedRack = filteredRacks.find(r => r._id === form.rackId)
+                    if (!selectedRack) return <p style={{ margin: 0, color: '#6b7280' }}>Loading rack details...</p>
+                    
+                    const capacity = selectedRack.capacity || 200
+                    const shelves = selectedRack.shelves || 5
+                    const rowsPerShelf = selectedRack.rowsPerShelf || 3
+                    const columnsPerRow = selectedRack.columnsPerRow || 4
+                    const totalSlots = shelves * rowsPerShelf * columnsPerRow
+                    
+                    return (
+                      <div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+                          <div style={{ background: '#fff', padding: 10, borderRadius: 6, border: '1px solid #bbf7d0' }}>
+                            <p style={{ margin: '0 0 6px', fontSize: 11, color: '#6b7280', fontWeight: 600, textTransform: 'uppercase' }}>Physical Structure</p>
+                            <p style={{ margin: '4px 0', fontSize: 13, color: '#0c3b73', fontWeight: 600 }}>
+                              🎯 {shelves} Shelves
+                            </p>
+                            <p style={{ margin: '4px 0', fontSize: 13, color: '#0c3b73' }}>
+                              ↳ {rowsPerShelf} Rows per Shelf (A, B, C...)
+                            </p>
+                            <p style={{ margin: '4px 0', fontSize: 13, color: '#0c3b73' }}>
+                              ↳ {columnsPerRow} Columns per Row (1, 2, 3...)
+                            </p>
+                            <p style={{ margin: '8px 0 0', fontSize: 12, color: '#059669', fontWeight: 700 }}>
+                              Total Slots: {totalSlots}
+                            </p>
+                          </div>
+                          <div style={{ background: '#fff', padding: 10, borderRadius: 6, border: '1px solid #bbf7d0' }}>
+                            <p style={{ margin: '0 0 6px', fontSize: 11, color: '#6b7280', fontWeight: 600, textTransform: 'uppercase' }}>Auto-Assignment</p>
+                            <p style={{ margin: '4px 0', fontSize: 13, color: '#0c3b73' }}>
+                              ✅ Medicine will be placed at:
+                            </p>
+                            <p style={{ margin: '6px 0', fontSize: 12, background: '#ecfdf5', padding: 8, borderRadius: 4, fontFamily: 'monospace', fontWeight: 600, color: '#15803d' }}>
+                              Shelf-1, Row-A, Column-1
+                            </p>
+                            <p style={{ margin: '4px 0 0', fontSize: 11, color: '#6b7280' }}>
+                              (Next available slot if occupied)
+                            </p>
+                          </div>
+                        </div>
+                        <div style={{ background: '#fff', padding: 10, borderRadius: 6, border: '1px solid #bbf7d0' }}>
+                          <p style={{ margin: '0 0 4px', fontSize: 11, color: '#6b7280', fontWeight: 600, textTransform: 'uppercase' }}>Capacity</p>
+                          <p style={{ margin: '4px 0', fontSize: 13, color: '#0c3b73' }}>
+                            💼 Max Items per Rack: <span style={{ fontWeight: 700 }}>{capacity}</span>
+                          </p>
+                        </div>
+                      </div>
+                    )
+                  })()}
+                </div>
+              </div>
             </div>
           )}
         </Section>
@@ -442,16 +538,47 @@ export default function AddMedicine() {
           </button>
         </Section>
 
-        {/* Section 5: Barcode */}
-        <Section title="🏷️ Barcode">
-          <div style={{ display: 'flex', gap: 12 }}>
-            <FL label="Barcode">
-              <Input value={form.barcode} onChange={set('barcode')} placeholder="Auto-generated or manual" />
-            </FL>
-            <div style={{ paddingTop: 28 }}>
-              <button onClick={generateBarcode} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', border: '1px solid #0c3b73', borderRadius: 8, background: '#fff', color: '#0c3b73', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-                <QrCode size={14} /> Generate
-              </button>
+        {/* Section 5: SKU & Barcode */}
+        <Section title="🏷️ SKU & Barcode">
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div>
+              <FL label="SKU (Stock Keeping Unit)">
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <Input 
+                    value={form.sku} 
+                    onChange={set('sku')} 
+                    placeholder="e.g., MA7K9B5"
+                    style={{ flex: 1 }}
+                  />
+                  <button 
+                    onClick={() => setForm(p => ({ ...p, sku: generateSKU() }))}
+                    title="Generate new SKU"
+                    style={{ padding: '9px 12px', background: '#e0e7ff', color: '#4f46e5', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                  >
+                    🔄 New
+                  </button>
+                </div>
+                <p style={{ fontSize: 11, color: '#6b7280', margin: '4px 0 0' }}>Auto-generated or manual</p>
+              </FL>
+            </div>
+            <div>
+              <FL label="Barcode (EAN/UPC)">
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <Input 
+                    value={form.barcode} 
+                    onChange={set('barcode')} 
+                    placeholder="Auto-generated or manual"
+                    style={{ flex: 1 }}
+                  />
+                  <button 
+                    onClick={generateBarcode}
+                    title="Generate barcode"
+                    style={{ padding: '9px 12px', background: '#e0e7ff', color: '#4f46e5', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 4 }}
+                  >
+                    <QrCode size={12} /> Gen
+                  </button>
+                </div>
+              </FL>
             </div>
           </div>
         </Section>
