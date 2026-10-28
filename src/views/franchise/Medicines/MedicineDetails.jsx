@@ -1,31 +1,45 @@
+/* eslint-disable prettier/prettier */
 /**
- * Screen 16 — Medicine Details (API-connected)
+ * MedicineDetails — Tailwind UI, all fields from real API fields
  */
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { FlaskConical, ArrowLeft, Edit2, Printer, Tag, Package, Info, CheckCircle } from 'lucide-react'
+import {
+  FlaskConical, ArrowLeft, Edit2, Printer, Tag, Package,
+  Info, Layers, GitCompare, MapPin, QrCode, ImageIcon,
+  CheckCircle2, AlertTriangle, XCircle, RefreshCw,
+  IndianRupee, Building2, Pill,
+} from 'lucide-react'
 import toast from 'react-hot-toast'
 import PageHeader from '../components/PageHeader'
 import { getRequest } from '../../../Helpers'
 
-const Row = ({ label, value, color }) => (
-  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 0', borderBottom: '1px solid #f3f4f6', fontSize: 13 }}>
-    <span style={{ color: '#9ca3af', fontSize: 12 }}>{label}</span>
-    <span style={{ fontWeight: 600, color: color || '#374151', textAlign: 'right', maxWidth: 200 }}>{value ?? '—'}</span>
+/* ── helpers ── */
+const Row = ({ label, value, color, mono }) => (
+  <div className="flex justify-between items-center py-2 border-b border-gray-50 last:border-0">
+    <span className="text-xs text-gray-400 font-medium">{label}</span>
+    <span className={`text-sm font-semibold text-right max-w-[55%] truncate ${mono ? 'font-mono' : ''}`}
+      style={{ color: color || '#374151' }}>
+      {value ?? '—'}
+    </span>
   </div>
 )
 
-const SkeletonRow = () => (
-  <div style={{ padding: '7px 0', borderBottom: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between' }}>
-    <div style={{ height: 12, width: '35%', background: '#f3f4f6', borderRadius: 4 }} />
-    <div style={{ height: 12, width: '40%', background: '#f3f4f6', borderRadius: 4 }} />
+const SectionCard = ({ title, icon: Icon, color = '#0c3b73', children }) => (
+  <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+    <div className="flex items-center gap-2 px-5 py-3 bg-gray-50 border-b border-gray-200">
+      {Icon && <Icon size={14} style={{ color }} />}
+      <span className="text-sm font-bold text-gray-700">{title}</span>
+    </div>
+    <div className="px-5 py-4">{children}</div>
   </div>
 )
 
+/* ════════════════════════════════════════════════════════ */
 export default function MedicineDetails() {
-  const navigate    = useNavigate()
-  const { id }      = useParams()
-  const [med, setMed]       = useState(null)
+  const navigate = useNavigate()
+  const { id }   = useParams()
+  const [med,     setMed]     = useState(null)
   const [loading, setLoading] = useState(true)
 
   const fetchMedicine = useCallback(async () => {
@@ -35,207 +49,280 @@ export default function MedicineDetails() {
       setMed(res.data?.data || null)
     } catch (err) {
       toast.error(err?.response?.data?.message || 'Failed to load medicine details')
-    } finally {
-      setLoading(false)
-    }
+    } finally { setLoading(false) }
   }, [id])
 
   useEffect(() => { fetchMedicine() }, [fetchMedicine])
 
-  if (loading) {
-    return (
-      <div style={{ fontFamily: 'Inter, sans-serif', display: 'flex', flexDirection: 'column', gap: 18 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '340px 1fr', gap: 18 }}>
-          {[1, 2, 3].map(i => (
-            <div key={i} style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: 20 }}>
-              {Array(6).fill(0).map((_, j) => <SkeletonRow key={j} />)}
-            </div>
-          ))}
-        </div>
+  /* ── loading skeleton ── */
+  if (loading) return (
+    <div className="font-sans flex flex-col gap-5">
+      <div className="h-16 bg-white rounded-xl border border-gray-200 animate-pulse"/>
+      <div className="grid grid-cols-1 xl:grid-cols-[320px_1fr] gap-5">
+        {[1,2].map(i => (
+          <div key={i} className="bg-white rounded-xl border border-gray-200 p-5 space-y-3">
+            {Array(6).fill(0).map((_,j) => (
+              <div key={j} className="flex justify-between">
+                <div className="h-3 w-1/3 bg-gray-100 rounded animate-pulse"/>
+                <div className="h-3 w-2/5 bg-gray-100 rounded animate-pulse"/>
+              </div>
+            ))}
+          </div>
+        ))}
       </div>
-    )
-  }
+    </div>
+  )
 
-  if (!med) {
-    return (
-      <div style={{ fontFamily: 'Inter, sans-serif', textAlign: 'center', padding: '60px 20px' }}>
-        <FlaskConical size={48} color="#e5e7eb" style={{ marginBottom: 12 }} />
-        <p style={{ fontSize: 15, color: '#6b7280' }}>Medicine not found.</p>
-        <button onClick={() => navigate('/franchise/medicines')}
-          style={{ marginTop: 10, padding: '9px 20px', background: '#0c3b73', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-          Back to List
-        </button>
-      </div>
-    )
-  }
+  if (!med) return (
+    <div className="font-sans text-center py-20">
+      <FlaskConical size={48} className="mx-auto mb-3 text-gray-200"/>
+      <p className="text-gray-400 text-sm mb-4">Medicine not found.</p>
+      <button onClick={() => navigate('/franchise/medicines')}
+        className="px-5 py-2 bg-blue-900 text-white text-sm font-semibold rounded-lg">
+        Back to List
+      </button>
+    </div>
+  )
 
-  const stockColor = med.stock === 0 ? '#dc2626' : med.stock <= med.reorderLevel ? '#d97706' : '#16a34a'
-  const stockLabel = med.stock === 0 ? 'Out of Stock' : med.stock <= med.reorderLevel ? 'Low Stock' : 'In Stock'
+  /* ── derived values from actual API field names ── */
+  const stock        = med.currentStock ?? 0
+  const reorder      = med.reorderLevel ?? 10
+  const stockColor   = stock === 0 ? '#dc2626' : stock <= reorder ? '#d97706' : '#16a34a'
+  const stockLabel   = stock === 0 ? 'Out of Stock' : stock <= reorder ? 'Low Stock' : 'In Stock'
+  const stockBadge   = stock === 0
+    ? 'bg-red-50 text-red-600 border-red-200'
+    : stock <= reorder
+    ? 'bg-amber-50 text-amber-600 border-amber-200'
+    : 'bg-green-50 text-green-700 border-green-200'
+  const stockIcon    = stock === 0 ? <XCircle size={12}/> : stock <= reorder ? <AlertTriangle size={12}/> : <CheckCircle2 size={12}/>
 
+  const rackPos      = med.rackLocation?.position || '—'
+  const rackId       = med.rackLocation?.rackId   || '—'
+  const gstDisplay   = med.gstPercent != null ? `${med.gstPercent}%` : med.gst ? `${med.gst}%` : '—'
+  const hsnDisplay   = med.hsnCode || med.hsn || '—'
+
+  /* ── nearest expiry from batches ── */
+  const now = new Date()
+  const activeBatches = (med.batches || []).filter(b => b.isActive !== false)
+  const nearestExpiry = activeBatches.length
+    ? activeBatches
+        .filter(b => new Date(b.expiryDate) > now)
+        .sort((a,b) => new Date(a.expiryDate) - new Date(b.expiryDate))[0]
+    : null
+  const nearestExpiryDays = nearestExpiry
+    ? Math.ceil((new Date(nearestExpiry.expiryDate) - now) / 86400000)
+    : null
+
+  /* ════════════ RENDER ════════════ */
   return (
-    <div style={{ fontFamily: 'Inter, sans-serif', display: 'flex', flexDirection: 'column', gap: 18 }}>
-      <PageHeader icon={FlaskConical} title="Medicine Details" subtitle="View complete medicine information" color="#0c3b73">
+    <div className="font-sans flex flex-col gap-5">
+
+      {/* Header */}
+      <PageHeader icon={FlaskConical} title="Medicine Details" subtitle={med.name} color="#0c3b73">
         <button onClick={() => navigate('/franchise/medicines')}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 12, background: '#fff', cursor: 'pointer' }}>
-          <ArrowLeft size={13} /> Back
+          className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold border border-gray-200 rounded-lg bg-white hover:bg-gray-50 transition">
+          <ArrowLeft size={13}/> Back
         </button>
         <button onClick={() => navigate(`/franchise/medicines/${med._id}/edit`)}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: '#d97706', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, color: '#fff', cursor: 'pointer' }}>
-          <Edit2 size={13} /> Edit Medicine
+          className="flex items-center gap-2 px-4 py-2 text-sm font-bold bg-amber-500 hover:bg-amber-600 text-white rounded-lg transition shadow-lg shadow-amber-500/20">
+          <Edit2 size={13}/> Edit
         </button>
         <button onClick={() => navigate(`/franchise/medicines/${med._id}/barcode`)}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 12, background: '#fff', cursor: 'pointer' }}>
-          <Printer size={13} /> Print Label
+          className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold border border-gray-200 rounded-lg bg-white hover:bg-gray-50 transition">
+          <Printer size={13}/> Print Label
+        </button>
+        <button onClick={fetchMedicine}
+          className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold border border-gray-200 rounded-lg bg-white hover:bg-gray-50 transition">
+          <RefreshCw size={13} className={loading ? 'animate-spin' : ''}/>
         </button>
       </PageHeader>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '340px 1fr', gap: 18, alignItems: 'start' }}>
-        {/* Left — Image + Key Info */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {/* Medicine Image */}
-          <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: 24, textAlign: 'center' }}>
+      <div className="grid grid-cols-1 xl:grid-cols-[320px_1fr] gap-5 items-start">
+
+        {/* ── LEFT COL ── */}
+        <div className="flex flex-col gap-4">
+
+          {/* Image */}
+          <div className="bg-white border border-gray-200 rounded-xl p-5 text-center">
             {med.imageUrl ? (
-              <img 
-                src={med.imageUrl} 
-                alt={med.name} 
-                style={{ 
-                  width: '100%', 
-                  maxWidth: 200,
-                  height: 200, 
-                  borderRadius: 12, 
-                  objectFit: 'cover', 
-                  margin: '0 auto 16px', 
-                  display: 'block',
-                  border: '1px solid #e5e7eb'
-                }}
-                onError={(e) => {
-                  e.target.style.display = 'none'
-                  e.target.parentElement.innerHTML += '<div style="width: 200px; height: 200px; margin: 0 auto 16px; border-radius: 12px; background: linear-gradient(135deg, #e0e7ff, #f0fdf4); display: flex; align-items: center; justify-content: center; font-size: 80px; border: 1px solid #e5e7eb;">💊</div>'
-                }}
-              />
-            ) : (
-              <div style={{ 
-                width: 200, 
-                height: 200, 
-                margin: '0 auto 16px', 
-                borderRadius: 12, 
-                background: 'linear-gradient(135deg, #e0e7ff, #f0fdf4)', 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
-                fontSize: 80,
-                border: '1px solid #e5e7eb'
-              }}>💊</div>
-            )}
-            <button 
-              onClick={() => navigate(`/franchise/medicines/${med._id}/images`)}
-              style={{ 
-                width: '100%',
-                padding: '10px', 
-                background: '#0891b2', 
-                border: 'none', 
-                borderRadius: 8, 
-                color: '#fff', 
-                fontSize: 13, 
-                fontWeight: 600, 
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 6
-              }}>
-              📸 Manage Images
+              <img src={med.imageUrl} alt={med.name}
+                className="w-40 h-40 rounded-xl object-cover mx-auto mb-4 border border-gray-100"
+                onError={e => { e.target.style.display='none'; e.target.nextSibling.style.display='flex' }}/>
+            ) : null}
+            <div className={`w-40 h-40 rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 border border-gray-100 mx-auto mb-4 items-center justify-center text-7xl ${med.imageUrl ? 'hidden' : 'flex'}`}>
+              💊
+            </div>
+            <p className="text-base font-bold text-gray-800 mb-0.5">{med.name}</p>
+            <p className="text-xs text-gray-400 mb-3">{med.salt} · {med.company}</p>
+            {/* Badges */}
+            <div className="flex justify-center gap-2 flex-wrap mb-4">
+              <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full border ${med.isActive ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-600 border-red-200'}`}>
+                {med.isActive ? <CheckCircle2 size={10}/> : <XCircle size={10}/>}
+                {med.isActive ? 'Active' : 'Inactive'}
+              </span>
+              {med.requiresPrescription && (
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full border bg-amber-50 text-amber-700 border-amber-200">
+                  Rx Required
+                </span>
+              )}
+              {med.schedule && med.schedule !== 'None' && (
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full border bg-red-50 text-red-600 border-red-200">
+                  Schedule {med.schedule}
+                </span>
+              )}
+            </div>
+            <button onClick={() => navigate(`/franchise/medicines/${med._id}/images`)}
+              className="w-full py-2 text-sm font-semibold text-cyan-700 border border-cyan-200 rounded-lg hover:bg-cyan-50 flex items-center justify-center gap-2 transition">
+              <ImageIcon size={13}/> Manage Images
             </button>
           </div>
 
-          <div style={{ textAlign: 'center', marginTop: 10 }}>
-            <p style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#111827' }}>{med.name}</p>
-            <p style={{ margin: '4px 0 8px', fontSize: 12, color: '#9ca3af' }}>{med.salt}</p>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: med.isActive ? '#dcfce7' : '#fee2e2', color: med.isActive ? '#16a34a' : '#dc2626' }}>
-                {med.isActive ? '● Active' : '● Inactive'}
-              </span>
-              {med.prescription && (
-                <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: '#fef3c7', color: '#d97706' }}>Rx Required</span>
-              )}
+          {/* Stock & Pricing */}
+          <SectionCard title="Stock & Pricing" icon={IndianRupee} color="#16a34a">
+            {/* Stock status */}
+            <div className={`flex items-center justify-between mb-3 px-3 py-2 rounded-lg border ${stockBadge}`}>
+              <div className="flex items-center gap-1.5">
+                {stockIcon}
+                <span className="text-xs font-bold">{stockLabel}</span>
+              </div>
+              <span className="text-lg font-extrabold">{stock}</span>
             </div>
-          </div>
+            <Row label="MRP"             value={`₹ ${Number(med.mrp || 0).toFixed(2)}`}           color="#0c3b73"/>
+            <Row label="Purchase Price"  value={`₹ ${Number(med.purchasePrice || 0).toFixed(2)}`} />
+            <Row label="Selling Price"   value={med.sellingPrice ? `₹ ${Number(med.sellingPrice).toFixed(2)}` : '—'} />
+            <Row label="GST"             value={gstDisplay} />
+            <Row label="HSN Code"        value={hsnDisplay} mono />
+            <Row label="Reorder Level"   value={reorder} />
+            <Row label="Min Stock"       value={med.minStock ?? '—'} />
+            <Row label="Max Stock"       value={med.maxStock ?? '—'} />
+            {nearestExpiry && (
+              <Row
+                label="Next Expiry"
+                value={`${new Date(nearestExpiry.expiryDate).toLocaleDateString('en-IN')} (${nearestExpiryDays}d)`}
+                color={nearestExpiryDays <= 30 ? '#dc2626' : nearestExpiryDays <= 60 ? '#d97706' : '#16a34a'}
+              />
+            )}
+          </SectionCard>
 
-          {/* Pricing & Stock */}
-          <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: 18 }}>
-            <p style={{ fontSize: 12, fontWeight: 700, color: '#374151', margin: '0 0 12px', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Package size={13} /> Pricing & Stock
-            </p>
-            <Row label="MRP"              value={`₹ ${Number(med.mrp || 0).toFixed(2)}`}            color="#0c3b73" />
-            <Row label="Purchase Price"   value={`₹ ${Number(med.purchasePrice || 0).toFixed(2)}`} />
-            <Row label="Current Stock"    value={`${med.stock ?? 0} Units`}                         color={stockColor} />
-            <Row label="Reorder Level"    value={med.reorderLevel}                                   />
-            <Row label="Stock Status"     value={stockLabel}                                         color={stockColor} />
-            <Row label="Rack / Shelf"     value={med.rack || med.rackLabel || '—'} />
-          </div>
+          {/* Rack Location */}
+          <SectionCard title="Rack Location" icon={MapPin} color="#7c3aed">
+            {rackPos !== '—' ? (
+              <div className="bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2.5 mb-3 flex items-center gap-2">
+                <MapPin size={14} className="text-indigo-600 flex-shrink-0"/>
+                <span className="text-sm font-bold text-indigo-700 font-mono">{rackPos}</span>
+              </div>
+            ) : (
+              <div className="bg-gray-50 border border-dashed border-gray-200 rounded-lg px-3 py-2.5 mb-3 text-center text-xs text-gray-400">
+                No rack assigned
+              </div>
+            )}
+            <Row label="Rack"    value={rackId} mono/>
+            <Row label="Shelf"   value={med.rackLocation?.shelf   ?? '—'}/>
+            <Row label="Row"     value={med.rackLocation?.row     ?? '—'}/>
+            <Row label="Column"  value={med.rackLocation?.column  ?? '—'}/>
+          </SectionCard>
         </div>
 
-        {/* Right — Details */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {/* Basic Info */}
-          <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: 20 }}>
-            <p style={{ fontSize: 13, fontWeight: 700, color: '#374151', margin: '0 0 14px', display: 'flex', alignItems: 'center', gap: 7 }}>
-              <Info size={14} color="#0c3b73" /> Medicine Details
-            </p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0 }}>
-              <Row label="Salt / Generic Name"   value={med.salt}        />
-              <Row label="Brand Name"            value={med.brand}       />
-              <Row label="Category"              value={med.category}    />
-              <Row label="Formulation"           value={med.formulation} />
-              <Row label="Company"               value={med.company}     />
-              <Row label="Strength"              value={med.strength}    />
-              <Row label="Unit"                  value={med.unit}        />
-              <Row label="Pack Size"             value={med.packSize}    />
-              <Row label="HSN Code"              value={med.hsn}         />
-              <Row label="GST Rate"              value={med.gst ? `${med.gst}%` : '—'} />
-              <Row label="Shelf Life (Months)"   value={med.shelfLife ? `${med.shelfLife} Months` : '—'} />
-            </div>
-          </div>
+        {/* ── RIGHT COL ── */}
+        <div className="flex flex-col gap-4">
 
-          {/* Barcode */}
-          {med.barcode && (
-            <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: 20 }}>
-              <p style={{ fontSize: 13, fontWeight: 700, color: '#374151', margin: '0 0 14px', display: 'flex', alignItems: 'center', gap: 7 }}>
-                <Tag size={14} color="#7c3aed" /> Barcode
-              </p>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', background: '#f9fafb', borderRadius: 8, marginBottom: 10 }}>
-                <svg width="200" height="60" viewBox="0 0 200 60">
-                  {Array.from({length: 40}, (_, i) => (
-                    <rect key={i} x={i*5} y={0} width={i%3===0?3:1.5} height={50} fill="#111827" />
-                  ))}
-                  <text x="100" y="58" textAnchor="middle" fontSize="9" fill="#374151" fontFamily="monospace">{med.barcode}</text>
-                </svg>
-              </div>
-              <p style={{ margin: 0, fontSize: 11, color: '#9ca3af', textAlign: 'center' }}>{med.barcode}</p>
+          {/* Basic Details */}
+          <SectionCard title="Medicine Details" icon={Info} color="#0c3b73">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8">
+              <Row label="Salt / Generic"  value={med.salt}        />
+              <Row label="Brand"           value={med.brand}       />
+              <Row label="Generic Name"    value={med.genericName} />
+              <Row label="Category"        value={med.category}    />
+              <Row label="Formulation"     value={med.formulation} />
+              <Row label="Strength"        value={med.strength}    />
+              <Row label="Company"         value={med.company}     />
+              <Row label="Unit"            value={med.unit}        />
+              <Row label="Pack Size"       value={med.packSize}    />
+              <Row label="Schedule"        value={med.schedule}    />
+              <Row label="Barcode"         value={med.barcode}     mono/>
+              <Row label="SKU"             value={med.sku}         mono/>
             </div>
-          )}
+          </SectionCard>
+
+          {/* Batches summary */}
+          <SectionCard title={`Batches (${(med.batches || []).length})`} icon={Layers} color="#0891b2">
+            {(med.batches || []).length === 0 ? (
+              <p className="text-xs text-gray-400 text-center py-4">No batches added yet</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-gray-50">
+                      {['Batch No.','Expiry','Qty','MRP ₹','Status'].map(h => (
+                        <th key={h} className="px-3 py-2 text-left font-bold text-gray-500 uppercase text-[10px] tracking-wide">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...(med.batches || [])]
+                      .filter(b => b.isActive !== false)
+                      .sort((a,b) => new Date(a.expiryDate) - new Date(b.expiryDate))
+                      .slice(0,5)
+                      .map((b,i) => {
+                        const exp     = new Date(b.expiryDate)
+                        const days    = Math.ceil((exp - now) / 86400000)
+                        const isExp   = days < 0
+                        const isNear  = !isExp && days <= 60
+                        const badgeCls = isExp  ? 'bg-red-50 text-red-600 border-red-200'
+                          : isNear ? 'bg-amber-50 text-amber-700 border-amber-200'
+                          : 'bg-green-50 text-green-700 border-green-200'
+                        return (
+                          <tr key={i} className="border-b border-gray-50">
+                            <td className="px-3 py-2 font-bold text-cyan-700 font-mono">{b.batchNo}</td>
+                            <td className="px-3 py-2 text-gray-600">{exp.toLocaleDateString('en-IN')}</td>
+                            <td className="px-3 py-2 font-semibold">{b.availableQty ?? b.quantity ?? 0}</td>
+                            <td className="px-3 py-2 text-blue-900 font-bold">₹{Number(b.mrp||0).toFixed(2)}</td>
+                            <td className="px-3 py-2">
+                              <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full border ${badgeCls}`}>
+                                {isExp ? 'Expired' : isNear ? `${days}d left` : 'Active'}
+                              </span>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                  </tbody>
+                </table>
+                {(med.batches || []).length > 5 && (
+                  <p className="text-xs text-gray-400 text-center mt-2">
+                    +{(med.batches || []).length - 5} more batches
+                  </p>
+                )}
+              </div>
+            )}
+            <button onClick={() => navigate(`/franchise/medicines/${med._id}/batches`)}
+              className="mt-3 w-full py-2 text-xs font-bold text-cyan-700 border border-cyan-200 rounded-lg hover:bg-cyan-50 flex items-center justify-center gap-1.5 transition">
+              <Layers size={12}/> View All Batches & Add New
+            </button>
+          </SectionCard>
 
           {/* Description */}
           {med.description && (
-            <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: 20 }}>
-              <p style={{ fontSize: 13, fontWeight: 700, color: '#374151', margin: '0 0 10px' }}>Description</p>
-              <p style={{ fontSize: 13, color: '#6b7280', margin: 0, lineHeight: 1.6 }}>{med.description}</p>
-            </div>
+            <SectionCard title="Description" icon={Info} color="#6b7280">
+              <p className="text-sm text-gray-600 leading-relaxed">{med.description}</p>
+            </SectionCard>
           )}
 
           {/* Quick Actions */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
-              { label: 'View Batches',    path: `/franchise/medicines/${med._id}/batches`,     color: '#0c3b73', bg: '#e0e7ff' },
-              { label: 'Generic Mapping', path: `/franchise/medicines/${med._id}/generic`,     color: '#16a34a', bg: '#dcfce7' },
-              { label: 'Alternatives',    path: `/franchise/medicines/${med._id}/alternatives`,color: '#7c3aed', bg: '#f5f3ff' },
+              { label: 'All Batches',     icon: Layers,      path: `/franchise/medicines/${med._id}/batches`,      cls: 'bg-cyan-50 border-cyan-200 text-cyan-700 hover:bg-cyan-100' },
+              { label: 'Edit Medicine',   icon: Edit2,       path: `/franchise/medicines/${med._id}/edit`,         cls: 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100' },
+              { label: 'Generic Map',     icon: GitCompare,  path: `/franchise/medicines/${med._id}/generic`,      cls: 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100' },
+              { label: 'Alternatives',    icon: Pill,        path: `/franchise/medicines/${med._id}/alternatives`, cls: 'bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100' },
             ].map(a => (
               <button key={a.label} onClick={() => navigate(a.path)}
-                style={{ padding: '10px 8px', border: `1px solid ${a.color}33`, borderRadius: 9, background: a.bg, color: a.color, fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
-                <CheckCircle size={12} /> {a.label}
+                className={`flex flex-col items-center gap-1.5 py-3 px-2 border rounded-xl text-xs font-bold transition ${a.cls}`}>
+                <a.icon size={16}/>
+                {a.label}
               </button>
             ))}
           </div>
+
         </div>
       </div>
     </div>
