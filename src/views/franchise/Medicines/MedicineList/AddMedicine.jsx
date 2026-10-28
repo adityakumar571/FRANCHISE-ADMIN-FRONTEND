@@ -13,6 +13,7 @@ import {
 import toast from 'react-hot-toast'
 import { postRequest, getRequest, fileUpload } from '../../../../Helpers'
 import PageHeader from '../../components/PageHeader'
+import { useSuppliers } from '../../../../hooks/useSuppliers'
 
 /* ─── constants ─────────────────────────────────────── */
 const GST_OPTS = ['0', '5', '12', '18', '28']
@@ -71,6 +72,7 @@ const Card = ({ title, badge, icon: Icon, children }) => (
 /* ════════════════════════════════════════════════════════ */
 export default function AddMedicine() {
   const navigate = useNavigate()
+  const { suppliers, loadingSuppliers } = useSuppliers()
 
   /* masters */
   const [categories, setCategories] = useState(CAT_DEFAULT)

@@ -96,7 +96,7 @@ const franchiseNav = [
       { component: CNavItem, name: 'Purchase Dashboard', to: '/franchise/purchase/dashboard',       icon: ic(LayoutDashboard), accessKey: 'purchase_dashboard' },
       { component: CNavItem, name: 'New Purchase',       to: '/franchise/purchase/live-rate',       icon: ic(ShoppingCart),    accessKey: 'purchase_liverates' },
       { component: CNavItem, name: 'Purchase Orders',    to: '/franchise/purchase/orders',          icon: ic(FileText),        accessKey: 'purchase_orders'    },
-      { component: CNavItem, name: 'Unified Tracking',   to: '/franchise/purchase/unified-tracking', icon: ic(Layers),         accessKey: 'purchase_orders'    },
+      // { component: CNavItem, name: 'Unified Tracking',   to: '/franchise/purchase/unified-tracking', icon: ic(Layers),         accessKey: 'purchase_orders'    },
       { component: CNavItem, name: 'GRN / Inward',       to: '/franchise/purchase/grn',             icon: ic(Warehouse),       accessKey: 'purchase_grn'       },
       { component: CNavItem, name: 'Purchase Returns',   to: '/franchise/purchase/returns',         icon: ic(RotateCcw),       accessKey: 'purchase_returns'   },
       { component: CNavItem, name: 'Supplier Ledger',    to: '/franchise/purchase/supplier-ledger', icon: ic(BookOpen),        accessKey: 'purchase_ledger'    },
@@ -152,13 +152,13 @@ const franchiseNav = [
   },
 
   /* 7 ── Stock Transfer ── */
-  {
-    component: CNavItem,
-    name: 'Stock Transfer',
-    to: '/franchise/inventory/stock',
-    icon: ic(ArrowLeftRight),
-    accessKey: 'inventory_stock',
-  },
+  // {
+  //   component: CNavItem,
+  //   name: 'Stock Transfer',
+  //   to: '/franchise/inventory/stock',
+  //   icon: ic(ArrowLeftRight),
+  //   accessKey: 'inventory_stock',
+  // },
 
   /* 8 ── Returns ── */
   {

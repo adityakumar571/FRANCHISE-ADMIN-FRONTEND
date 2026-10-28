@@ -111,6 +111,9 @@ const SupplierAutoLogin = l(() => import('./views/supplier/AutoLogin'))
 const SupplierDashboard = l(() => import('./views/supplier/SupplierDashboard'))
 const SupplierMedicines = l(() => import('./views/supplier/MedicineManagement'))
 const SupplierOrders = l(() => import('./views/supplier/OrderManagement'))
+const SupplierMedicineMasters = l(() => import('./views/supplier/MedicineMasters'))
+const SupplierInventory = l(() => import('./views/supplier/SupplierInventory'))
+const SupplierProfile = l(() => import('./views/supplier/SupplierProfile'))
 
 // ── B2B Orders ────────────────────────────────────────────────────────────────
 const B2BOrders = l(() => import('./views/franchise/B2BOrders/B2BOrders'))
@@ -350,9 +353,12 @@ const routes = [
   { path: '/supplier/auto-login', element: SupplierAutoLogin }, // Auto-login with token
 
   /* ── Supplier Protected Routes ── */
-  { path: '/supplier/dashboard', element: SupplierDashboard }, // Supplier dashboard
-  { path: '/supplier/medicines', element: SupplierMedicines }, // Medicine inventory
-  { path: '/supplier/orders', element: SupplierOrders }, // Order management
+  { path: '/supplier/dashboard', element: SupplierDashboard },
+  { path: '/supplier/medicines', element: SupplierMedicines },
+  { path: '/supplier/orders', element: SupplierOrders },
+  { path: '/supplier/masters', element: SupplierMedicineMasters },
+  { path: '/supplier/inventory', element: SupplierInventory },
+  { path: '/supplier/profile', element: SupplierProfile },
 ]
 
 export default routes
