@@ -155,9 +155,6 @@ export default function MedicineList() {
         </div>
         {/* Dropdowns */}
         {[
-          [categories,   cat,    setCat,    'All Categories'],
-          [formulations, form,   setForm,   'All Formulations'],
-          [companies,    comp,   setComp,   'All Companies'],
           [['All Status','Active','Inactive','Low Stock'], status, setStatus, 'All Status'],
         ].map(([opts, val, setter, ph]) => (
           <select key={ph} value={val} onChange={e => { setter(e.target.value); setPage(1) }} className={selCls}>
@@ -172,7 +169,7 @@ export default function MedicineList() {
           <table className="w-full border-collapse">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
-                {['Image','Medicine Name','Salt / Strength','Formulation','Company','Rack','MRP','Stock','Status','Actions'].map(h => (
+                {['Image','Medicine Name','Salt / Strength','Rack','MRP','Stock','Status','Actions'].map(h => (
                   <th key={h} className="px-4 py-3 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wide whitespace-nowrap">
                     {h}
                   </th>
@@ -225,7 +222,7 @@ export default function MedicineList() {
                   </td>
 
                   {/* Formulation */}
-                  <td className="px-4 py-3">
+                  {/* <td className="px-4 py-3">
                     <div className="flex flex-col gap-1">
                       <span className="inline-block text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100 font-medium w-fit">
                         {typeof m.formulation === 'object' ? (m.formulation?.name || '—') : (m.formulation || '—')}
@@ -236,10 +233,10 @@ export default function MedicineList() {
                         </span>
                       )}
                     </div>
-                  </td>
+                  </td> */}
 
                   {/* Company */}
-                  <td className="px-4 py-3 text-xs text-gray-600">{typeof m.company === 'object' ? (m.company?.name || '—') : (m.company || '—')}</td>
+                  {/* <td className="px-4 py-3 text-xs text-gray-600">{typeof m.company === 'object' ? (m.company?.name || '—') : (m.company || '—')}</td> */}
 
                   {/* Rack */}
                   <td className="px-4 py-3">

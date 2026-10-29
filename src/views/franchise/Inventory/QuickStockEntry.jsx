@@ -202,45 +202,32 @@ export default function QuickStockEntry() {
     setSaving(true)
 
     try {
+      // Find selected supplier details
+      const selectedSupplier = suppliers.find(s => s._id === formData.supplier);
+      const supplierName = selectedSupplier?.companyName || selectedSupplier?.name || 'Manual Entry';
+
+      // QuickStockEntry should create GRN instead of using inventory/adjustments
+      // This ensures batch is properly stored in Medicine.batches[]
       const res = await postRequest({
-        url: '/franchise/inventory/adjustments',
+        url: '/franchise/purchase/grn',
         cred: {
-          medicineId: selectedMedicine._id,
-          medicineName: selectedMedicine.name,
-          adjustmentType: 'stock_in',
-          reason: 'Purchase Entry - Quick Stock Addition',
-          batchDetails: {
+          supplierId: formData.supplier || 'manual',
+          supplier: supplierName,
+          poRef: '',
+          invoiceNo: formData.invoiceNo || `QUICK-${Date.now()}`,
+          invoiceDate: formData.invoiceDate || new Date().toISOString().split('T')[0],
+          items: [{
+            medicineId: selectedMedicine._id,
+            medicineName: selectedMedicine.name,
             batchNo: formData.batchNo.trim(),
-            quantity: parseInt(formData.quantity, 10),
-            mrp: Number(formData.mrp) || 0,
+            expiry: formData.expiryDate,
+            qty: parseInt(formData.quantity, 10),
+            freeQty: 0,
             ptr: Number(formData.ptr) || 0,
-            purchasePrice: Number(formData.purchasePrice),
-            expiryDate: formData.expiryDate,
-            gst: Number(formData.gst) || 0,
-            discount: Number(formData.discountPercent) || 0,
-          },
-          supplier: formData.supplier,
-          invoiceNo: formData.invoiceNo,
-          invoiceDate: formData.invoiceDate,
-          totalAmount: Number(totals.totalAmount),
-          notes: `Quick stock entry - Added ${formData.quantity} units of ${selectedMedicine.name}`,
+            mrp: Number(formData.mrp) || 0,
+          }],
         },
       })
-
-      const adjustmentId = res.data?.data?._id
-
-      if (adjustmentId) {
-        try {
-          await putRequest({
-            url: `/franchise/inventory/adjustments/${adjustmentId}/approve`,
-            cred: {},
-          })
-        } catch (approveErr) {
-          console.warn('Auto-approval failed:', approveErr)
-          toast.error('Stock entry created, but approval failed. Please check pending adjustments.')
-          return
-        }
-      }
 
       toast.success(`Stock added successfully! ${formData.quantity} units added to inventory`)
 
@@ -563,8 +550,8 @@ export default function QuickStockEntry() {
                       >
                         <option value="">— Select Supplier —</option>
                         {suppliers.map((sup) => (
-                          <option key={sup._id} value={sup.name || sup._id}>
-                            {sup.name || 'Unknown Supplier'}
+                          <option key={sup._id} value={sup._id}>
+                            {sup.companyName || sup.name || 'Unknown Supplier'}
                           </option>
                         ))}
                       </select>

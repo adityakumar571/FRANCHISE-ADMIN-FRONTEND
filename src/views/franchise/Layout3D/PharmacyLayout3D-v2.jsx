@@ -6,25 +6,26 @@
  */
 import { useState, useEffect, useMemo } from 'react'
 import {
-  MapPin, Plus, Package, Layers, AlertTriangle,
-  Search, X, ChevronRight, Grid3X3, Thermometer,
-  Warehouse, Zap, TrendingDown, BarChart2, RefreshCw,
+  Package, Layers,
+  Search, Grid3X3,
+  TrendingDown, BarChart2, RefreshCw,
 } from 'lucide-react'
 import { getRequest } from '../../../Helpers'
 import toast from 'react-hot-toast'
+import BatchSelectorModal from '../../../components/BatchSelectorModal'
 
 /* ══════════════════════ CONSTANTS ══════════════════════ */
 const STATUS = {
-  available: { color: '#10b981', bg: '#d1fae5', border: '#6ee7b7', label: 'Available'    },
-  low:       { color: '#f59e0b', bg: '#fef3c7', border: '#fcd34d', label: 'Low Stock'    },
-  out:       { color: '#ef4444', bg: '#fee2e2', border: '#fca5a5', label: 'Out of Stock' },
-  empty:     { color: '#94a3b8', bg: '#f1f5f9', border: '#cbd5e1', label: 'Empty'        },
+  available: { color: '#10b981', bg: '#d1fae5', border: '#6ee7b7', label: 'Available' },
+  low: { color: '#f59e0b', bg: '#fef3c7', border: '#fcd34d', label: 'Low Stock' },
+  out: { color: '#ef4444', bg: '#fee2e2', border: '#fca5a5', label: 'Out of Stock' },
+  empty: { color: '#94a3b8', bg: '#f1f5f9', border: '#cbd5e1', label: 'Empty' },
 }
 
 const RACK_COLORS = [
-  '#6366f1','#8b5cf6','#ec4899','#f43f5e',
-  '#f97316','#eab308','#22c55e','#14b8a6',
-  '#06b6d4','#3b82f6','#a855f7','#84cc16',
+  '#6366f1', '#8b5cf6', '#ec4899', '#f43f5e',
+  '#f97316', '#eab308', '#22c55e', '#14b8a6',
+  '#06b6d4', '#3b82f6', '#a855f7', '#84cc16',
 ]
 
 /* ══════════════════════ RACK CARD ══════════════════════ */
@@ -59,12 +60,12 @@ const RackCard = ({ rack, isSelected, isPinned, onClick }) => {
       <div style={{ position: 'absolute', top: 8, right: 8, width: 8, height: 8, borderRadius: '50%', background: st.color, boxShadow: `0 0 6px ${st.color}` }} />
 
       <div style={{ background: '#1e293b', borderRadius: 6, padding: '6px 4px', marginBottom: 6, border: '1px solid #334155' }}>
-        {[0,1,2,3].map(s => (
+        {[0, 1, 2, 3].map(s => (
           <div key={s} style={{ display: 'flex', gap: 2, marginBottom: s < 3 ? 3 : 0, paddingBottom: 3, borderBottom: s < 3 ? '1px solid #334155' : 'none' }}>
-            {[0,1,2,3].map(b => (
+            {[0, 1, 2, 3].map(b => (
               <div key={b} style={{
                 flex: 1, height: 8, borderRadius: 2,
-                background: pct > 0 ? ['#6366f1','#8b5cf6','#ec4899','#f97316','#22c55e','#14b8a6'][((s*4+b) + colorIdx) % 6] : '#1e293b',
+                background: pct > 0 ? ['#6366f1', '#8b5cf6', '#ec4899', '#f97316', '#22c55e', '#14b8a6'][((s * 4 + b) + colorIdx) % 6] : '#1e293b',
                 opacity: pct > 0 ? (s * 4 + b < Math.ceil(rack.items / 4) ? 0.9 : 0.2) : 0.2,
               }} />
             ))}
@@ -86,23 +87,25 @@ const RackCard = ({ rack, isSelected, isPinned, onClick }) => {
 
 /* ══════════════════════ MAIN COMPONENT ══════════════════════ */
 export default function PharmacyLayout3D() {
-  const [search, setSearch]             = useState('')
-  const [medicines, setMedicines]       = useState([])
-  const [counters, setCounters]         = useState([])
-  const [racks, setRacks]               = useState([])
+  const [search, setSearch] = useState('')
+  const [medicines, setMedicines] = useState([])
+  const [counters, setCounters] = useState([])
+  const [racks, setRacks] = useState([])
   const [selectedRack, setSelectedRack] = useState(null)
-  const [selectedCounter, setCounter]   = useState(null)
-  const [foundMed, setFoundMed]         = useState(null)
-  const [loading, setLoading]           = useState(true)
-  const [lastRefresh, setLastRefresh]   = useState(new Date())
-  const [autoRefresh, setAutoRefresh]   = useState(true)
+  const [selectedCounter, setCounter] = useState(null)
+  const [foundMed, setFoundMed] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [lastRefresh, setLastRefresh] = useState(new Date())
+  const [autoRefresh, setAutoRefresh] = useState(true)
+  const [batchModalOpen, setBatchModalOpen] = useState(false)
+  const [selectedMedicineForSale, setSelectedMedicineForSale] = useState(null)
 
   /* ── Fetch medicines from API ── */
   const fetchMedicines = async () => {
     try {
       const res = await getRequest('/franchise/medicines?limit=1000')
       const data = res.data?.data?.medicines || []
-      
+
       // Transform API format to 3D layout format
       const transformed = data.map(m => ({
         _id: m._id,
@@ -120,7 +123,7 @@ export default function PharmacyLayout3D() {
         position: m.rackLocation?.position || '',
         batches: m.batches || [],
       }))
-      
+
       setMedicines(transformed)
       console.log('✅ [3D] Loaded medicines:', transformed.length)
     } catch (err) {
@@ -146,12 +149,12 @@ export default function PharmacyLayout3D() {
     try {
       const res = await getRequest('/franchise/master/racks')
       const data = res.data?.data || []
-      
+
       // Calculate status based on medicines in each rack
       const racksWithStatus = data.map(r => {
         const rackMedicines = medicines.filter(m => m.rackCode === r.code)
         const totalItems = rackMedicines.reduce((sum, m) => sum + m.available, 0)
-        
+
         let status = 'empty'
         if (totalItems > 0) {
           const capacity = r.capacity || 40
@@ -161,7 +164,7 @@ export default function PharmacyLayout3D() {
           else if (fillPct < 100) status = 'available'
           else status = 'available'
         }
-        
+
         return {
           ...r,
           code: r.code,
@@ -171,7 +174,7 @@ export default function PharmacyLayout3D() {
           counter: getCounterCode(r.counterId)
         }
       })
-      
+
       setRacks(racksWithStatus)
       console.log('✅ [3D] Loaded racks:', racksWithStatus.length)
     } catch (err) {
@@ -203,14 +206,14 @@ export default function PharmacyLayout3D() {
   /* ── Auto-refresh every 30 seconds ── */
   useEffect(() => {
     if (!autoRefresh) return
-    
+
     const timer = setInterval(async () => {
       await fetchMedicines()
       await fetchRacks()
       setLastRefresh(new Date())
       console.log('🔄 [3D] Auto-refreshed')
     }, 30000)
-    
+
     return () => clearInterval(timer)
   }, [autoRefresh, medicines, counters])
 
@@ -226,15 +229,15 @@ export default function PharmacyLayout3D() {
   const handleSearch = async (val) => {
     setSearch(val)
     if (!val.trim()) { setFoundMed(null); return }
-    
+
     // Search in real medicines
     const med = medicines.find(m => m.name.toLowerCase().includes(val.toLowerCase()))
-    
+
     if (med) {
       setFoundMed(med)
       // Auto-select rack
       const rack = racks.find(r => r.code === med.rackCode)
-      if (rack) { 
+      if (rack) {
         setSelectedRack(rack)
         setCounter(rack.counter)
       }
@@ -244,6 +247,39 @@ export default function PharmacyLayout3D() {
     }
   }
 
+  /* ── Handle medicine click for batch selection ── */
+  const handleMedicineClick = (medicine) => {
+    // Check if medicine has active batches
+    const activeBatches = (medicine.batches || [])
+      .filter(b => b.isActive && (b.availableQty || b.quantity) > 0)
+    
+    if (activeBatches.length === 0) {
+      toast.error('No active batches available for this medicine')
+      return
+    }
+
+    setSelectedMedicineForSale(medicine)
+    setBatchModalOpen(true)
+  }
+
+  /* ── Handle batch selection from modal ── */
+  const handleBatchSelect = (data) => {
+    const { batch, qty } = data
+    // TODO: Add to cart / create sale
+    console.log('📦 Selected batch:', {
+      medicineId: selectedMedicineForSale._id,
+      medicineName: selectedMedicineForSale.name,
+      batchId: batch._id,
+      batchNo: batch.batchNo,
+      expiryDate: batch.expiryDate,
+      qty,
+      mrp: batch.mrp,
+    })
+    toast.success(`Added ${qty}x ${selectedMedicineForSale.name} (Batch ${batch.batchNo}) to cart`)
+    setBatchModalOpen(false)
+    setSelectedMedicineForSale(null)
+  }
+
   /* ── Filtered racks by counter ── */
   const counterRacks = useMemo(() => {
     if (!selectedCounter) return racks
@@ -251,9 +287,9 @@ export default function PharmacyLayout3D() {
   }, [racks, selectedCounter])
 
   /* ── Stats ── */
-  const lowCount  = racks.filter(r => r.status === 'low').length
-  const outCount  = racks.filter(r => r.status === 'out').length
-  const okCount   = racks.filter(r => r.status === 'available').length
+  const lowCount = racks.filter(r => r.status === 'low').length
+  const outCount = racks.filter(r => r.status === 'out').length
+  const okCount = racks.filter(r => r.status === 'available').length
   const totalMeds = medicines.length
 
   if (loading) {
@@ -287,13 +323,13 @@ export default function PharmacyLayout3D() {
             Updated: {lastRefresh.toLocaleTimeString()}
             {autoRefresh && ' (Auto 30s)'}
           </span>
-          <button 
+          <button
             onClick={handleManualRefresh}
             style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: '#1e293b', border: '1px solid #334155', borderRadius: 8, color: '#94a3b8', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
           >
             <RefreshCw size={13} /> Refresh
           </button>
-          <button 
+          <button
             onClick={() => setAutoRefresh(!autoRefresh)}
             style={{ padding: '8px 14px', background: autoRefresh ? '#3b82f620' : '#1e293b', border: `1px solid ${autoRefresh ? '#3b82f6' : '#334155'}`, borderRadius: 8, color: autoRefresh ? '#60a5fa' : '#94a3b8', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
           >
@@ -305,11 +341,11 @@ export default function PharmacyLayout3D() {
       {/* ══ STATS STRIP ══ */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 12 }}>
         {[
-          { label: 'Total Medicines', value: totalMeds,       icon: Package,      color: '#3b82f6' },
-          { label: 'Total Counters',  value: counters.length, icon: Grid3X3,      color: '#8b5cf6' },
-          { label: 'Total Racks',     value: racks.length,    icon: Layers,       color: '#22c55e' },
-          { label: 'Available',       value: okCount,         icon: BarChart2,    color: '#10b981' },
-          { label: 'Low Stock',       value: lowCount,        icon: TrendingDown, color: '#f59e0b' },
+          { label: 'Total Medicines', value: totalMeds, icon: Package, color: '#3b82f6' },
+          { label: 'Total Counters', value: counters.length, icon: Grid3X3, color: '#8b5cf6' },
+          { label: 'Total Racks', value: racks.length, icon: Layers, color: '#22c55e' },
+          { label: 'Available', value: okCount, icon: BarChart2, color: '#10b981' },
+          { label: 'Low Stock', value: lowCount, icon: TrendingDown, color: '#f59e0b' },
         ].map(s => (
           <div key={s.label} style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{ width: 40, height: 40, borderRadius: 10, background: s.color + '15', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -334,8 +370,8 @@ export default function PharmacyLayout3D() {
             <p style={{ fontSize: 11, fontWeight: 700, color: '#475569', margin: '0 0 10px', textTransform: 'uppercase' }}>Search</p>
             <div style={{ position: 'relative' }}>
               <Search size={13} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: '#475569' }} />
-              <input 
-                value={search} 
+              <input
+                value={search}
                 onChange={e => handleSearch(e.target.value)}
                 placeholder="Search medicine..."
                 style={{ width: '100%', padding: '10px 34px 10px 32px', border: '1px solid #334155', borderRadius: 9, fontSize: 13, outline: 'none', background: '#0f172a', color: '#f1f5f9', boxSizing: 'border-box' }}
@@ -436,6 +472,22 @@ export default function PharmacyLayout3D() {
                       {m.batches.length > 0 && (
                         <p style={{ margin: '2px 0 0', fontSize: 10, color: '#6b7280' }}>Batches: {m.batches.length}</p>
                       )}
+                      <button
+                        onClick={() => handleMedicineClick(m)}
+                        style={{
+                          marginTop: 6,
+                          padding: '4px 10px',
+                          fontSize: 10,
+                          fontWeight: 600,
+                          background: '#3b82f6',
+                          border: 'none',
+                          borderRadius: 4,
+                          color: '#fff',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Select Batch
+                      </button>
                     </div>
                   ))
                 ) : (
@@ -448,6 +500,17 @@ export default function PharmacyLayout3D() {
           )}
         </div>
       </div>
+
+      {/* ══ BATCH SELECTOR MODAL ══ */}
+      <BatchSelectorModal
+        medicine={selectedMedicineForSale}
+        isOpen={batchModalOpen}
+        onClose={() => {
+          setBatchModalOpen(false)
+          setSelectedMedicineForSale(null)
+        }}
+        onSelect={handleBatchSelect}
+      />
     </div>
   )
 }

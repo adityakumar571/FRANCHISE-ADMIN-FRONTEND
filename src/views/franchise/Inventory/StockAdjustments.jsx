@@ -9,19 +9,22 @@ import { getRequest, postRequest, putRequest } from '../../../Helpers'
 import Autocomplete from '@mui/material/Autocomplete'
 import TextField from '@mui/material/TextField'
 
-const EMPTY = { medicineId: '', medicineName: '', batch: '', type: 'damaged', qty: '', reason: '', expiryDate: '' }
+const EMPTY = { medicineId: '', medicineName: '', batchId: '', batch: '', type: 'damaged', qty: '', reason: '', expiryDate: '' }
 
 const StockAdjustments = () => {
   const [tab, setTab]         = useState('list')
   const [adjustments, setAdjustments] = useState([])
-  const [medicines, setMedicines] = useState([])  // ← NEW: medicines list
-  const [loadingMedicines, setLoadingMedicines] = useState(true)  // ← NEW
+  const [medicines, setMedicines] = useState([])
+  const [batches, setBatches] = useState([])
+  const [loadingMedicines, setLoadingMedicines] = useState(true)
+  const [loadingBatches, setLoadingBatches] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving]   = useState(false)
   const [total, setTotal]     = useState(0)
   const [page, setPage]       = useState(1)
   const [form, setForm]       = useState(EMPTY)
-  const [selectedMedicine, setSelectedMedicine] = useState(null)  // ← NEW
+  const [selectedMedicine, setSelectedMedicine] = useState(null)
+  const [selectedBatch, setSelectedBatch] = useState(null)
 
   // Fetch medicines for autocomplete
   useEffect(() => {
@@ -41,6 +44,29 @@ const StockAdjustments = () => {
     fetchMedicines()
   }, [])
 
+  // Fetch batches when medicine is selected
+  const fetchBatches = useCallback(async (medicineId) => {
+    if (!medicineId) {
+      setBatches([])
+      setSelectedBatch(null)
+      return
+    }
+    try {
+      setLoadingBatches(true)
+      const res = await getRequest(`/franchise/medicines/${medicineId}/batches`)
+      // Backend returns array directly in data
+      const batchList = Array.isArray(res.data?.data) ? res.data.data : res.data?.data?.batches || []
+      setBatches(batchList)
+      setSelectedBatch(null)
+    } catch (err) {
+      console.error('Error loading batches:', err)
+      toast.error('Failed to load batches')
+      setBatches([])
+    } finally {
+      setLoadingBatches(false)
+    }
+  }, [])
+
   const fetchAdjustments = useCallback(async () => {
     setLoading(true)
     try {
@@ -57,12 +83,42 @@ const StockAdjustments = () => {
 
   useEffect(() => { fetchAdjustments() }, [fetchAdjustments])
 
+  // Handle medicine selection
+  const handleMedicineSelect = (medicine) => {
+    setSelectedMedicine(medicine)
+    setSelectedBatch(null)
+    setForm(p => ({ 
+      ...p, 
+      medicineId: medicine?._id || '',
+      medicineName: medicine?.name || '',
+      batchId: '',
+      batch: '',
+      expiryDate: ''
+    }))
+    if (medicine) {
+      fetchBatches(medicine._id)
+    } else {
+      setBatches([])
+    }
+  }
+
+  // Handle batch selection
+  const handleBatchSelect = (batch) => {
+    setSelectedBatch(batch)
+    setForm(p => ({
+      ...p,
+      batchId: batch?._id || '',
+      batch: batch?.batchNo || '',
+      expiryDate: batch?.expiryDate || ''
+    }))
+  }
+
   const onChange = (e) => setForm((p) => ({ ...p, [e.target.name]: e.target.value }))
 
   const handleSave = async (e) => {
     e.preventDefault()
     if (!selectedMedicine) { toast.error('Please select a medicine'); return }
-    if (!form.batch) { toast.error('Please enter batch number'); return }
+    if (!selectedBatch) { toast.error('Please select a batch'); return }
     if (!form.qty || form.qty === '') { toast.error('Please enter quantity'); return }
     if (!form.reason) { toast.error('Please enter reason'); return }
     
@@ -72,19 +128,26 @@ const StockAdjustments = () => {
         url: '/franchise/inventory/adjustments', 
         cred: {
           medicineId: selectedMedicine._id,
-          medicineName: selectedMedicine.name,
-          batch: form.batch,
-          type: form.type,
-          qty: form.qty,
+          medicine: selectedMedicine.name,
+          batch: selectedBatch.batchNo,
+          type: form.type, // Use type directly - no adjustmentType needed
+          qty: parseInt(form.qty),
           reason: form.reason,
-          expiryDate: form.expiryDate,  // ← NEW: Include expiry date
-          adjustmentType: form.type === 'correction' ? 'correction' : form.type === 'transfer' ? 'transfer' : 'adjustment'
+          batchDetails: {
+            batchNo: selectedBatch.batchNo,
+            quantity: selectedBatch.qty,
+            mrp: selectedBatch.mrp,
+            purchasePrice: selectedBatch.purchasePrice,
+            expiryDate: selectedBatch.expiryDate
+          }
         }
       })
       toast.success('Adjustment submitted for approval')
       setTab('list')
       setForm(EMPTY)
       setSelectedMedicine(null)
+      setSelectedBatch(null)
+      setBatches([])
       fetchAdjustments()
     } catch (err) {
       toast.error(err?.response?.data?.message || 'Failed to submit')
@@ -151,19 +214,15 @@ const StockAdjustments = () => {
             ⚠️ Stock adjustments require approval. Submit the form and await manager confirmation.
           </div>
           <form onSubmit={handleSave}>
+            {/* Step 1: Medicine Selection */}
             <div style={{ marginBottom: 14 }}>
-              <label style={lbl}>Medicine *</label>
+              <label style={lbl}>Step 1: Select Medicine *</label>
               <Autocomplete
                 options={medicines}
                 getOptionLabel={(option) => `${option.name} (${option.salt || ''})`}
                 loading={loadingMedicines}
                 value={selectedMedicine}
-                onChange={(event, newValue) => {
-                  setSelectedMedicine(newValue)
-                  if (newValue) {
-                    setForm(p => ({ ...p, medicineName: newValue.name }))
-                  }
-                }}
+                onChange={(_, newValue) => handleMedicineSelect(newValue)}
                 renderInput={(params) => (
                   <TextField {...params} placeholder="Search medicine name or salt" />
                 )}
@@ -171,55 +230,78 @@ const StockAdjustments = () => {
               />
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
-              <div>
-                <label style={lbl}>Batch No. *</label>
-                <input 
-                  name="batch" 
-                  value={form.batch} 
-                  onChange={(e) => setForm(p => ({ ...p, batch: e.target.value }))}
-                  placeholder="Batch number" 
-                  style={inp} 
-                />
+            {/* Step 2: Batch Selection - Only show if medicine selected */}
+            {selectedMedicine && (
+              <div style={{ marginBottom: 14, paddingBottom: 14, borderBottom: '1px solid #e5e7eb' }}>
+                <label style={lbl}>Step 2: Select Batch *</label>
+                {loadingBatches ? (
+                  <div style={{ padding: 12, textAlign: 'center', color: '#6b7280', fontSize: 13 }}>
+                    Loading batches...
+                  </div>
+                ) : batches.length === 0 ? (
+                  <div style={{ padding: 12, background: '#fee2e2', borderRadius: 7, color: '#991b1b', fontSize: 13 }}>
+                    ⚠️ No batches available for this medicine. Use "Quick Stock Entry" to add new stock.
+                  </div>
+                ) : (
+                  <Autocomplete
+                    options={batches}
+                    getOptionLabel={(option) => `${option.batchNo} (Qty: ${option.qty}, Exp: ${option.expiryDate})`}
+                    value={selectedBatch}
+                    onChange={(_, newValue) => handleBatchSelect(newValue)}
+                    renderInput={(params) => (
+                      <TextField {...params} placeholder="Search batch number" />
+                    )}
+                    style={{ width: '100%' }}
+                  />
+                )}
               </div>
-              <div>
-                <label style={lbl}>Expiry Date</label>
-                <input 
-                  type="date"
-                  name="expiryDate" 
-                  value={form.expiryDate} 
-                  onChange={(e) => setForm(p => ({ ...p, expiryDate: e.target.value }))}
-                  style={inp} 
-                />
-              </div>
-            </div>
+            )}
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
-              <div>
-                <label style={lbl}>Adjustment Type *</label>
-                <select name="type" value={form.type} onChange={onChange} style={{ ...inp, background: '#fff' }}>
-                  <option value="damaged">Damaged</option>
-                  <option value="expired">Expired / Quarantine</option>
-                  <option value="correction">Physical Count Correction</option>
-                  <option value="transfer">Stock Transfer</option>
-                  <option value="other">Other</option>
-                </select>
-              </div>
-              <div>
-                <label style={lbl}>Quantity * (use - for reduction)</label>
-                <input type="number" name="qty" value={form.qty} onChange={onChange} placeholder="e.g. -10 or +5" style={inp} />
-              </div>
-            </div>
+            {/* Step 3: Adjustment Details - Only show if batch selected */}
+            {selectedBatch && (
+              <>
+                <div style={{ marginBottom: 14, padding: 12, background: '#ecfdf5', borderRadius: 7, borderLeft: '3px solid #10b981' }}>
+                  <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: '#047857 ' }}>
+                    ✓ Batch Selected: <strong>{selectedBatch.batchNo}</strong> (Exp: {selectedBatch.expiryDate})
+                  </p>
+                </div>
 
-            <div style={{ marginBottom: 14 }}>
-              <label style={lbl}>Reason / Remarks *</label>
-              <textarea name="reason" value={form.reason} onChange={onChange} placeholder="Describe reason for adjustment" rows={3}
-                style={{ ...inp, height: 'auto', paddingTop: 9, paddingBottom: 9, resize: 'vertical' }} />
-            </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
+                  <div>
+                    <label style={lbl}>Adjustment Type *</label>
+                    <select name="type" value={form.type} onChange={onChange} style={{ ...inp, background: '#fff' }}>
+                      <option value="damaged">Damaged</option>
+                      <option value="expired">Expired / Quarantine</option>
+                      <option value="correction">Physical Count Correction</option>
+                      <option value="loss">Loss</option>
+                      <option value="transfer">Stock Transfer</option>
+                      <option value="stock_out">Stock Out</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={lbl}>Quantity * (use - for reduction)</label>
+                    <input type="number" name="qty" value={form.qty} onChange={onChange} placeholder="e.g. -10 or +5" style={inp} />
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 14 }}>
+                  <label style={lbl}>Reason / Remarks *</label>
+                  <textarea name="reason" value={form.reason} onChange={onChange} placeholder="Describe reason for adjustment" rows={3}
+                    style={{ ...inp, height: 'auto', paddingTop: 9, paddingBottom: 9, resize: 'vertical' }} />
+                </div>
+              </>
+            )}
 
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button type="button" onClick={() => setTab('list')} style={{ padding: '9px 20px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Cancel</button>
-              <button type="submit" disabled={saving} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 22px', borderRadius: 8, border: 'none', background: saving ? '#a78bfa' : '#7c3aed', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+              <button type="button" onClick={() => {
+                setTab('list')
+                setForm(EMPTY)
+                setSelectedMedicine(null)
+                setSelectedBatch(null)
+                setBatches([])
+              }} style={{ padding: '9px 20px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Cancel</button>
+              <button type="submit" disabled={saving || !selectedBatch} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 22px', borderRadius: 8, border: 'none', background: saving || !selectedBatch ? '#a78bfa' : '#7c3aed', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
               <Save size={14} /> {saving ? 'Submitting…' : 'Submit for Approval'}
               </button>
             </div>

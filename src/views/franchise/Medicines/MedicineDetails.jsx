@@ -5,10 +5,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
-  FlaskConical, ArrowLeft, Edit2, Printer, Tag, Package,
-  Info, Layers, GitCompare, MapPin, QrCode, ImageIcon,
+  FlaskConical, ArrowLeft, Edit2, Printer,
+  Info, Layers, GitCompare, MapPin, ImageIcon,
   CheckCircle2, AlertTriangle, XCircle, RefreshCw,
-  IndianRupee, Building2, Pill,
+  IndianRupee, Pill,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import PageHeader from '../components/PageHeader'
@@ -53,13 +53,18 @@ export default function MedicineDetails() {
   const navigate = useNavigate()
   const { id }   = useParams()
   const [med,     setMed]     = useState(null)
+  const [batches, setBatches] = useState([])
   const [loading, setLoading] = useState(true)
 
   const fetchMedicine = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await getRequest(`/franchise/medicines/${id}`)
-      setMed(res.data?.data || null)
+      const [medRes, batchRes] = await Promise.all([
+        getRequest(`/franchise/medicines/${id}`),
+        getRequest(`/franchise/medicines/${id}/batches`)
+      ])
+      setMed(medRes.data?.data || null)
+      setBatches(batchRes.data?.data || [])
     } catch (err) {
       toast.error(err?.response?.data?.message || 'Failed to load medicine details')
     } finally { setLoading(false) }
@@ -100,7 +105,6 @@ export default function MedicineDetails() {
   /* ── derived values from actual API field names ── */
   const stock        = med.currentStock ?? 0
   const reorder      = med.reorderLevel ?? 10
-  const stockColor   = stock === 0 ? '#dc2626' : stock <= reorder ? '#d97706' : '#16a34a'
   const stockLabel   = stock === 0 ? 'Out of Stock' : stock <= reorder ? 'Low Stock' : 'In Stock'
   const stockBadge   = stock === 0
     ? 'bg-red-50 text-red-600 border-red-200'
@@ -116,7 +120,7 @@ export default function MedicineDetails() {
 
   /* ── nearest expiry from batches ── */
   const now = new Date()
-  const activeBatches = (med.batches || []).filter(b => b.isActive !== false)
+  const activeBatches = (batches || []).filter(b => b.isActive !== false)
   const nearestExpiry = activeBatches.length
     ? activeBatches
         .filter(b => new Date(b.expiryDate) > now)
@@ -279,8 +283,8 @@ export default function MedicineDetails() {
           </SectionCard>
 
           {/* Batches summary */}
-          <SectionCard title={`Batches (${(med.batches || []).length})`} icon={Layers} color="#0891b2">
-            {(med.batches || []).length === 0 ? (
+          <SectionCard title={`Batches (${(batches || []).length})`} icon={Layers} color="#0891b2">
+            {(batches || []).length === 0 ? (
               <p className="text-xs text-gray-400 text-center py-4">No batches added yet</p>
             ) : (
               <div className="overflow-x-auto">
@@ -293,7 +297,7 @@ export default function MedicineDetails() {
                     </tr>
                   </thead>
                   <tbody>
-                    {[...(med.batches || [])]
+                    {[...(batches || [])]
                       .filter(b => b.isActive !== false)
                       .sort((a,b) => new Date(a.expiryDate) - new Date(b.expiryDate))
                       .slice(0,5)
@@ -309,7 +313,7 @@ export default function MedicineDetails() {
                           <tr key={i} className="border-b border-gray-50">
                             <td className="px-3 py-2 font-bold text-cyan-700 font-mono">{b.batchNo}</td>
                             <td className="px-3 py-2 text-gray-600">{exp.toLocaleDateString('en-IN')}</td>
-                            <td className="px-3 py-2 font-semibold">{b.availableQty ?? b.quantity ?? 0}</td>
+                            <td className="px-3 py-2 font-semibold">{b.qty ?? b.quantity ?? 0}</td>
                             <td className="px-3 py-2 text-blue-900 font-bold">₹{Number(b.mrp||0).toFixed(2)}</td>
                             <td className="px-3 py-2">
                               <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full border ${badgeCls}`}>
@@ -321,9 +325,9 @@ export default function MedicineDetails() {
                       })}
                   </tbody>
                 </table>
-                {(med.batches || []).length > 5 && (
+                {(batches || []).length > 5 && (
                   <p className="text-xs text-gray-400 text-center mt-2">
-                    +{(med.batches || []).length - 5} more batches
+                    +{(batches || []).length - 5} more batches
                   </p>
                 )}
               </div>
