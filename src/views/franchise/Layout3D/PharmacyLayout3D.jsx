@@ -1,272 +1,1383 @@
+// /* eslint-disable prettier/prettier */
+// /**
+//  * PharmacyLayout3D — True 3D rack view (shelf = level, row = depth, column = width)
+//  * - Drag to rotate, slider to zoom, view presets, auto-rotate
+//  * - Debounced live search (800ms) -> jumps to counter/rack and glows the exact slot
+//  * - Pure CSS 3D transforms (no extra libs). Needs: react, lucide-react, tailwind, react-hot-toast
+//  */
+// import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+// import { Search, RefreshCw, MapPin, X, Layers, Package, Play, Pause, RotateCcw } from 'lucide-react'
+// import { getRequest } from '../../../Helpers'
+// import toast from 'react-hot-toast'
+
+// /* ───────── CONSTANTS ───────── */
+// const CELL = 46 // cube size
+// const PITCH = 58 // distance between cubes (x / z)
+// const LEVEL = 68 // vertical distance between shelves
+// const MIN_ROWS = 3
+// const MIN_COLS = 4
+
+// const COLORS = {
+//   ok: { main: '#10b981', dark: '#047857', label: 'In Stock' },
+//   low: { main: '#f59e0b', dark: '#b45309', label: 'Low Stock' },
+//   out: { main: '#ef4444', dark: '#b91c1c', label: 'Out of Stock' },
+//   found: { main: '#38bdf8', dark: '#0369a1', label: 'Found' },
+// }
+
+// const stockState = (m) => {
+//   const s = Number(m.currentStock ?? m.stock ?? 0)
+//   if (s <= 0) return 'out'
+//   if (s <= Number(m.reorderLevel ?? 0)) return 'low'
+//   return 'ok'
+// }
+
+// const rowIndex = (letter) =>
+//   String(letter || 'A')
+//     .toUpperCase()
+//     .charCodeAt(0) - 65 || 0
+// const slotKey = (shelf, row, col) => `${shelf}-${String(row).toUpperCase()}-${col}`
+// const idOf = (v) => String(v?._id || v || '')
+
+// const PRESETS = {
+//   front: { x: -6, y: 0 },
+//   angle: { x: -20, y: -32 },
+//   side: { x: -8, y: -80 },
+//   top: { x: -78, y: 0 },
+// }
+
+// /* ───────── DEBOUNCE ───────── */
+// const useDebounce = (value, delay) => {
+//   const [v, setV] = useState(value)
+//   useEffect(() => {
+//     const t = setTimeout(() => setV(value), delay)
+//     return () => clearTimeout(t)
+//   }, [value, delay])
+//   return v
+// }
+
+// /* ───────── 3D CUBE (one medicine slot) ───────── */
+// const Cube = ({ x, y, z, state, label, active, found, onClick }) => {
+//   const c = found ? COLORS.found : COLORS[state]
+//   const half = CELL / 2
+//   const face = (transform, extra = {}) => ({
+//     position: 'absolute',
+//     width: CELL,
+//     height: CELL,
+//     transform,
+//     background: `linear-gradient(135deg, ${c.main}, ${c.dark})`,
+//     border: `1px solid rgba(255,255,255,${active || found ? 0.9 : 0.25})`,
+//     backfaceVisibility: 'hidden',
+//     ...extra,
+//   })
+//   return (
+//     <div
+//       onClick={onClick}
+//       className={found ? 'ph3d-pulse' : 'ph3d-cube'}
+//       style={{
+//         position: 'absolute',
+//         left: -half,
+//         top: -half,
+//         width: CELL,
+//         height: CELL,
+//         transformStyle: 'preserve-3d',
+//         transform: `translate3d(${x}px, ${y}px, ${z}px)`,
+//         cursor: 'pointer',
+//         '--glow': c.main,
+//       }}
+//     >
+//       <div
+//         style={face(`translateZ(${half}px)`, {
+//           display: 'flex',
+//           alignItems: 'center',
+//           justifyContent: 'center',
+//         })}
+//       >
+//         <span
+//           className="text-white font-extrabold"
+//           style={{
+//             fontSize: 9,
+//             textShadow: '0 1px 2px #000',
+//             padding: 2,
+//             textAlign: 'center',
+//             lineHeight: 1.05,
+//           }}
+//         >
+//           {label}
+//         </span>
+//       </div>
+//       <div style={face(`rotateY(180deg) translateZ(${half}px)`)} />
+//       <div style={face(`rotateY(90deg) translateZ(${half}px)`, { filter: 'brightness(0.75)' })} />
+//       <div style={face(`rotateY(-90deg) translateZ(${half}px)`, { filter: 'brightness(0.65)' })} />
+//       <div style={face(`rotateX(90deg) translateZ(${half}px)`, { filter: 'brightness(1.25)' })} />
+//       <div style={face(`rotateX(-90deg) translateZ(${half}px)`, { filter: 'brightness(0.5)' })} />
+//     </div>
+//   )
+// }
+
+// /* ───────── EMPTY SLOT (ghost outline) ───────── */
+// const Ghost = ({ x, y, z }) => (
+//   <div
+//     style={{
+//       position: 'absolute',
+//       left: -CELL / 2,
+//       top: -CELL / 2,
+//       width: CELL,
+//       height: CELL,
+//       transform: `translate3d(${x}px, ${y}px, ${z + CELL / 2}px)`,
+//       border: '1px dashed rgba(148,163,184,0.35)',
+//       background: 'rgba(148,163,184,0.05)',
+//       borderRadius: 4,
+//       pointerEvents: 'none',
+//     }}
+//   />
+// )
+
+// /* ───────── 3D RACK SCENE ───────── */
+// const Rack3D = ({ shelves, rows, cols, slotMap, foundKey, selectedKey, onSelect, rot, zoom }) => {
+//   const W = cols * PITCH
+//   const D = rows * PITCH
+//   const H = shelves * LEVEL
+//   const rowLetters = Array.from({ length: rows }, (_, i) => String.fromCharCode(65 + i))
+
+//   const px = (col) => (col - 0.5 - cols / 2) * PITCH
+//   const pz = (r) => (rows / 2 - (r + 0.5)) * PITCH // row A = front
+//   const py = (shelf) => (shelf - 0.5 - shelves / 2) * LEVEL // shelf 1 = top
+
+//   const panel = (style) => ({ position: 'absolute', ...style })
+
+//   return (
+//     <div
+//       style={{
+//         position: 'absolute',
+//         left: '50%',
+//         top: '50%',
+//         width: 0,
+//         height: 0,
+//         transformStyle: 'preserve-3d',
+//         transform: `scale(${zoom}) rotateX(${rot.x}deg) rotateY(${rot.y}deg)`,
+//       }}
+//     >
+//       {/* floor grid */}
+//       <div
+//         style={panel({
+//           width: W + 260,
+//           height: D + 260,
+//           left: -(W + 260) / 2,
+//           top: -(D + 260) / 2,
+//           transform: `translateY(${H / 2 + 14}px) rotateX(90deg)`,
+//           backgroundImage:
+//             'linear-gradient(rgba(99,102,241,0.25) 1px, transparent 1px), linear-gradient(90deg, rgba(99,102,241,0.25) 1px, transparent 1px)',
+//           backgroundSize: '29px 29px',
+//           background: undefined,
+//           border: '1px solid rgba(99,102,241,0.4)',
+//           borderRadius: 12,
+//           boxShadow: '0 0 60px rgba(99,102,241,0.2) inset',
+//         })}
+//       />
+
+//       {/* back + side glass panels */}
+//       <div
+//         style={panel({
+//           width: W + 20,
+//           height: H + 20,
+//           left: -(W + 20) / 2,
+//           top: -(H + 20) / 2,
+//           transform: `translateZ(${-D / 2 - 10}px)`,
+//           background: 'rgba(30,41,59,0.55)',
+//           border: '1px solid rgba(148,163,184,0.3)',
+//         })}
+//       />
+//       <div
+//         style={panel({
+//           width: D + 20,
+//           height: H + 20,
+//           left: -(D + 20) / 2,
+//           top: -(H + 20) / 2,
+//           transform: `translateX(${-W / 2 - 10}px) rotateY(90deg)`,
+//           background: 'rgba(30,41,59,0.35)',
+//           border: '1px solid rgba(148,163,184,0.25)',
+//         })}
+//       />
+//       <div
+//         style={panel({
+//           width: D + 20,
+//           height: H + 20,
+//           left: -(D + 20) / 2,
+//           top: -(H + 20) / 2,
+//           transform: `translateX(${W / 2 + 10}px) rotateY(90deg)`,
+//           background: 'rgba(30,41,59,0.35)',
+//           border: '1px solid rgba(148,163,184,0.25)',
+//         })}
+//       />
+
+//       {/* corner posts */}
+//       {[
+//         [-1, -1],
+//         [1, -1],
+//         [-1, 1],
+//         [1, 1],
+//       ].map(([sx, sz], i) => (
+//         <div
+//           key={i}
+//           style={panel({
+//             width: 8,
+//             height: H + 24,
+//             left: -4,
+//             top: -(H + 24) / 2,
+//             transform: `translate3d(${sx * (W / 2 + 10)}px, 0, ${sz * (D / 2 + 10)}px)`,
+//             background: 'linear-gradient(90deg,#64748b,#334155)',
+//             borderRadius: 3,
+//           })}
+//         />
+//       ))}
+
+//       {/* shelf boards + labels */}
+//       {Array.from({ length: shelves }).map((_, i) => {
+//         const s = i + 1
+//         const yBottom = py(s) + CELL / 2 + 3
+//         return (
+//           <div key={s} style={{ position: 'absolute', transformStyle: 'preserve-3d' }}>
+//             <div
+//               style={panel({
+//                 width: W + 20,
+//                 height: D + 20,
+//                 left: -(W + 20) / 2,
+//                 top: -(D + 20) / 2,
+//                 transform: `translateY(${yBottom}px) rotateX(90deg)`,
+//                 background: 'linear-gradient(135deg, rgba(100,116,139,0.85), rgba(51,65,85,0.85))',
+//                 border: '1px solid rgba(203,213,225,0.5)',
+//                 borderRadius: 4,
+//               })}
+//             />
+//             <div
+//               className="text-slate-300 font-bold"
+//               style={panel({
+//                 left: -(W / 2) - 62,
+//                 top: py(s) - 10,
+//                 width: 44,
+//                 textAlign: 'right',
+//                 fontSize: 11,
+//                 transform: 'translateZ(' + D / 2 + 'px)',
+//               })}
+//             >
+//               S{s}
+//             </div>
+//           </div>
+//         )
+//       })}
+
+//       {/* column labels (front floor) */}
+//       {Array.from({ length: cols }).map((_, i) => (
+//         <div
+//           key={i}
+//           className="text-sky-300 font-bold"
+//           style={panel({
+//             left: px(i + 1) - 14,
+//             top: -8,
+//             width: 28,
+//             textAlign: 'center',
+//             fontSize: 12,
+//             transform: `translate3d(0, ${H / 2 + 14}px, ${D / 2 + 40}px) rotateX(90deg)`,
+//           })}
+//         >
+//           C{i + 1}
+//         </div>
+//       ))}
+//       {/* row labels (right floor) */}
+//       {rowLetters.map((l, r) => (
+//         <div
+//           key={l}
+//           className="text-pink-300 font-bold"
+//           style={panel({
+//             left: -14,
+//             top: -8,
+//             width: 28,
+//             textAlign: 'center',
+//             fontSize: 12,
+//             transform: `translate3d(${W / 2 + 40}px, ${H / 2 + 14}px, ${pz(r)}px) rotateX(90deg)`,
+//           })}
+//         >
+//           R{l}
+//         </div>
+//       ))}
+
+//       {/* slots */}
+//       {Array.from({ length: shelves }).map((_, si) =>
+//         rowLetters.map((l, r) =>
+//           Array.from({ length: cols }).map((__, ci) => {
+//             const s = si + 1
+//             const c = ci + 1
+//             const key = slotKey(s, l, c)
+//             const meds = slotMap[key]
+//             const x = px(c)
+//             const y = py(s)
+//             const z = pz(r)
+//             if (!meds) return <Ghost key={key} x={x} y={y} z={z} />
+//             const m = meds[0]
+//             return (
+//               <Cube
+//                 key={key}
+//                 x={x}
+//                 y={y}
+//                 z={z}
+//                 state={stockState(m)}
+//                 label={
+//                   meds.length > 1 ? `${m.name.slice(0, 5)}+${meds.length - 1}` : m.name.slice(0, 7)
+//                 }
+//                 found={foundKey === key}
+//                 active={selectedKey === key}
+//                 onClick={() => onSelect(key)}
+//               />
+//             )
+//           }),
+//         ),
+//       )}
+//     </div>
+//   )
+// }
+
+// /* ───────── MAIN ───────── */
+// export default function PharmacyLayout3D() {
+//   const [medicines, setMedicines] = useState([])
+//   const [counters, setCounters] = useState([])
+//   const [racks, setRacks] = useState([])
+//   const [counterId, setCounterId] = useState(null)
+//   const [rackId, setRackId] = useState(null)
+//   const [search, setSearch] = useState('')
+//   const [foundMed, setFoundMed] = useState(null)
+//   const [selectedKey, setSelectedKey] = useState(null)
+//   const [loading, setLoading] = useState(true)
+//   const [searchLoading, setSearchLoading] = useState(false)
+//   const [lastRefresh, setLastRefresh] = useState(new Date())
+
+//   const [rot, setRot] = useState(PRESETS.angle)
+//   const [zoom, setZoom] = useState(1)
+//   const [auto, setAuto] = useState(false)
+//   const drag = useRef({ on: false, moved: false, sx: 0, sy: 0, ox: 0, oy: 0 })
+
+//   const debouncedSearch = useDebounce(search, 800)
+//   const dataRef = useRef({ racks: [], counters: [] })
+//   dataRef.current = { racks, counters }
+
+//   /* ── FETCH ── */
+//   const fetchAllData = useCallback(async () => {
+//     try {
+//       const [mRes, cRes, rRes] = await Promise.allSettled([
+//         getRequest('/franchise/medicines?limit=1000&layout=true'),
+//         getRequest('/franchise/master/counters'),
+//         getRequest('/franchise/master/racks'),
+//       ])
+//       if (mRes.status === 'fulfilled') setMedicines(mRes.value?.data?.data?.medicines || [])
+//       if (cRes.status === 'fulfilled') {
+//         const cs = cRes.value?.data?.data || []
+//         setCounters(cs)
+//         setCounterId((p) => p || cs[0]?._id || null)
+//       }
+//       if (rRes.status === 'fulfilled') {
+//         const rs = rRes.value?.data?.data || []
+//         setRacks(rs)
+//       }
+//       setLastRefresh(new Date())
+//     } catch (e) {
+//       console.error(e)
+//       toast.error('Failed to load data')
+//     } finally {
+//       setLoading(false)
+//     }
+//   }, [])
+
+//   useEffect(() => {
+//     fetchAllData()
+//   }, [fetchAllData])
+
+//   /* ── DERIVED ── */
+//   const counterRacks = useMemo(
+//     () => racks.filter((r) => !counterId || idOf(r.counterId) === counterId),
+//     [racks, counterId],
+//   )
+
+//   // default rack = first rack of selected counter
+//   useEffect(() => {
+//     if (!counterRacks.length) return
+//     if (!counterRacks.find((r) => r._id === rackId)) setRackId(counterRacks[0]._id)
+//   }, [counterRacks, rackId])
+
+//   const rack = useMemo(() => racks.find((r) => r._id === rackId) || null, [racks, rackId])
+
+//   const rackMeds = useMemo(
+//     () => (rack ? medicines.filter((m) => m.rackLocation?.rackId === rack.code) : []),
+//     [medicines, rack],
+//   )
+
+//   const dims = useMemo(() => {
+//     let maxShelf = 0,
+//       maxRow = 0,
+//       maxCol = 0
+//     rackMeds.forEach((m) => {
+//       maxShelf = Math.max(maxShelf, Number(m.rackLocation?.shelf) || 0)
+//       maxRow = Math.max(maxRow, rowIndex(m.rackLocation?.row) + 1)
+//       maxCol = Math.max(maxCol, Number(m.rackLocation?.column) || 0)
+//     })
+//     const base = typeof rack?.shelves === 'number' ? rack.shelves : 3
+//     return {
+//       shelves: Math.max(base, maxShelf, 1),
+//       rows: Math.max(rack?.rowsPerShelf || MIN_ROWS, maxRow),
+//       cols: Math.max(rack?.columnsPerRow || MIN_COLS, maxCol),
+//     }
+//   }, [rack, rackMeds])
+
+//   const slotMap = useMemo(() => {
+//     const map = {}
+//     rackMeds.forEach((m) => {
+//       const l = m.rackLocation
+//       if (!l) return
+//       const k = slotKey(l.shelf, l.row, l.column)
+//       ;(map[k] = map[k] || []).push(m)
+//     })
+//     return map
+//   }, [rackMeds])
+
+//   const totalSlots = dims.shelves * dims.rows * dims.cols
+//   const usedSlots = Object.keys(slotMap).length
+//   const percent = totalSlots ? Math.round((usedSlots / totalSlots) * 100) : 0
+
+//   const stats = useMemo(() => {
+//     const assigned = medicines.filter((m) => m.rackLocation?.position).length
+//     return {
+//       total: medicines.length,
+//       assigned,
+//       unassigned: medicines.length - assigned,
+//       low: medicines.filter((m) => stockState(m) === 'low').length,
+//       out: medicines.filter((m) => stockState(m) === 'out').length,
+//     }
+//   }, [medicines])
+
+//   const foundKey =
+//     foundMed?.rackLocation && foundMed.rackLocation.rackId === rack?.code
+//       ? slotKey(
+//           foundMed.rackLocation.shelf,
+//           foundMed.rackLocation.row,
+//           foundMed.rackLocation.column,
+//         )
+//       : null
+
+//   const selectedMeds = selectedKey ? slotMap[selectedKey] || [] : []
+
+//   /* ── SEARCH (debounced) ── */
+//   useEffect(() => {
+//     const q = debouncedSearch.trim()
+//     if (!q) {
+//       setFoundMed(null)
+//       return
+//     }
+//     let cancelled = false
+//     ;(async () => {
+//       setSearchLoading(true)
+//       try {
+//         const res = await getRequest(`/franchise/medicines?search=${encodeURIComponent(q)}&limit=1`)
+//         if (cancelled) return
+//         const med = res?.data?.data?.medicines?.[0]
+//         if (!med) {
+//           setFoundMed(null)
+//           toast.error('Medicine not found')
+//           return
+//         }
+//         setFoundMed(med)
+//         const loc = med.rackLocation
+//         if (loc?.rackId) {
+//           const r = dataRef.current.racks.find((x) => x.code === loc.rackId)
+//           if (r) {
+//             setCounterId(idOf(r.counterId) || idOf(med.counterId))
+//             setRackId(r._id)
+//             setSelectedKey(slotKey(loc.shelf, loc.row, loc.column))
+//             setRot(PRESETS.angle)
+//           }
+//         }
+//         toast.success('Found: ' + med.name)
+//       } catch {
+//         if (!cancelled) {
+//           setFoundMed(null)
+//           toast.error('Search failed')
+//         }
+//       } finally {
+//         if (!cancelled) setSearchLoading(false)
+//       }
+//     })()
+//     return () => {
+//       cancelled = true
+//     }
+//   }, [debouncedSearch])
+
+//   /* ── AUTO ROTATE ── */
+//   useEffect(() => {
+//     if (!auto) return
+//     const t = setInterval(() => {
+//       if (!drag.current.on) setRot((r) => ({ ...r, y: r.y + 0.4 }))
+//     }, 30)
+//     return () => clearInterval(t)
+//   }, [auto])
+
+//   /* ── DRAG ── */
+//   const onDown = (e) => {
+//     drag.current = { on: true, moved: false, sx: e.clientX, sy: e.clientY, ox: rot.x, oy: rot.y }
+//   }
+//   const onMove = (e) => {
+//     const d = drag.current
+//     if (!d.on) return
+//     const dx = e.clientX - d.sx
+//     const dy = e.clientY - d.sy
+//     if (Math.abs(dx) + Math.abs(dy) > 4) d.moved = true
+//     setRot({ x: Math.max(-90, Math.min(10, d.ox - dy * 0.4)), y: d.oy + dx * 0.5 })
+//   }
+//   const onUp = () => {
+//     drag.current.on = false
+//   }
+//   const handleSelect = (k) => {
+//     if (!drag.current.moved) setSelectedKey(k)
+//   }
+
+//   const clearSearch = () => {
+//     setSearch('')
+//     setFoundMed(null)
+//   }
+
+//   if (loading) {
+//     return (
+//       <div className="flex items-center justify-center min-h-screen bg-slate-950 text-white">
+//         <RefreshCw size={32} className="animate-spin" />
+//       </div>
+//     )
+//   }
+
+//   return (
+//     <div className="bg-slate-950 min-h-screen p-3 md:p-4 lg:p-6 text-white font-sans">
+//       <style>{`
+//         .ph3d-cube { transition: transform .25s; }
+//         .ph3d-cube:hover > div { filter: brightness(1.3); }
+//         @keyframes ph3dGlow { 0%,100% { filter: drop-shadow(0 0 4px var(--glow)); } 50% { filter: drop-shadow(0 0 22px var(--glow)) brightness(1.4); } }
+//         .ph3d-pulse { animation: ph3dGlow 1.2s ease-in-out infinite; }
+//       `}</style>
+
+//       {/* HEADER */}
+//       <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-xl p-4 mb-4 border border-slate-800">
+//         <div className="flex flex-col md:flex-row justify-between md:items-center gap-3">
+//           <div>
+//             <h1 className="m-0 text-xl font-extrabold">📦 Pharmacy 3D Layout</h1>
+//             <p className="m-0 mt-1 text-xs md:text-sm text-slate-400">
+//               {stats.total} medicines • {counters.length} counters • {racks.length} racks
+//             </p>
+//           </div>
+//           <div className="flex gap-2 items-center flex-wrap">
+//             <button
+//               onClick={fetchAllData}
+//               className="flex items-center gap-2 px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs md:text-sm font-semibold"
+//             >
+//               <RefreshCw size={14} /> Refresh
+//             </button>
+//             <span className="text-xs text-slate-400 px-3 py-2 bg-slate-800 rounded-lg">
+//               {lastRefresh.toLocaleTimeString()}
+//             </span>
+//           </div>
+//         </div>
+//       </div>
+
+//       {/* STATS */}
+//       <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3 mb-4">
+//         {[
+//           ['📋 Total', stats.total, '#3b82f6'],
+//           ['✅ Assigned', stats.assigned, '#10b981'],
+//           ['❌ Unassigned', stats.unassigned, '#f59e0b'],
+//           ['⚠️ Low Stock', stats.low, '#f59e0b'],
+//           ['🔴 Out of Stock', stats.out, '#ef4444'],
+//         ].map(([l, v, c]) => (
+//           <div key={l} className="bg-slate-900 rounded-lg p-3 border border-slate-800">
+//             <p className="m-0 text-xs text-slate-400">{l}</p>
+//             <p className="m-0 mt-1 text-2xl font-extrabold" style={{ color: c }}>
+//               {v}
+//             </p>
+//           </div>
+//         ))}
+//       </div>
+
+//       <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 md:gap-4">
+//         {/* LEFT: search + counters */}
+//         <div className="lg:col-span-1 flex flex-col gap-3 md:gap-4 order-2 lg:order-1">
+//           <div className="bg-slate-900 rounded-lg p-3 border border-slate-800">
+//             <p className="m-0 mb-2 text-xs font-bold text-slate-400 uppercase">
+//               🔍 Search medicine
+//             </p>
+//             <div className="relative">
+//               <Search
+//                 size={14}
+//                 className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"
+//               />
+//               <input
+//                 value={search}
+//                 onChange={(e) => setSearch(e.target.value)}
+//                 placeholder="Type medicine name..."
+//                 className="w-full pl-9 pr-9 py-2 bg-slate-800 border border-slate-700 focus:border-blue-500 rounded-lg text-white text-sm placeholder-slate-500 outline-none"
+//               />
+//               {searchLoading ? (
+//                 <RefreshCw
+//                   size={14}
+//                   className="absolute right-3 top-1/2 -translate-y-1/2 text-blue-400 animate-spin"
+//                 />
+//               ) : search ? (
+//                 <X
+//                   size={14}
+//                   onClick={clearSearch}
+//                   className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 cursor-pointer"
+//                 />
+//               ) : null}
+//             </div>
+//             {foundMed && (
+//               <div className="mt-3 p-3 bg-slate-800 rounded-lg border border-sky-500/50">
+//                 <p className="m-0 font-bold text-sky-400 text-xs">✅ Found</p>
+//                 <p className="m-0 mt-1 font-bold text-sm truncate">{foundMed.name}</p>
+//                 <p className="m-0 mt-1 text-xs text-slate-400">
+//                   Stock: {foundMed.currentStock} • {foundMed.category}
+//                 </p>
+//                 {foundMed.rackLocation?.position ? (
+//                   <p className="m-0 mt-2 text-xs font-semibold text-blue-400 flex items-center gap-1">
+//                     <MapPin size={12} /> {foundMed.rackLocation.position}
+//                   </p>
+//                 ) : (
+//                   <p className="m-0 mt-2 text-xs font-semibold text-amber-400">
+//                     ⚠️ Rack assign nahi hai
+//                   </p>
+//                 )}
+//               </div>
+//             )}
+//           </div>
+
+//           <div className="bg-slate-900 rounded-lg border border-slate-800 overflow-hidden">
+//             <div className="px-3 py-2 bg-slate-800 border-b border-slate-700 text-xs font-bold text-slate-400 uppercase">
+//               🏪 Counters
+//             </div>
+//             <div className="max-h-72 overflow-y-auto">
+//               {counters.map((c) => {
+//                 const n = racks.filter((r) => idOf(r.counterId) === c._id).length
+//                 const on = counterId === c._id
+//                 return (
+//                   <div
+//                     key={c._id}
+//                     onClick={() => setCounterId(c._id)}
+//                     className={`px-3 py-3 cursor-pointer border-l-4 transition-all text-sm ${on ? 'bg-slate-800 border-blue-500' : 'bg-slate-900 border-transparent hover:bg-slate-800'}`}
+//                   >
+//                     <p className="m-0 font-bold">{c.code}</p>
+//                     <p className="m-0 mt-0.5 text-xs text-slate-400">
+//                       {c.name} • {c.location} • {n} racks
+//                     </p>
+//                   </div>
+//                 )
+//               })}
+//             </div>
+//           </div>
+
+//           {/* legend */}
+//           <div className="bg-slate-900 rounded-lg p-3 border border-slate-800">
+//             <p className="m-0 mb-2 text-xs font-bold text-slate-400 uppercase">Legend</p>
+//             <div className="grid grid-cols-2 gap-2 text-xs">
+//               {['ok', 'low', 'out', 'found'].map((k) => (
+//                 <div key={k} className="flex items-center gap-2">
+//                   <span className="w-3 h-3 rounded-sm" style={{ background: COLORS[k].main }} />
+//                   <span className="text-slate-300">{COLORS[k].label}</span>
+//                 </div>
+//               ))}
+//               <div className="flex items-center gap-2 col-span-2">
+//                 <span className="w-3 h-3 rounded-sm border border-dashed border-slate-400" />
+//                 <span className="text-slate-300">Empty slot</span>
+//               </div>
+//             </div>
+//             <p className="m-0 mt-3 text-xs text-slate-500">
+//               S = Shelf (upar→neeche) • R = Row (aage→peeche) • C = Column (left→right)
+//             </p>
+//           </div>
+//         </div>
+
+//         {/* CENTER: 3D */}
+//         <div className="lg:col-span-2 order-1 lg:order-2 flex flex-col gap-3">
+//           {/* rack chips */}
+//           <div className="flex gap-2 overflow-x-auto pb-1">
+//             {counterRacks.length === 0 && (
+//               <span className="text-sm text-slate-400 py-2">Is counter me koi rack nahi hai</span>
+//             )}
+//             {counterRacks.map((r) => {
+//               const count = medicines.filter((m) => m.rackLocation?.rackId === r.code).length
+//               const on = r._id === rackId
+//               const pinned = foundMed?.rackLocation?.rackId === r.code
+//               return (
+//                 <button
+//                   key={r._id}
+//                   onClick={() => {
+//                     setRackId(r._id)
+//                     setSelectedKey(null)
+//                   }}
+//                   className={`shrink-0 px-3 py-2 rounded-lg border text-left transition-all ${on ? 'bg-indigo-600 border-indigo-400' : 'bg-slate-900 border-slate-700 hover:bg-slate-800'}`}
+//                 >
+//                   <p className="m-0 text-sm font-extrabold">
+//                     {pinned && '📍 '}
+//                     {r.code}
+//                   </p>
+//                   <p className="m-0 text-xs text-slate-300">{count} items</p>
+//                 </button>
+//               )
+//             })}
+//           </div>
+
+//           <div className="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
+//             {/* toolbar */}
+//             <div className="flex flex-wrap items-center gap-2 p-2 md:p-3 border-b border-slate-800 bg-slate-900/80">
+//               <Layers size={16} className="text-indigo-400" />
+//               <span className="text-sm font-bold mr-auto">
+//                 {rack ? `${rack.code}${rack.name ? ' • ' + rack.name : ''}` : 'Select rack'}
+//               </span>
+//               {Object.keys(PRESETS).map((p) => (
+//                 <button
+//                   key={p}
+//                   onClick={() => setRot(PRESETS[p])}
+//                   className="px-2.5 py-1 text-xs capitalize bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-md"
+//                 >
+//                   {p}
+//                 </button>
+//               ))}
+//               <button
+//                 onClick={() => setAuto((a) => !a)}
+//                 className="p-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-md"
+//                 title="Auto rotate"
+//               >
+//                 {auto ? <Pause size={14} /> : <Play size={14} />}
+//               </button>
+//               <button
+//                 onClick={() => {
+//                   setRot(PRESETS.angle)
+//                   setZoom(1)
+//                 }}
+//                 className="p-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-md"
+//                 title="Reset"
+//               >
+//                 <RotateCcw size={14} />
+//               </button>
+//               <input
+//                 type="range"
+//                 min="0.5"
+//                 max="1.6"
+//                 step="0.05"
+//                 value={zoom}
+//                 onChange={(e) => setZoom(Number(e.target.value))}
+//                 className="w-24 accent-indigo-500"
+//               />
+//             </div>
+
+//             {/* stage */}
+//             <div
+//               onPointerDown={onDown}
+//               onPointerMove={onMove}
+//               onPointerUp={onUp}
+//               onPointerLeave={onUp}
+//               className="relative select-none touch-none cursor-grab active:cursor-grabbing"
+//               style={{
+//                 height: 560,
+//                 perspective: 1500,
+//                 overflow: 'hidden',
+//                 background:
+//                   'radial-gradient(ellipse at 50% 30%, #1e1b4b 0%, #0f172a 55%, #020617 100%)',
+//               }}
+//             >
+//               {rack ? (
+//                 <Rack3D
+//                   shelves={dims.shelves}
+//                   rows={dims.rows}
+//                   cols={dims.cols}
+//                   slotMap={slotMap}
+//                   foundKey={foundKey}
+//                   selectedKey={selectedKey}
+//                   onSelect={handleSelect}
+//                   rot={rot}
+//                   zoom={zoom}
+//                 />
+//               ) : (
+//                 <p className="text-center text-slate-400 pt-48">Rack select karo</p>
+//               )}
+//               <div className="absolute bottom-2 left-3 text-xs text-slate-500">
+//                 🖱 Drag = rotate • Slider = zoom • Cube pe click = details
+//               </div>
+//               <div className="absolute top-2 right-3 text-xs text-slate-300 bg-slate-900/70 px-2 py-1 rounded-md">
+//                 {dims.shelves} shelves × {dims.rows} rows × {dims.cols} cols
+//               </div>
+//             </div>
+
+//             {/* capacity bar */}
+//             <div className="p-3 border-t border-slate-800">
+//               <div className="flex justify-between text-xs mb-1">
+//                 <span className="text-slate-400">Slots used</span>
+//                 <span className="font-bold">
+//                   {usedSlots}/{totalSlots} ({percent}%)
+//                 </span>
+//               </div>
+//               <div className="h-2 bg-slate-800 rounded overflow-hidden">
+//                 <div
+//                   className="h-full transition-all duration-500"
+//                   style={{
+//                     width: `${percent}%`,
+//                     background: percent > 80 ? '#ef4444' : percent > 50 ? '#f59e0b' : '#10b981',
+//                   }}
+//                 />
+//               </div>
+//             </div>
+//           </div>
+//         </div>
+
+//         {/* RIGHT: details */}
+//         <div className="lg:col-span-1 order-3 bg-slate-900 rounded-lg p-3 border border-slate-800 max-h-[760px] overflow-y-auto">
+//           {selectedKey ? (
+//             <div className="mb-4">
+//               <div className="flex items-center justify-between mb-2">
+//                 <p className="m-0 text-sm font-extrabold text-sky-400 flex items-center gap-1">
+//                   <MapPin size={14} /> {rack?.code}-{selectedKey}
+//                 </p>
+//                 <X
+//                   size={14}
+//                   className="cursor-pointer text-slate-400"
+//                   onClick={() => setSelectedKey(null)}
+//                 />
+//               </div>
+//               {selectedMeds.map((m) => {
+//                 const st = stockState(m)
+//                 return (
+//                   <div
+//                     key={m._id}
+//                     className="p-3 bg-slate-800 rounded-lg border border-slate-700 mb-2 text-xs"
+//                   >
+//                     <p className="m-0 text-sm font-bold">{m.name}</p>
+//                     <p className="m-0 mt-0.5 text-slate-400">{m.salt}</p>
+//                     <div className="grid grid-cols-2 gap-x-2 gap-y-1 mt-2">
+//                       <span className="text-slate-400">
+//                         Category: <b className="text-white">{m.category}</b>
+//                       </span>
+//                       <span className="text-slate-400">
+//                         Form: <b className="text-white">{m.formulation || '—'}</b>
+//                       </span>
+//                       <span className="text-slate-400">
+//                         Company: <b className="text-white">{m.company || '—'}</b>
+//                       </span>
+//                       <span className="text-slate-400">
+//                         Pack: <b className="text-white">{m.packSize}</b>
+//                       </span>
+//                       <span className="text-slate-400">
+//                         MRP: <b className="text-white">₹{m.mrp}</b>
+//                       </span>
+//                       <span className="text-slate-400">
+//                         GST: <b className="text-white">{m.gstPercent}%</b>
+//                       </span>
+//                     </div>
+//                     <div className="mt-2 flex items-center justify-between">
+//                       <span className="font-bold" style={{ color: COLORS[st].main }}>
+//                         ● {COLORS[st].label}
+//                       </span>
+//                       <span className="text-slate-300">
+//                         Stock: <b>{m.currentStock}</b> / reorder {m.reorderLevel}
+//                       </span>
+//                     </div>
+//                   </div>
+//                 )
+//               })}
+//             </div>
+//           ) : (
+//             <p className="m-0 mb-4 text-xs text-slate-500 text-center py-4 border border-dashed border-slate-700 rounded-lg">
+//               3D me kisi cube pe click karo — medicine ki details yahan dikhengi
+//             </p>
+//           )}
+
+//           <p className="m-0 mb-2 text-xs font-bold text-slate-400 uppercase flex items-center gap-1">
+//             <Package size={12} /> Rack medicines ({rackMeds.length})
+//           </p>
+//           {rackMeds.length === 0 && (
+//             <p className="text-xs text-slate-500 text-center py-4 m-0">Empty rack</p>
+//           )}
+//           {rackMeds.map((m) => {
+//             const l = m.rackLocation
+//             const k = slotKey(l.shelf, l.row, l.column)
+//             const st = stockState(m)
+//             return (
+//               <div
+//                 key={m._id}
+//                 onClick={() => setSelectedKey(k)}
+//                 className={`p-2 rounded-lg mb-1.5 border text-xs cursor-pointer transition-colors ${selectedKey === k ? 'bg-slate-700 border-sky-500' : 'bg-slate-800 border-slate-700 hover:bg-slate-700'}`}
+//               >
+//                 <div className="flex items-center justify-between gap-2">
+//                   <p className="m-0 font-bold truncate">{m.name}</p>
+//                   <span
+//                     className="w-2.5 h-2.5 rounded-full shrink-0"
+//                     style={{ background: COLORS[st].main }}
+//                   />
+//                 </div>
+//                 <p className="m-0 mt-0.5 text-slate-400">
+//                   S{l.shelf} • R{String(l.row).toUpperCase()} • C{l.column} • Stock {m.currentStock}
+//                 </p>
+//               </div>
+//             )
+//           })}
+//         </div>
+//       </div>
+//     </div>
+//   )
+// }
+
+
+
 /* eslint-disable prettier/prettier */
 /**
- * PharmacyLayout3D — Live Search + Responsive Tailwind UI
- * Debounced search (waits 800ms after typing stops)
+ * PharmacyLayout3D — True 3D rack view (shelf = level, row = depth, column = width)
+ * - Drag to rotate, slider to zoom, view presets, auto-rotate
+ * - Debounced live search (800ms) -> jumps to counter/rack and glows the exact slot
+ * - Pure CSS 3D transforms (no extra libs). Needs: react, lucide-react, tailwind, react-hot-toast
  */
-import { useState, useEffect, useMemo, useCallback } from 'react'
-import {
-  MapPin, Plus, Package, Layers, AlertTriangle, Search, X, 
-  ChevronRight, Grid3X3, RefreshCw, BarChart2, TrendingDown, Home, 
-  Info, Box, Zap
-} from 'lucide-react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { Search, RefreshCw, MapPin, X, Layers, Package, Play, Pause, RotateCcw } from 'lucide-react'
 import { getRequest } from '../../../Helpers'
 import toast from 'react-hot-toast'
 
-const STATUS = {
-  available: { color: '#10b981', label: 'In Stock' },
-  low: { color: '#f59e0b', label: 'Low Stock' },
-  out: { color: '#ef4444', label: 'Out of Stock' },
+/* ───────── CONSTANTS ───────── */
+const CELL = 46 // cube size
+const PITCH = 58 // distance between cubes (x / z)
+const LEVEL = 68 // vertical distance between shelves
+
+const COLORS = {
+  ok: { main: '#10b981', dark: '#047857', label: 'In Stock' },
+  low: { main: '#f59e0b', dark: '#b45309', label: 'Low Stock' },
+  out: { main: '#ef4444', dark: '#b91c1c', label: 'Out of Stock' },
+  found: { main: '#38bdf8', dark: '#0369a1', label: 'Found' },
 }
 
-const RACK_COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f97316', '#eab308', '#22c55e', '#14b8a6', '#06b6d4', '#3b82f6']
+// API ka `status` field pehle, nahi mila to stock vs reorderLevel se nikalo
+const stockState = (m) => {
+  const st = String(m.status || '').toLowerCase()
+  if (st.includes('out')) return 'out'
+  if (st.includes('low')) return 'low'
+  if (st.includes('in stock')) return 'ok'
+  const s = Number(m.currentStock ?? m.stock ?? 0)
+  if (s <= 0) return 'out'
+  if (s <= Number(m.reorderLevel ?? 0)) return 'low'
+  return 'ok'
+}
 
-/* ════ DEBOUNCE HOOK (Like Google Search) ════ */
+const rowIndex = (letter) => (String(letter || 'A').toUpperCase().charCodeAt(0) - 65) || 0
+const slotKey = (shelf, row, col) => `${shelf}-${String(row).toUpperCase()}-${col}`
+const idOf = (v) => String(v?._id || v || '')
+
+const PRESETS = {
+  front: { x: -6, y: 0 },
+  angle: { x: -20, y: -32 },
+  side: { x: -8, y: -80 },
+  top: { x: -78, y: 0 },
+}
+
+/* ───────── DEBOUNCE ───────── */
 const useDebounce = (value, delay) => {
-  const [debouncedValue, setDebouncedValue] = useState(value)
-
+  const [v, setV] = useState(value)
   useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedValue(value)
-    }, delay)
-
-    return () => clearTimeout(handler)
+    const t = setTimeout(() => setV(value), delay)
+    return () => clearTimeout(t)
   }, [value, delay])
-
-  return debouncedValue
+  return v
 }
 
-/* ════ VISUAL SHELF ════ */
-const ShelfVisualization = ({ rack, medicines }) => {
-  const shelves = rack.shelves || 5
-  const rowsPerShelf = rack.rowsPerShelf || 3
-  const columnsPerRow = rack.columnsPerRow || 4
-  const totalSlots = shelves * rowsPerShelf * columnsPerRow
-  const filledSlots = medicines.length
-  const percentFull = totalSlots > 0 ? Math.round((filledSlots / totalSlots) * 100) : 0
-
+/* ───────── 3D CUBE (one medicine slot) ───────── */
+const Cube = ({ x, y, z, state, label, active, found, onClick }) => {
+  const c = found ? COLORS.found : COLORS[state]
+  const half = CELL / 2
+  const face = (transform, extra = {}) => ({
+    position: 'absolute',
+    width: CELL,
+    height: CELL,
+    transform,
+    background: `linear-gradient(135deg, ${c.main}, ${c.dark})`,
+    border: `1px solid rgba(255,255,255,${active || found ? 0.9 : 0.25})`,
+    backfaceVisibility: 'hidden',
+    ...extra,
+  })
   return (
-    <div className="bg-slate-800 border border-slate-700 rounded-lg p-3">
-      <div className="flex justify-between items-center mb-3">
-        <p className="m-0 text-sm font-bold text-white">📊 Capacity</p>
-        <span className="text-sm font-extrabold text-blue-400">{filledSlots}/{totalSlots}</span>
-      </div>
-      
-      <div className="h-2 bg-slate-700 rounded overflow-hidden mb-3">
-        <div 
-          style={{ 
-            width: `${percentFull}%`, 
-            background: percentFull > 80 ? '#ef4444' : percentFull > 50 ? '#f59e0b' : '#10b981',
-            transition: 'width 0.4s'
-          }} 
-          className="h-full"
-        />
-      </div>
-
-      <div className="grid gap-1 mb-3" style={{ gridTemplateColumns: `repeat(${columnsPerRow}, 1fr)` }}>
-        {Array.from({ length: columnsPerRow }).map((_, col) => (
-          <div key={col} className="bg-slate-700 border border-slate-600 rounded p-1 text-center text-xs text-slate-400 font-semibold">
-            C{col + 1}
-          </div>
-        ))}
-      </div>
-
-      <div className="p-2 bg-slate-700 rounded text-xs">
-        <p className="m-0 mb-1 text-slate-300">Structure:</p>
-        <div className="grid grid-cols-2 gap-2 text-xs">
-          <div><span className="text-slate-400">Shelves:</span> <span className="text-white font-bold">{shelves}</span></div>
-          <div><span className="text-slate-400">Rows:</span> <span className="text-white font-bold">{rowsPerShelf}</span></div>
-          <div><span className="text-slate-400">Cols:</span> <span className="text-white font-bold">{columnsPerRow}</span></div>
-          <div><span className="text-slate-400">Total:</span> <span className="text-white font-bold">{totalSlots}</span></div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-/* ════ RACK CARD ════ */
-const RackCard = ({ rack, isSelected, isPinned, onClick, medicineCount }) => {
-  const pct = rack.capacity > 0 ? Math.round((medicineCount / rack.capacity) * 100) : 0
-  const colorIdx = (rack.code?.charCodeAt(0) || 0) + (parseInt(rack.code?.slice(1) || 0) || 0)
-  const accentColor = RACK_COLORS[colorIdx % RACK_COLORS.length]
-  
-  let st = STATUS.available
-  if (pct >= 90) st = STATUS.out
-  else if (pct >= 70) st = STATUS.low
-  
-  return (
-    <div 
-      onClick={onClick} 
-      className={`relative p-3 rounded-lg cursor-pointer transition-all border-2 ${isSelected ? 'bg-slate-700' : 'bg-slate-800'}`}
-      style={{ borderColor: isSelected ? accentColor : isPinned ? '#ef4444' : '#334155' }}
+    <div
+      onClick={onClick}
+      className={found ? 'ph3d-pulse' : 'ph3d-cube'}
+      style={{
+        position: 'absolute',
+        left: -half,
+        top: -half,
+        width: CELL,
+        height: CELL,
+        transformStyle: 'preserve-3d',
+        transform: `translate3d(${x}px, ${y}px, ${z}px)`,
+        cursor: 'pointer',
+        '--glow': c.main,
+      }}
     >
-      {isPinned && <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">📍</div>}
-      
-      <div className="absolute top-3 right-3 w-2.5 h-2.5 rounded-full" style={{ background: st.color, boxShadow: `0 0 6px ${st.color}` }} />
-      
-      <p className="m-0 mb-2 text-sm font-extrabold" style={{ color: isSelected ? accentColor : '#cbd5e1' }}>{rack.code}</p>
-      
-      <div className="text-xs text-slate-400 mb-2">
-        <p className="m-0 my-0.5">📦 {medicineCount} items</p>
-        <p className="m-0 my-0.5">🎯 {rack.shelves || 5} shelves</p>
+      <div style={face(`translateZ(${half}px)`, { display: 'flex', alignItems: 'center', justifyContent: 'center' })}>
+        <span className="text-white font-extrabold" style={{ fontSize: 9, textShadow: '0 1px 2px #000', padding: 2, textAlign: 'center', lineHeight: 1.05 }}>
+          {label}
+        </span>
       </div>
-      
-      <div className="h-1 bg-slate-700 rounded overflow-hidden">
-        <div style={{ height: '100%', width: `${pct}%`, background: st.color, transition: 'width 0.4s' }} />
-      </div>
-      <p className="m-0 mt-1 text-xs text-slate-400 font-semibold">{pct}% full</p>
+      <div style={face(`rotateY(180deg) translateZ(${half}px)`)} />
+      <div style={face(`rotateY(90deg) translateZ(${half}px)`, { filter: 'brightness(0.75)' })} />
+      <div style={face(`rotateY(-90deg) translateZ(${half}px)`, { filter: 'brightness(0.65)' })} />
+      <div style={face(`rotateX(90deg) translateZ(${half}px)`, { filter: 'brightness(1.25)' })} />
+      <div style={face(`rotateX(-90deg) translateZ(${half}px)`, { filter: 'brightness(0.5)' })} />
     </div>
   )
 }
 
-/* ════ MAIN COMPONENT ════ */
+/* ───────── EMPTY SLOT (ghost outline) ───────── */
+const Ghost = ({ x, y, z }) => (
+  <div
+    style={{
+      position: 'absolute',
+      left: -CELL / 2,
+      top: -CELL / 2,
+      width: CELL,
+      height: CELL,
+      transform: `translate3d(${x}px, ${y}px, ${z + CELL / 2}px)`,
+      border: '1px dashed rgba(148,163,184,0.35)',
+      background: 'rgba(148,163,184,0.05)',
+      borderRadius: 4,
+      pointerEvents: 'none',
+    }}
+  />
+)
+
+/* ───────── 3D RACK SCENE ───────── */
+const Rack3D = ({ shelves, rows, cols, slotMap, foundKey, selectedKey, onSelect, rot, zoom }) => {
+  const W = cols * PITCH
+  const D = rows * PITCH
+  const H = shelves * LEVEL
+  const rowLetters = Array.from({ length: rows }, (_, i) => String.fromCharCode(65 + i))
+
+  const px = (col) => (col - 0.5 - cols / 2) * PITCH
+  const pz = (r) => ((rows / 2) - (r + 0.5)) * PITCH // row A = front
+  const py = (shelf) => (shelf - 0.5 - shelves / 2) * LEVEL // shelf 1 = top
+
+  const panel = (style) => ({ position: 'absolute', ...style })
+
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        left: '50%',
+        top: '50%',
+        width: 0,
+        height: 0,
+        transformStyle: 'preserve-3d',
+        transform: `scale(${zoom}) rotateX(${rot.x}deg) rotateY(${rot.y}deg)`,
+      }}
+    >
+      {/* floor grid */}
+      <div
+        style={panel({
+          width: W + 260,
+          height: D + 260,
+          left: -(W + 260) / 2,
+          top: -(D + 260) / 2,
+          transform: `translateY(${H / 2 + 14}px) rotateX(90deg)`,
+          backgroundImage:
+            'linear-gradient(rgba(99,102,241,0.25) 1px, transparent 1px), linear-gradient(90deg, rgba(99,102,241,0.25) 1px, transparent 1px)',
+          backgroundSize: '29px 29px',
+          background: undefined,
+          border: '1px solid rgba(99,102,241,0.4)',
+          borderRadius: 12,
+          boxShadow: '0 0 60px rgba(99,102,241,0.2) inset',
+        })}
+      />
+
+      {/* back + side glass panels */}
+      <div style={panel({ width: W + 20, height: H + 20, left: -(W + 20) / 2, top: -(H + 20) / 2, transform: `translateZ(${-D / 2 - 10}px)`, background: 'rgba(30,41,59,0.55)', border: '1px solid rgba(148,163,184,0.3)' })} />
+      <div style={panel({ width: D + 20, height: H + 20, left: -(D + 20) / 2, top: -(H + 20) / 2, transform: `translateX(${-W / 2 - 10}px) rotateY(90deg)`, background: 'rgba(30,41,59,0.35)', border: '1px solid rgba(148,163,184,0.25)' })} />
+      <div style={panel({ width: D + 20, height: H + 20, left: -(D + 20) / 2, top: -(H + 20) / 2, transform: `translateX(${W / 2 + 10}px) rotateY(90deg)`, background: 'rgba(30,41,59,0.35)', border: '1px solid rgba(148,163,184,0.25)' })} />
+
+      {/* corner posts */}
+      {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz], i) => (
+        <div key={i} style={panel({ width: 8, height: H + 24, left: -4, top: -(H + 24) / 2, transform: `translate3d(${sx * (W / 2 + 10)}px, 0, ${sz * (D / 2 + 10)}px)`, background: 'linear-gradient(90deg,#64748b,#334155)', borderRadius: 3 })} />
+      ))}
+
+      {/* shelf boards + labels */}
+      {Array.from({ length: shelves }).map((_, i) => {
+        const s = i + 1
+        const yBottom = py(s) + CELL / 2 + 3
+        return (
+          <div key={s} style={{ position: 'absolute', transformStyle: 'preserve-3d' }}>
+            <div
+              style={panel({
+                width: W + 20,
+                height: D + 20,
+                left: -(W + 20) / 2,
+                top: -(D + 20) / 2,
+                transform: `translateY(${yBottom}px) rotateX(90deg)`,
+                background: 'linear-gradient(135deg, rgba(100,116,139,0.85), rgba(51,65,85,0.85))',
+                border: '1px solid rgba(203,213,225,0.5)',
+                borderRadius: 4,
+              })}
+            />
+            <div
+              className="text-slate-300 font-bold"
+              style={panel({ left: -(W / 2) - 62, top: py(s) - 10, width: 44, textAlign: 'right', fontSize: 11, transform: 'translateZ(' + (D / 2) + 'px)' })}
+            >
+              S{s}
+            </div>
+          </div>
+        )
+      })}
+
+      {/* column labels (front floor) */}
+      {Array.from({ length: cols }).map((_, i) => (
+        <div key={i} className="text-sky-300 font-bold" style={panel({ left: px(i + 1) - 14, top: -8, width: 28, textAlign: 'center', fontSize: 12, transform: `translate3d(0, ${H / 2 + 14}px, ${D / 2 + 40}px) rotateX(90deg)` })}>
+          C{i + 1}
+        </div>
+      ))}
+      {/* row labels (right floor) */}
+      {rowLetters.map((l, r) => (
+        <div key={l} className="text-pink-300 font-bold" style={panel({ left: -14, top: -8, width: 28, textAlign: 'center', fontSize: 12, transform: `translate3d(${W / 2 + 40}px, ${H / 2 + 14}px, ${pz(r)}px) rotateX(90deg)` })}>
+          R{l}
+        </div>
+      ))}
+
+      {/* slots */}
+      {Array.from({ length: shelves }).map((_, si) =>
+        rowLetters.map((l, r) =>
+          Array.from({ length: cols }).map((__, ci) => {
+            const s = si + 1
+            const c = ci + 1
+            const key = slotKey(s, l, c)
+            const meds = slotMap[key]
+            const x = px(c)
+            const y = py(s)
+            const z = pz(r)
+            if (!meds) return <Ghost key={key} x={x} y={y} z={z} />
+            const m = meds[0]
+            return (
+              <Cube
+                key={key}
+                x={x}
+                y={y}
+                z={z}
+                state={stockState(m)}
+                label={meds.length > 1 ? `${m.name.slice(0, 5)}+${meds.length - 1}` : m.name.slice(0, 7)}
+                found={foundKey === key}
+                active={selectedKey === key}
+                onClick={() => onSelect(key)}
+              />
+            )
+          })
+        )
+      )}
+    </div>
+  )
+}
+
+/* ───────── MAIN ───────── */
 export default function PharmacyLayout3D() {
   const [medicines, setMedicines] = useState([])
   const [counters, setCounters] = useState([])
   const [racks, setRacks] = useState([])
-  const [selectedCounter, setCounter] = useState(null)
-  const [selectedRack, setSelectedRack] = useState(null)
+  const [counterId, setCounterId] = useState(null)
+  const [rackId, setRackId] = useState(null)
   const [search, setSearch] = useState('')
   const [foundMed, setFoundMed] = useState(null)
+  const [selectedKey, setSelectedKey] = useState(null)
   const [loading, setLoading] = useState(true)
   const [searchLoading, setSearchLoading] = useState(false)
   const [lastRefresh, setLastRefresh] = useState(new Date())
-  
-  // Debounced search - waits 800ms after user stops typing
-  const debouncedSearch = useDebounce(search, 800)
 
-  /* ── FETCH ALL DATA ── */
+  const [rot, setRot] = useState(PRESETS.angle)
+  const [zoom, setZoom] = useState(1)
+  const [auto, setAuto] = useState(false)
+  const drag = useRef({ on: false, moved: false, sx: 0, sy: 0, ox: 0, oy: 0 })
+
+  const debouncedSearch = useDebounce(search, 800)
+  const dataRef = useRef({ racks: [], counters: [] })
+  dataRef.current = { racks, counters }
+
+  /* ── FETCH ── */
   const fetchAllData = useCallback(async () => {
     try {
       const [mRes, cRes, rRes] = await Promise.allSettled([
-        getRequest('/franchise/medicines?limit=1000&layout=true'),  // ← Add layout=true to skip KPI/categories
+        getRequest('/franchise/medicines?limit=1000&layout=true'),
         getRequest('/franchise/master/counters'),
         getRequest('/franchise/master/racks'),
       ])
-
       if (mRes.status === 'fulfilled') {
-        const meds = mRes.value?.data?.data?.medicines || []
-        console.log('✅ Medicines:', meds.length)
+        const d = mRes.value?.data?.data
+        let meds = d?.medicines || []
+        // agar total zyada hai to saari medicines laao (koi limit hardcode nahi)
+        if (d?.total > meds.length) {
+          try {
+            const full = await getRequest(`/franchise/medicines?limit=${d.total}&layout=true`)
+            meds = full?.data?.data?.medicines || meds
+          } catch { /* pehle wali list rakho */ }
+        }
         setMedicines(meds)
       }
-
       if (cRes.status === 'fulfilled') {
         const cs = cRes.value?.data?.data || []
-        console.log('✅ Counters:', cs.length)
         setCounters(cs)
-        // Only set default on initial load, not on every refresh
-        setCounter(prev => prev || cs[0])
+        setCounterId((p) => p || cs[0]?._id || null)
       }
-
       if (rRes.status === 'fulfilled') {
         const rs = rRes.value?.data?.data || []
-        console.log('✅ Racks:', rs.length)
         setRacks(rs)
-        // Only set default on initial load, not on every refresh
-        setSelectedRack(prev => prev || rs[0])
       }
-
       setLastRefresh(new Date())
-      setLoading(false)
-    } catch (err) {
-      console.error('❌ Fetch error:', err)
+    } catch (e) {
+      console.error(e)
       toast.error('Failed to load data')
+    } finally {
       setLoading(false)
     }
   }, [])
 
-  /* ── INITIAL LOAD ── */
   useEffect(() => {
     fetchAllData()
+    const t = setInterval(fetchAllData, 60000) // har 60s me auto refresh
+    return () => clearInterval(t)
   }, [fetchAllData])
 
-  /* ── DEBOUNCED SEARCH (Like Google - waits 800ms) ── */
-  useEffect(() => {
-    if (!debouncedSearch.trim()) {
-      setFoundMed(null)
-      return
-    }
+  /* ── DERIVED ── */
+  const counterRacks = useMemo(
+    () => racks.filter((r) => !counterId || idOf(r.counterId) === counterId),
+    [racks, counterId]
+  )
 
-    const performSearch = async () => {
+  // default rack = first rack of selected counter
+  useEffect(() => {
+    if (!counterRacks.length) return
+    if (!counterRacks.find((r) => r._id === rackId)) setRackId(counterRacks[0]._id)
+  }, [counterRacks, rackId])
+
+  const rack = useMemo(() => racks.find((r) => r._id === rackId) || null, [racks, rackId])
+
+  const rackMeds = useMemo(
+    () => (rack ? medicines.filter((m) => m.rackLocation?.rackId === rack.code) : []),
+    [medicines, rack]
+  )
+
+  const dims = useMemo(() => {
+    let maxShelf = 0, maxRow = 0, maxCol = 0
+    rackMeds.forEach((m) => {
+      maxShelf = Math.max(maxShelf, Number(m.rackLocation?.shelf) || 0)
+      maxRow = Math.max(maxRow, rowIndex(m.rackLocation?.row) + 1)
+      maxCol = Math.max(maxCol, Number(m.rackLocation?.column) || 0)
+    })
+    // sab kuch rack ke API data se: shelves, capacity, aur medicines ki asli location
+    const shelves = Math.max(typeof rack?.shelves === 'number' ? rack.shelves : 0, maxShelf, 1)
+    const perShelf = rack?.capacity ? Math.ceil(rack.capacity / shelves) : 1
+    const baseCols = Math.max(1, Math.ceil(Math.sqrt(perShelf)))
+    const baseRows = Math.max(1, Math.ceil(perShelf / baseCols))
+    return {
+      shelves,
+      rows: Math.max(rack?.rowsPerShelf || baseRows, maxRow),
+      cols: Math.max(rack?.columnsPerRow || baseCols, maxCol),
+    }
+  }, [rack, rackMeds])
+
+  const slotMap = useMemo(() => {
+    const map = {}
+    rackMeds.forEach((m) => {
+      const l = m.rackLocation
+      if (!l) return
+      const k = slotKey(l.shelf, l.row, l.column)
+      ;(map[k] = map[k] || []).push(m)
+    })
+    return map
+  }, [rackMeds])
+
+  const totalSlots = dims.shelves * dims.rows * dims.cols
+  const capacity = rack?.capacity || totalSlots
+  const percent = capacity ? Math.min(100, Math.round((rackMeds.length / capacity) * 100)) : 0
+
+  const counterOfRack = useMemo(
+    () => counters.find((c) => c._id === idOf(rack?.counterId)) || (typeof rack?.counterId === 'object' ? rack.counterId : null),
+    [counters, rack]
+  )
+
+  // jin medicines ki rack nahi hai ya rack list me nahi mili
+  const unassignedMeds = useMemo(
+    () => medicines.filter((m) => !m.rackLocation?.rackId || !racks.some((r) => r.code === m.rackLocation.rackId)),
+    [medicines, racks]
+  )
+
+  const stats = useMemo(() => {
+    const unassigned = unassignedMeds.length
+    return {
+      total: medicines.length,
+      assigned: medicines.length - unassigned,
+      unassigned,
+      low: medicines.filter((m) => stockState(m) === 'low').length,
+      out: medicines.filter((m) => stockState(m) === 'out').length,
+    }
+  }, [medicines, unassignedMeds])
+
+  const foundKey = foundMed?.rackLocation && foundMed.rackLocation.rackId === rack?.code
+    ? slotKey(foundMed.rackLocation.shelf, foundMed.rackLocation.row, foundMed.rackLocation.column)
+    : null
+
+  const selectedMeds = selectedKey ? slotMap[selectedKey] || [] : []
+
+  /* ── SEARCH (debounced) ── */
+  useEffect(() => {
+    const q = debouncedSearch.trim()
+    if (!q) { setFoundMed(null); return }
+    let cancelled = false
+    ;(async () => {
       setSearchLoading(true)
       try {
-        const response = await getRequest(`/franchise/medicines?search=${encodeURIComponent(debouncedSearch)}&limit=1`)
-        const meds = response?.data?.data?.medicines || []
-        
-        if (meds.length > 0) {
-          const med = meds[0]
-          setFoundMed(med)
-          
-          // Auto-select counter — compare both _id string forms
-          if (med.counterId) {
-            const cId = String(med.counterId?._id || med.counterId)
-            setCounters(prev => {
-              const counter = prev.find(c => String(c._id) === cId)
-              if (counter) setCounter(counter)
-              return prev
-            })
+        const res = await getRequest(`/franchise/medicines?search=${encodeURIComponent(q)}&limit=1`)
+        if (cancelled) return
+        const med = res?.data?.data?.medicines?.[0]
+        if (!med) { setFoundMed(null); toast.error('Medicine not found'); return }
+        setFoundMed(med)
+        const loc = med.rackLocation
+        if (loc?.rackId) {
+          const r = dataRef.current.racks.find((x) => x.code === loc.rackId)
+          if (r) {
+            setCounterId(idOf(r.counterId) || idOf(med.counterId))
+            setRackId(r._id)
+            setSelectedKey(slotKey(loc.shelf, loc.row, loc.column))
+            setRot(PRESETS.angle)
           }
-          
-          // Auto-select rack — rackLocation.rackId is rack CODE string
-          if (med.rackLocation?.rackId) {
-            setRacks(prev => {
-              const rackData = prev.find(r => r.code === med.rackLocation.rackId)
-              if (rackData) setSelectedRack(rackData)
-              return prev
-            })
-          }
-
-          toast.success('Found: ' + med.name)
-        } else {
-          setFoundMed(null)
-          toast.error('Medicine not found')
         }
+        toast.success('Found: ' + med.name)
       } catch {
-        setFoundMed(null)
-        toast.error('Search failed')
+        if (!cancelled) { setFoundMed(null); toast.error('Search failed') }
       } finally {
-        setSearchLoading(false)
+        if (!cancelled) setSearchLoading(false)
       }
-    }
-
-    performSearch()
+    })()
+    return () => { cancelled = true }
   }, [debouncedSearch])
 
-  /* ── FILTERED DATA ── */
-  const counterRacks = useMemo(() => {
-    if (!selectedCounter) return racks
-    return racks.filter(r => {
-      const cId = r.counterId?._id || r.counterId
-      const sId = selectedCounter._id || selectedCounter.id
-      return cId === sId
-    })
-  }, [racks, selectedCounter])
+  /* ── AUTO ROTATE ── */
+  useEffect(() => {
+    if (!auto) return
+    const t = setInterval(() => {
+      if (!drag.current.on) setRot((r) => ({ ...r, y: r.y + 0.4 }))
+    }, 30)
+    return () => clearInterval(t)
+  }, [auto])
 
-  const rackMedicines = useMemo(() => {
-    if (!selectedRack) return []
-    return medicines.filter(m => {
-      const rackCode = m.rackLocation?.rackId || ''
-      return rackCode === selectedRack.code
-    })
-  }, [medicines, selectedRack])
+  /* ── DRAG ── */
+  const onDown = (e) => {
+    drag.current = { on: true, moved: false, sx: e.clientX, sy: e.clientY, ox: rot.x, oy: rot.y }
+  }
+  const onMove = (e) => {
+    const d = drag.current
+    if (!d.on) return
+    const dx = e.clientX - d.sx
+    const dy = e.clientY - d.sy
+    if (Math.abs(dx) + Math.abs(dy) > 4) d.moved = true
+    setRot({ x: Math.max(-90, Math.min(10, d.ox - dy * 0.4)), y: d.oy + dx * 0.5 })
+  }
+  const onUp = () => { drag.current.on = false }
+  const handleSelect = (k) => { if (!drag.current.moved) setSelectedKey(k) }
 
-  /* ── AVAILABLE SPACE ── */
-  const rackSpace = useMemo(() => {
-    if (!selectedRack) return { total: 0, used: 0, available: 0, percent: 0 }
-    const total = selectedRack.capacity || 200
-    const used = rackMedicines.length
-    const available = total - used
-    const percent = Math.round((used / total) * 100)
-    return { total, used, available, percent }
-  }, [selectedRack, rackMedicines])
-
-  /* ── STATS ── */
-  const stats = useMemo(() => {
-    const low = medicines.filter(m => m.currentStock > 0 && m.currentStock <= m.reorderLevel).length
-    const out = medicines.filter(m => m.currentStock === 0).length
-    const assigned = medicines.filter(m => m.rackLocation?.position).length
-    const unassigned = medicines.length - assigned
-    return { total: medicines.length, low, out, assigned, unassigned }
-  }, [medicines])
+  const clearSearch = () => { setSearch(''); setFoundMed(null) }
 
   if (loading) {
     return (
@@ -278,206 +1389,300 @@ export default function PharmacyLayout3D() {
 
   return (
     <div className="bg-slate-950 min-h-screen p-3 md:p-4 lg:p-6 text-white font-sans">
-      
-      {/* ═══ HEADER ═══ */}
-      <div className="bg-slate-900 rounded-xl p-3 md:p-4 lg:p-6 mb-6 border border-slate-800">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 md:gap-4">
+      <style>{`
+        .ph3d-cube { transition: transform .25s; }
+        .ph3d-cube:hover > div { filter: brightness(1.3); }
+        @keyframes ph3dGlow { 0%,100% { filter: drop-shadow(0 0 4px var(--glow)); } 50% { filter: drop-shadow(0 0 22px var(--glow)) brightness(1.4); } }
+        .ph3d-pulse { animation: ph3dGlow 1.2s ease-in-out infinite; }
+      `}</style>
+
+      {/* HEADER */}
+      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-xl p-4 mb-4 border border-slate-800">
+        <div className="flex flex-col md:flex-row justify-between md:items-center gap-3">
           <div>
-            <h1 className="m-0 text-xl md:text-xl lg:text-xl font-extrabold">📦 Pharmacy Layout</h1>
+            <h1 className="m-0 text-xl font-extrabold">📦 Pharmacy 3D Layout</h1>
             <p className="m-0 mt-1 text-xs md:text-sm text-slate-400">
               {stats.total} medicines • {counters.length} counters • {racks.length} racks
             </p>
           </div>
-          
-          <div className="flex gap-2 flex-wrap">
-            <button 
-              onClick={fetchAllData} 
-              className="flex items-center gap-2 px-3 md:px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-white text-xs md:text-sm font-semibold transition-colors"
-            >
+          <div className="flex gap-2 items-center flex-wrap">
+            <button onClick={fetchAllData} className="flex items-center gap-2 px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs md:text-sm font-semibold">
               <RefreshCw size={14} /> Refresh
             </button>
-            <span className="text-xs text-slate-400 px-3 md:px-4 py-2 bg-slate-800 rounded-lg whitespace-nowrap">
-              {lastRefresh.toLocaleTimeString()}
-            </span>
+            <span className="text-xs text-slate-400 px-3 py-2 bg-slate-800 rounded-lg">{lastRefresh.toLocaleTimeString()}</span>
           </div>
         </div>
       </div>
 
-      {/* ═══ STATS GRID (Responsive) ═══ */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-2 md:gap-3 lg:gap-4 mb-6">
+      {/* STATS */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3 mb-4">
         {[
-          { label: 'Total', value: stats.total, icon: '📋', color: '#3b82f6' },
-          { label: 'Counters', value: counters.length, icon: '🏪', color: '#8b5cf6' },
-          { label: 'Racks', value: racks.length, icon: '📦', color: '#22c55e' },
-          { label: 'Assigned', value: stats.assigned, icon: '✅', color: '#10b981' },
-          { label: 'Unassigned', value: stats.unassigned, icon: '❌', color: '#f59e0b' },
-          { label: 'Low Stock', value: stats.low, icon: '⚠️', color: '#f59e0b' },
-          { label: 'Out of Stock', value: stats.out, icon: '🔴', color: '#ef4444' },
-        ].map(s => (
-          <div key={s.label} className="bg-slate-900 rounded-lg p-2 md:p-3 border border-slate-800">
-            <p className="m-0 text-xs text-slate-400 flex items-center gap-1">
-              {s.icon} {s.label}
-            </p>
-            <p className="m-0 mt-1 text-2xl md:text-3xl font-extrabold" style={{ color: s.color }}>{s.value}</p>
+          ['📋 Total', stats.total, '#3b82f6'],
+          ['✅ Assigned', stats.assigned, '#10b981'],
+          ['❌ Unassigned', stats.unassigned, '#f59e0b'],
+          ['⚠️ Low Stock', stats.low, '#f59e0b'],
+          ['🔴 Out of Stock', stats.out, '#ef4444'],
+        ].map(([l, v, c]) => (
+          <div key={l} className="bg-slate-900 rounded-lg p-3 border border-slate-800">
+            <p className="m-0 text-xs text-slate-400">{l}</p>
+            <p className="m-0 mt-1 text-2xl font-extrabold" style={{ color: c }}>{v}</p>
           </div>
         ))}
       </div>
 
-      {/* ═══ MAIN LAYOUT (Responsive) ═══ */}
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4 lg:gap-5">
-        
-        {/* ─ LEFT: SEARCH + COUNTERS ─ */}
-        <div className="md:col-span-1 flex flex-col gap-3 md:gap-4">
-          
-          {/* Search Box */}
-          <div className="bg-slate-900 rounded-lg p-3 md:p-4 border border-slate-800">
-            <p className="m-0 mb-2 md:mb-3 text-xs font-bold text-slate-400 uppercase flex items-center gap-2">
-              🔍 Search (Live)
-            </p>
-            <div className="relative mb-3">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-600" />
-              <input 
-                value={search} 
-                onChange={e => setSearch(e.target.value)} 
-                placeholder="Type medicine..." 
-                disabled={searchLoading}
-                className="w-full pl-9 pr-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-xs md:text-sm placeholder-slate-500 outline-none disabled:opacity-50 transition-opacity"
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 md:gap-4">
+        {/* LEFT: search + counters */}
+        <div className="lg:col-span-1 flex flex-col gap-3 md:gap-4 order-2 lg:order-1">
+          <div className="bg-slate-900 rounded-lg p-3 border border-slate-800">
+            <p className="m-0 mb-2 text-xs font-bold text-slate-400 uppercase">🔍 Search medicine</p>
+            <div className="relative">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Type medicine name..."
+                className="w-full pl-9 pr-9 py-2 bg-slate-800 border border-slate-700 focus:border-blue-500 rounded-lg text-white text-sm placeholder-slate-500 outline-none"
               />
-              {searchLoading && <RefreshCw size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-blue-400 animate-spin" />}
+              {searchLoading ? (
+                <RefreshCw size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-blue-400 animate-spin" />
+              ) : search ? (
+                <X size={14} onClick={clearSearch} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 cursor-pointer" />
+              ) : null}
             </div>
-            
             {foundMed && (
-              <div className="p-2 md:p-3 bg-slate-800 rounded-lg border border-slate-700">
-                <p className="m-0 font-bold text-green-400 text-xs md:text-sm">✅ Found</p>
-                <p className="m-0 mt-1 md:mt-2 font-bold text-white text-xs md:text-sm truncate">{foundMed.name}</p>
-                <p className="m-0 mt-1 text-xs text-slate-400">Stock: {foundMed.currentStock}</p>
-                <p className="m-0 mt-0.5 text-xs text-slate-400">Category: {foundMed.category}</p>
+              <div className="mt-3 p-3 bg-slate-800 rounded-lg border border-sky-500/50">
+                <p className="m-0 font-bold text-sky-400 text-xs">✅ Found</p>
+                <p className="m-0 mt-1 font-bold text-sm truncate">{foundMed.name}</p>
+                <p className="m-0 mt-1 text-xs text-slate-400">Stock: {foundMed.currentStock} • {foundMed.category}</p>
                 {foundMed.rackLocation?.position ? (
-                  <p className="m-0 mt-1 md:mt-2 text-xs font-semibold text-blue-400">📍 {foundMed.rackLocation.position}</p>
+                  <p className="m-0 mt-2 text-xs font-semibold text-blue-400 flex items-center gap-1"><MapPin size={12} /> {foundMed.rackLocation.position}</p>
                 ) : (
-                  <p className="m-0 mt-1 md:mt-2 text-xs font-semibold text-amber-400">⚠️ Not assigned</p>
+                  <p className="m-0 mt-2 text-xs font-semibold text-amber-400">⚠️ Rack assign nahi hai</p>
                 )}
               </div>
             )}
           </div>
 
-          {/* Counters List */}
           <div className="bg-slate-900 rounded-lg border border-slate-800 overflow-hidden">
-            <div className="px-3 md:px-4 py-2 md:py-3 bg-slate-800 border-b border-slate-700 text-xs font-bold text-slate-400 uppercase">
-              🏪 Counters
-            </div>
-            <div className="max-h-64 md:max-h-96 overflow-y-auto">
-              {counters.map(c => {
-                const counterRackCount = racks.filter(r => {
-                  const cId = r.counterId?._id || r.counterId
-                  return cId === c._id
-                }).length
+            <div className="px-3 py-2 bg-slate-800 border-b border-slate-700 text-xs font-bold text-slate-400 uppercase">🏪 Counters</div>
+            <div className="max-h-72 overflow-y-auto">
+              {counters.map((c) => {
+                const n = racks.filter((r) => idOf(r.counterId) === c._id).length
+                const on = counterId === c._id
                 return (
-                  <div 
-                    key={c._id} 
-                    onClick={() => setCounter(c)} 
-                    className={`px-3 md:px-4 py-2 md:py-3 cursor-pointer border-l-4 transition-all text-xs md:text-sm ${selectedCounter?._id === c._id ? 'bg-slate-800 border-blue-500' : 'bg-slate-900 border-transparent hover:bg-slate-800'}`}
+                  <div
+                    key={c._id}
+                    onClick={() => setCounterId(c._id)}
+                    className={`px-3 py-3 cursor-pointer border-l-4 transition-all text-sm ${on ? 'bg-slate-800 border-blue-500' : 'bg-slate-900 border-transparent hover:bg-slate-800'}`}
                   >
-                    <p className="m-0 font-bold text-white">{c.code}</p>
-                    <p className="m-0 mt-0.5 text-slate-400">{c.name} • {counterRackCount} racks</p>
+                    <p className="m-0 font-bold">{c.code}</p>
+                    <p className="m-0 mt-0.5 text-xs text-slate-400">{c.name} • {c.location} • {n} racks</p>
                   </div>
                 )
               })}
             </div>
           </div>
-        </div>
 
-        {/* ─ CENTER: RACK GRID ─ */}
-        <div className="md:col-span-2 lg:col-span-2 bg-slate-900 rounded-lg p-3 md:p-4 border border-slate-800">
-          <div className="flex items-center gap-2 mb-3 md:mb-4">
-            <Layers size={16} className="text-blue-400" />
-            <p className="m-0 text-sm md:text-base font-bold">
-              {selectedCounter ? selectedCounter.code + ' - ' + counterRacks.length + ' Racks' : 'Select Counter'}
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-3 min-h-64 md:min-h-80">
-            {counterRacks.length > 0 ? (
-              counterRacks.map(rack => {
-                const medCount = medicines.filter(m => m.rackLocation?.rackId === rack.code).length
-                return (
-                  <RackCard 
-                    key={rack._id} 
-                    rack={rack} 
-                    onClick={() => setSelectedRack(rack)} 
-                    isSelected={selectedRack?._id === rack._id} 
-                    isPinned={foundMed?.rackLocation?.rackId === rack.code}
-                    medicineCount={medCount} 
-                  />
-                )
-              })
-            ) : (
-              <p className="col-span-full text-center text-slate-400 py-16 md:py-20">No racks in this counter</p>
-            )}
-          </div>
-        </div>
-
-        {/* ─ RIGHT: RACK DETAILS ─ */}
-        <div className="md:col-span-1 bg-slate-900 rounded-lg p-3 md:p-4 border border-slate-800 max-h-80 md:max-h-96 lg:max-h-[600px] overflow-y-auto">
-          {selectedRack ? (
-            <div>
-              <p className="m-0 mb-3 md:mb-4 text-base md:text-lg font-extrabold text-blue-400 flex items-center gap-2">
-                📦 {selectedRack.code}
-              </p>
-              
-              {/* Info Section */}
-              <div className="bg-slate-800 rounded-lg p-2 md:p-3 mb-3 md:mb-4">
-                {[
-                  ['Name', selectedRack.name],
-                  ['Counter', counters.find(c => c._id === (selectedRack.counterId?._id || selectedRack.counterId))?.code || 'N/A'],
-                  ['Shelves', selectedRack.shelves || 5],
-                  ['Rows/Shelf', selectedRack.rowsPerShelf || 3],
-                  ['Cols/Row', selectedRack.columnsPerRow || 4],
-                ].map(([k, v]) => (
-                  <div key={k} className="flex justify-between text-xs py-1 md:py-1.5 border-b border-slate-700 last:border-b-0">
-                    <span className="text-slate-400">{k}:</span>
-                    <span className="font-bold text-white">{v}</span>
-                  </div>
-                ))}
-              </div>
-
-              {/* Space Visualization */}
-              <ShelfVisualization rack={selectedRack} medicines={rackMedicines} />
-
-              {/* Capacity Info */}
-              <div className="mt-3 md:mt-4 p-2 md:p-3 bg-slate-800 rounded-lg">
-                <p className="m-0 mb-1 md:mb-2 text-xs font-bold text-slate-400">CAPACITY</p>
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div><span className="text-slate-400">Used:</span> <span className="text-amber-400 font-bold">{rackSpace.used}</span></div>
-                  <div><span className="text-slate-400">Available:</span> <span className="text-green-400 font-bold">{rackSpace.available}</span></div>
-                  <div><span className="text-slate-400">Total:</span> <span className="text-blue-400 font-bold">{rackSpace.total}</span></div>
-                  <div><span className="text-slate-400">Full:</span> <span className="text-white font-bold">{rackSpace.percent}%</span></div>
+          {/* legend */}
+          <div className="bg-slate-900 rounded-lg p-3 border border-slate-800">
+            <p className="m-0 mb-2 text-xs font-bold text-slate-400 uppercase">Legend</p>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              {['ok', 'low', 'out', 'found'].map((k) => (
+                <div key={k} className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-sm" style={{ background: COLORS[k].main }} />
+                  <span className="text-slate-300">{COLORS[k].label}</span>
                 </div>
-              </div>
-
-              {/* Medicines List */}
-              <p className="m-0 mt-3 md:mt-4 mb-2 text-xs font-bold text-slate-400 uppercase">
-                📋 Medicines ({rackMedicines.length})
-              </p>
-              <div className="max-h-40 md:max-h-48 overflow-y-auto">
-                {rackMedicines.length > 0 ? (
-                  rackMedicines.map(m => (
-                    <div key={m._id} className="p-1.5 md:p-2 bg-slate-800 rounded-lg mb-1 md:mb-2 border border-slate-700 text-xs">
-                      <p className="m-0 font-bold text-white truncate">{m.name}</p>
-                      <p className="m-0 mt-0.5 text-slate-400">📊 Stock: {m.currentStock}</p>
-                      <p className="m-0 text-slate-400">💊 {m.formulation}</p>
-                      {m.rackLocation?.position && (
-                        <p className="m-0 mt-0.5 text-blue-400 text-xs">📍 {m.rackLocation.position}</p>
-                      )}
-                    </div>
-                  ))
-                ) : (
-                  <p className="m-0 text-slate-400 text-xs text-center py-3 md:py-4">Empty</p>
-                )}
+              ))}
+              <div className="flex items-center gap-2 col-span-2">
+                <span className="w-3 h-3 rounded-sm border border-dashed border-slate-400" />
+                <span className="text-slate-300">Empty slot</span>
               </div>
             </div>
+            <p className="m-0 mt-3 text-xs text-slate-500">S = Shelf (upar→neeche) • R = Row (aage→peeche) • C = Column (left→right)</p>
+          </div>
+        </div>
+
+        {/* CENTER: 3D */}
+        <div className="lg:col-span-2 order-1 lg:order-2 flex flex-col gap-3">
+          {/* rack chips */}
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {counterRacks.length === 0 && <span className="text-sm text-slate-400 py-2">Is counter me koi rack nahi hai</span>}
+            {counterRacks.map((r) => {
+              const count = medicines.filter((m) => m.rackLocation?.rackId === r.code).length
+              const on = r._id === rackId
+              const pinned = foundMed?.rackLocation?.rackId === r.code
+              return (
+                <button
+                  key={r._id}
+                  onClick={() => { setRackId(r._id); setSelectedKey(null) }}
+                  className={`shrink-0 px-3 py-2 rounded-lg border text-left transition-all ${on ? 'bg-indigo-600 border-indigo-400' : 'bg-slate-900 border-slate-700 hover:bg-slate-800'}`}
+                >
+                  <p className="m-0 text-sm font-extrabold">{pinned && '📍 '}{r.code}</p>
+                  <p className="m-0 text-xs text-slate-300">{count} items</p>
+                </button>
+              )
+            })}
+          </div>
+
+          <div className="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
+            {/* toolbar */}
+            <div className="flex flex-wrap items-center gap-2 p-2 md:p-3 border-b border-slate-800 bg-slate-900/80">
+              <Layers size={16} className="text-indigo-400" />
+              <span className="text-sm font-bold mr-auto">{rack ? `${rack.code}${rack.name ? ' • ' + rack.name : ''}` : 'Select rack'}</span>
+              {Object.keys(PRESETS).map((p) => (
+                <button key={p} onClick={() => setRot(PRESETS[p])} className="px-2.5 py-1 text-xs capitalize bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-md">{p}</button>
+              ))}
+              <button onClick={() => setAuto((a) => !a)} className="p-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-md" title="Auto rotate">
+                {auto ? <Pause size={14} /> : <Play size={14} />}
+              </button>
+              <button onClick={() => { setRot(PRESETS.angle); setZoom(1) }} className="p-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-md" title="Reset">
+                <RotateCcw size={14} />
+              </button>
+              <input type="range" min="0.5" max="1.6" step="0.05" value={zoom} onChange={(e) => setZoom(Number(e.target.value))} className="w-24 accent-indigo-500" />
+            </div>
+
+            {/* stage */}
+            <div
+              onPointerDown={onDown}
+              onPointerMove={onMove}
+              onPointerUp={onUp}
+              onPointerLeave={onUp}
+              className="relative select-none touch-none cursor-grab active:cursor-grabbing"
+              style={{
+                height: 560,
+                perspective: 1500,
+                overflow: 'hidden',
+                background: 'radial-gradient(ellipse at 50% 30%, #1e1b4b 0%, #0f172a 55%, #020617 100%)',
+              }}
+            >
+              {rack ? (
+                <Rack3D
+                  shelves={dims.shelves}
+                  rows={dims.rows}
+                  cols={dims.cols}
+                  slotMap={slotMap}
+                  foundKey={foundKey}
+                  selectedKey={selectedKey}
+                  onSelect={handleSelect}
+                  rot={rot}
+                  zoom={zoom}
+                />
+              ) : (
+                <p className="text-center text-slate-400 pt-48">Rack select karo</p>
+              )}
+              <div className="absolute bottom-2 left-3 text-xs text-slate-500">🖱 Drag = rotate • Slider = zoom • Cube pe click = details</div>
+              <div className="absolute top-2 right-3 text-xs text-slate-300 bg-slate-900/70 px-2 py-1 rounded-md">
+                {dims.shelves} shelves × {dims.rows} rows × {dims.cols} cols
+              </div>
+            </div>
+
+            {/* capacity bar */}
+            <div className="p-3 border-t border-slate-800">
+              <div className="flex justify-between text-xs mb-1">
+                <span className="text-slate-400">Items / rack capacity</span>
+                <span className="font-bold">{rackMeds.length}/{capacity} ({percent}%)</span>
+              </div>
+              <div className="h-2 bg-slate-800 rounded overflow-hidden">
+                <div className="h-full transition-all duration-500" style={{ width: `${percent}%`, background: percent > 80 ? '#ef4444' : percent > 50 ? '#f59e0b' : '#10b981' }} />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* RIGHT: details */}
+        <div className="lg:col-span-1 order-3 bg-slate-900 rounded-lg p-3 border border-slate-800 max-h-[760px] overflow-y-auto">
+          {rack && (
+            <div className="bg-slate-800 rounded-lg p-3 mb-3 text-xs">
+              {[
+                ['Rack', `${rack.code}${rack.name ? ' • ' + rack.name : ''}`],
+                ['Counter', counterOfRack ? `${counterOfRack.name} (${counterOfRack.code})` : null],
+                ['Floor', counterOfRack?.location],
+                ['Area', rack.area],
+                ['Shelf', typeof rack.shelf === 'string' ? rack.shelf : null],
+                ['Detail', rack.description],
+                ['Shelves', typeof rack.shelves === 'number' ? rack.shelves : null],
+                ['Capacity', rack.capacity],
+                ['Status', rack.status || (rack.isActive ? 'Active' : 'Inactive')],
+              ]
+                .filter(([, v]) => v !== null && v !== undefined && v !== '')
+                .map(([k, v]) => (
+                  <div key={k} className="flex justify-between gap-2 py-1 border-b border-slate-700 last:border-b-0">
+                    <span className="text-slate-400">{k}</span>
+                    <span className="font-bold text-right">{v}</span>
+                  </div>
+                ))}
+            </div>
+          )}
+
+          {selectedKey ? (
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <p className="m-0 text-sm font-extrabold text-sky-400 flex items-center gap-1">
+                  <MapPin size={14} /> {rack?.code}-{selectedKey}
+                </p>
+                <X size={14} className="cursor-pointer text-slate-400" onClick={() => setSelectedKey(null)} />
+              </div>
+              {selectedMeds.map((m) => {
+                const st = stockState(m)
+                return (
+                  <div key={m._id} className="p-3 bg-slate-800 rounded-lg border border-slate-700 mb-2 text-xs">
+                    <p className="m-0 text-sm font-bold">{m.name}</p>
+                    <p className="m-0 mt-0.5 text-slate-400">{m.salt}</p>
+                    <div className="grid grid-cols-2 gap-x-2 gap-y-1 mt-2">
+                      <span className="text-slate-400">Category: <b className="text-white">{m.category}</b></span>
+                      <span className="text-slate-400">Form: <b className="text-white">{m.formulation || '—'}</b></span>
+                      <span className="text-slate-400">Company: <b className="text-white">{m.company || '—'}</b></span>
+                      <span className="text-slate-400">Pack: <b className="text-white">{m.packSize}</b></span>
+                      <span className="text-slate-400">MRP: <b className="text-white">₹{m.mrp}</b></span>
+                      <span className="text-slate-400">GST: <b className="text-white">{m.gstPercent}%</b></span>
+                    </div>
+                    <div className="mt-2 flex items-center justify-between">
+                      <span className="font-bold" style={{ color: COLORS[st].main }}>● {COLORS[st].label}</span>
+                      <span className="text-slate-300">Stock: <b>{m.currentStock}</b> / reorder {m.reorderLevel}</span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           ) : (
-            <p className="text-sm text-slate-400 m-0 text-center pt-12 md:pt-16 lg:pt-20">Select a rack</p>
+            <p className="m-0 mb-4 text-xs text-slate-500 text-center py-4 border border-dashed border-slate-700 rounded-lg">3D me kisi cube pe click karo — medicine ki details yahan dikhengi</p>
+          )}
+
+          <p className="m-0 mb-2 text-xs font-bold text-slate-400 uppercase flex items-center gap-1">
+            <Package size={12} /> Rack medicines ({rackMeds.length})
+          </p>
+          {rackMeds.length === 0 && <p className="text-xs text-slate-500 text-center py-4 m-0">Is rack me abhi koi medicine nahi hai</p>}
+          {rackMeds.map((m) => {
+            const l = m.rackLocation
+            const k = slotKey(l.shelf, l.row, l.column)
+            const st = stockState(m)
+            return (
+              <div
+                key={m._id}
+                onClick={() => setSelectedKey(k)}
+                className={`p-2 rounded-lg mb-1.5 border text-xs cursor-pointer transition-colors ${selectedKey === k ? 'bg-slate-700 border-sky-500' : 'bg-slate-800 border-slate-700 hover:bg-slate-700'}`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <p className="m-0 font-bold truncate">{m.name}</p>
+                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: COLORS[st].main }} />
+                </div>
+                <p className="m-0 mt-0.5 text-slate-400">S{l.shelf} • R{String(l.row).toUpperCase()} • C{l.column} • Stock {m.currentStock}</p>
+              </div>
+            )
+          })}
+
+          {unassignedMeds.length > 0 && (
+            <div className="mt-4">
+              <p className="m-0 mb-2 text-xs font-bold text-amber-400 uppercase">⚠️ Rack assign nahi ({unassignedMeds.length})</p>
+              {unassignedMeds.map((m) => (
+                <div key={m._id} className="p-2 rounded-lg mb-1.5 border border-amber-500/30 bg-slate-800 text-xs">
+                  <p className="m-0 font-bold truncate">{m.name}</p>
+                  <p className="m-0 mt-0.5 text-slate-400">
+                    {m.rackLocation?.rackId ? `Rack "${m.rackLocation.rackId}" list me nahi mila` : 'Koi rack assign nahi'} • Stock {m.currentStock}
+                  </p>
+                </div>
+              ))}
+            </div>
           )}
         </div>
       </div>

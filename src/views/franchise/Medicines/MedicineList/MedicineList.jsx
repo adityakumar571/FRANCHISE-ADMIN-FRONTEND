@@ -97,7 +97,7 @@ export default function MedicineList() {
 
   const exportCSV = () => {
     const rows = data.map(m =>
-      `"${m.name}","${m.salt||''}","${m.formulation||''}","${m.company||''}","${m.rackLocation?.position||''}",${m.mrp||0},${m.currentStock||0},"${m.isActive?'Active':'Inactive'}"`
+      `"${m.name}","${m.salt||''}","${typeof m.formulation === 'object' ? (m.formulation?.name || '') : (m.formulation || '')}","${m.company||''}","${m.rackLocation?.position||''}",${m.mrp||0},${m.currentStock||0},"${m.isActive?'Active':'Inactive'}"`
     )
     const csv = `Name,Salt,Formulation,Company,Rack Location,MRP,Stock,Status\n${rows.join('\n')}`
     const a = document.createElement('a')
@@ -226,13 +226,20 @@ export default function MedicineList() {
 
                   {/* Formulation */}
                   <td className="px-4 py-3">
-                    <span className="inline-block text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100 font-medium">
-                      {m.formulation || '—'}
-                    </span>
+                    <div className="flex flex-col gap-1">
+                      <span className="inline-block text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100 font-medium w-fit">
+                        {typeof m.formulation === 'object' ? (m.formulation?.name || '—') : (m.formulation || '—')}
+                      </span>
+                      {typeof m.formulation === 'object' && m.formulation?.type && (
+                        <span className="inline-block text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600 border border-gray-200 w-fit">
+                          {m.formulation.type}
+                        </span>
+                      )}
+                    </div>
                   </td>
 
                   {/* Company */}
-                  <td className="px-4 py-3 text-xs text-gray-600">{m.company || '—'}</td>
+                  <td className="px-4 py-3 text-xs text-gray-600">{typeof m.company === 'object' ? (m.company?.name || '—') : (m.company || '—')}</td>
 
                   {/* Rack */}
                   <td className="px-4 py-3">

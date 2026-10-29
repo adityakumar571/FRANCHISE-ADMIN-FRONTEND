@@ -113,7 +113,7 @@ const franchiseNav = [
     items: [
       { component: CNavItem, name: 'Dashboard',           to: '/franchise/inventory',              icon: ic(LayoutDashboard), accessKey: 'inventory_dashboard'    },
       { component: CNavItem, name: 'Stock Overview',      to: '/franchise/inventory/stock',        icon: ic(Package),         accessKey: 'inventory_stock'        },
-      { component: CNavItem, name: 'Rack Management',     to: '/franchise/inventory/rack',         icon: ic(MapPin),          accessKey: 'inventory_rack'         },
+      // { component: CNavItem, name: 'Rack Management',     to: '/franchise/inventory/rack',         icon: ic(MapPin),          accessKey: 'inventory_rack'         },
       { component: CNavItem, name: 'Stock Adjustments',   to: '/franchise/inventory/adjustments',  icon: ic(Settings),        accessKey: 'inventory_adjustment'   },
       { component: CNavItem, name: 'Quick Stock Entry',   to: '/franchise/inventory/quick-entry',  icon: ic(Plus),            accessKey: 'inventory_adjustment'   },
       { component: CNavItem, name: 'Near Expiry',         to: '/franchise/inventory/near-expiry',  icon: ic(AlertTriangle),   accessKey: 'inventory_nearexpiry'   },
@@ -184,7 +184,7 @@ const franchiseNav = [
 
       { component: CNavItem, name: 'Expiry Dashboard',  to: '/franchise/medicines/expiry',       icon: ic(AlertTriangle), accessKey: 'medicines_expiry'  },
       { component: CNavItem, name: 'Bulk Barcode Print', to: '/franchise/medicines/bulk-barcode', icon: ic(ScanLine),  accessKey: 'medicines_barcode' },
-      { component: CNavItem, name: 'Category & Units',  to: '/franchise/medicines/masters',      icon: ic(Settings),  accessKey: 'medicines_masters' },
+      { component: CNavItem, name: 'Medicine Masters',  to: '/franchise/medicines/masters',      icon: ic(Settings),  accessKey: 'medicines_masters' },
     ],
   },
 

@@ -1,79 +1,151 @@
 /* eslint-disable prettier/prettier */
+
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Package, Calendar, IndianRupee, Hash, Percent, Save, Search, AlertCircle, CheckCircle } from 'lucide-react'
-import { getRequest, postRequest } from '../../../Helpers'
+import {
+  Plus,
+  Package,
+  Calendar,
+  IndianRupee,
+  Hash,
+  Percent,
+  CheckCircle,
+  AlertCircle,
+  LoaderCircle,
+  ArrowLeft,
+  Receipt,
+  Truck,
+  FileText,
+  Calculator,
+} from 'lucide-react'
+import { getRequest, postRequest, putRequest } from '../../../Helpers'
 import toast from 'react-hot-toast'
 import Autocomplete from '@mui/material/Autocomplete'
 import TextField from '@mui/material/TextField'
 
+const initialFormData = {
+  batchNo: '',
+  quantity: '',
+  mrp: '',
+  ptr: '',
+  purchasePrice: '',
+  expiryDate: '',
+  gst: '12',
+  discountPercent: '0',
+  supplier: '',
+  invoiceNo: '',
+  invoiceDate: '',
+}
+
+const inputClass =
+  'w-full min-w-0 rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-800 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:bg-gray-100'
+
+const labelClass = 'mb-2 flex items-center gap-1.5 text-sm font-semibold text-gray-700'
+
+const SectionHeading = ({ icon: Icon, title, description }) => (
+  <div className="mb-5 flex items-start gap-3">
+    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+      <Icon size={19} />
+    </div>
+    <div className="min-w-0">
+      <h3 className="text-base font-bold text-gray-800">{title}</h3>
+      {description && <p className="mt-1 text-sm leading-5 text-gray-500">{description}</p>}
+    </div>
+  </div>
+)
+
+const FormField = ({ label, icon: Icon, children, optional = false }) => (
+  <div className="min-w-0">
+    <label className={labelClass}>
+      {Icon && <Icon size={15} className="shrink-0 text-gray-500" />}
+      <span>{label}</span>
+      {optional && <span className="font-normal text-gray-400">(Optional)</span>}
+    </label>
+    {children}
+  </div>
+)
+
 export default function QuickStockEntry() {
   const navigate = useNavigate()
+
   const [medicines, setMedicines] = useState([])
+  const [suppliers, setSuppliers] = useState([])
   const [selectedMedicine, setSelectedMedicine] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [suppliersLoading, setSuppliersLoading] = useState(false)
   const [saving, setSaving] = useState(false)
-  
-  // Stock entry form
-  const [formData, setFormData] = useState({
-    batchNo: '',
-    quantity: '',
-    mrp: '',
-    ptr: '',
-    purchasePrice: '',
-    expiryDate: '',
-    gst: '12',
-    discountPercent: '0',
-    supplier: '',
-    invoiceNo: '',
-    invoiceDate: '',
-  })
+  const [formData, setFormData] = useState(initialFormData)
 
-  // Fetch medicines for autocomplete
   useEffect(() => {
-    (async () => {
+    let mounted = true
+
+    const fetchData = async () => {
       setLoading(true)
+
       try {
-        const res = await getRequest('/franchise/medicines?limit=500')
-        const medList = res.data?.data?.medicines || []
-        setMedicines(medList)
+        const [medsRes, suppRes] = await Promise.all([
+          getRequest('/franchise/medicines?limit=500'),
+          getRequest('/franchise-suppliers/suppliers')
+        ])
+        
+        const medList = medsRes.data?.data?.medicines || []
+        const suppList = suppRes.data?.data || []
+
+        if (mounted) {
+          setMedicines(medList)
+          setSuppliers(suppList)
+        }
       } catch (err) {
-        console.error('Error loading medicines:', err)
+        console.error('Error loading data:', err)
+        if (mounted) {
+          toast.error('Failed to load medicines or suppliers')
+        }
       } finally {
-        setLoading(false)
+        if (mounted) {
+          setLoading(false)
+        }
       }
-    })()
+    }
+
+    fetchData()
+
+    return () => {
+      mounted = false
+    }
   }, [])
 
-  // Auto-fill medicine details when selected
   const handleMedicineSelect = (medicine) => {
     setSelectedMedicine(medicine)
+
     if (medicine) {
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
-        mrp: medicine.mrp || '',
-        ptr: medicine.ptr || '',
-        purchasePrice: medicine.purchasePrice || '',
+        mrp: medicine.mrp ?? '',
+        ptr: medicine.ptr ?? '',
+        purchasePrice: medicine.purchasePrice ?? '',
       }))
     }
   }
 
   const handleInputChange = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
+    setFormData((prev) => ({
+      ...prev,
+      [field]: value,
+    }))
   }
 
   const calculateTotals = () => {
-    const qty = parseFloat(formData.quantity) || 0
-    const price = parseFloat(formData.purchasePrice) || 0
-    const discount = parseFloat(formData.discountPercent) || 0
-    const gst = parseFloat(formData.gst) || 0
-    
+    const qty = Math.max(0, Number(formData.quantity) || 0)
+    const price = Math.max(0, Number(formData.purchasePrice) || 0)
+    const discount = Math.min(100, Math.max(0, Number(formData.discountPercent) || 0))
+    const gst = Math.max(0, Number(formData.gst) || 0)
+
     const grossAmount = qty * price
     const discountAmount = (grossAmount * discount) / 100
     const taxableAmount = grossAmount - discountAmount
     const gstAmount = (taxableAmount * gst) / 100
     const totalAmount = taxableAmount + gstAmount
-    
+
     return {
       grossAmount: grossAmount.toFixed(2),
       discountAmount: discountAmount.toFixed(2),
@@ -85,28 +157,51 @@ export default function QuickStockEntry() {
 
   const totals = calculateTotals()
 
+  const formatCurrency = (value) =>
+    `₹ ${Number(value).toLocaleString('en-IN', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`
+
   const handleSubmit = async () => {
-    // Validation
     if (!selectedMedicine) {
       toast.error('Please select a medicine')
       return
     }
-    if (!formData.batchNo) {
+
+    if (!formData.batchNo.trim()) {
       toast.error('Please enter batch number')
       return
     }
-    if (!formData.quantity || formData.quantity <= 0) {
+
+    if (!formData.quantity || Number(formData.quantity) <= 0) {
       toast.error('Please enter valid quantity')
       return
     }
+
+    if (!Number.isInteger(Number(formData.quantity))) {
+      toast.error('Quantity must be a whole number')
+      return
+    }
+
+    if (!formData.purchasePrice || Number(formData.purchasePrice) < 0) {
+      toast.error('Please enter a valid purchase price')
+      return
+    }
+
     if (!formData.expiryDate) {
       toast.error('Please select expiry date')
       return
     }
 
+    if (Number(formData.discountPercent) < 0 || Number(formData.discountPercent) > 100) {
+      toast.error('Discount must be between 0 and 100')
+      return
+    }
+
     setSaving(true)
+
     try {
-      // Add stock via stock adjustment API
       const res = await postRequest({
         url: '/franchise/inventory/adjustments',
         cred: {
@@ -115,475 +210,479 @@ export default function QuickStockEntry() {
           adjustmentType: 'stock_in',
           reason: 'Purchase Entry - Quick Stock Addition',
           batchDetails: {
-            batchNo: formData.batchNo,
-            quantity: parseInt(formData.quantity),
-            mrp: parseFloat(formData.mrp),
-            ptr: parseFloat(formData.ptr),
-            purchasePrice: parseFloat(formData.purchasePrice),
+            batchNo: formData.batchNo.trim(),
+            quantity: parseInt(formData.quantity, 10),
+            mrp: Number(formData.mrp) || 0,
+            ptr: Number(formData.ptr) || 0,
+            purchasePrice: Number(formData.purchasePrice),
             expiryDate: formData.expiryDate,
-            gst: parseFloat(formData.gst),
-            discount: parseFloat(formData.discountPercent),
+            gst: Number(formData.gst) || 0,
+            discount: Number(formData.discountPercent) || 0,
           },
           supplier: formData.supplier,
           invoiceNo: formData.invoiceNo,
           invoiceDate: formData.invoiceDate,
-          totalAmount: parseFloat(totals.totalAmount),
+          totalAmount: Number(totals.totalAmount),
           notes: `Quick stock entry - Added ${formData.quantity} units of ${selectedMedicine.name}`,
-        }
+        },
       })
 
+      const adjustmentId = res.data?.data?._id
+
+      if (adjustmentId) {
+        try {
+          await putRequest({
+            url: `/franchise/inventory/adjustments/${adjustmentId}/approve`,
+            cred: {},
+          })
+        } catch (approveErr) {
+          console.warn('Auto-approval failed:', approveErr)
+          toast.error('Stock entry created, but approval failed. Please check pending adjustments.')
+          return
+        }
+      }
+
       toast.success(`Stock added successfully! ${formData.quantity} units added to inventory`)
-      
-      // Reset form
+
       setSelectedMedicine(null)
-      setFormData({
-        batchNo: '',
-        quantity: '',
-        mrp: '',
-        ptr: '',
-        purchasePrice: '',
-        expiryDate: '',
-        gst: '12',
-        discountPercent: '0',
-        supplier: '',
-        invoiceNo: '',
-        invoiceDate: '',
-      })
-      
-      // Optionally navigate to inventory
+      setFormData({ ...initialFormData })
+
       setTimeout(() => {
         navigate('/franchise/inventory')
       }, 2000)
-      
     } catch (err) {
       console.error('Error adding stock:', err)
-      toast.error('Failed to add stock. Please try again.')
+      toast.error(err?.response?.data?.message || 'Failed to add stock. Please try again.')
     } finally {
       setSaving(false)
     }
   }
 
+  const summaryItems = [
+    {
+      label: 'Gross Amount',
+      value: totals.grossAmount,
+      color: 'text-gray-700',
+    },
+    {
+      label: 'Discount',
+      value: totals.discountAmount,
+      color: 'text-emerald-600',
+      prefix: '- ',
+    },
+    {
+      label: 'Taxable Amount',
+      value: totals.taxableAmount,
+      color: 'text-gray-700',
+    },
+    {
+      label: 'GST Amount',
+      value: totals.gstAmount,
+      color: 'text-gray-700',
+    },
+  ]
+
   return (
-    <div style={{ fontFamily: 'Inter, sans-serif', display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <div className="flex min-w-0 flex-col gap-5 pb-6">
       {/* Header */}
-      <div style={{ 
-        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', 
-        borderRadius: 16, 
-        padding: '28px 32px',
-        boxShadow: '0 4px 20px rgba(16, 185, 129, 0.15)',
-        position: 'relative',
-        overflow: 'hidden'
-      }}>
-        <div style={{ position: 'absolute', top: -20, right: -20, width: 150, height: 150, background: 'rgba(255,255,255,0.1)', borderRadius: '50%' }} />
-        <div style={{ position: 'absolute', bottom: -30, left: -30, width: 180, height: 180, background: 'rgba(255,255,255,0.08)', borderRadius: '50%' }} />
-        
-        <div style={{ position: 'relative', zIndex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-            <Plus size={28} color="#fff" />
-            <h1 style={{ fontSize: 28, fontWeight: 700, color: '#fff', margin: 0 }}>Quick Stock Entry</h1>
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-700 p-5 shadow-lg shadow-emerald-900/10 sm:p-7">
+        <div className="pointer-events-none absolute -right-10 -top-12 h-40 w-40 rounded-full bg-white/10" />
+        <div className="pointer-events-none absolute -bottom-16 left-1/3 h-48 w-48 rounded-full bg-white/10" />
+
+        <div className="relative z-10 flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/15 text-white">
+              <Plus size={27} />
+            </div>
+
+            <div className="min-w-0">
+              <h1 className="text-xl font-bold text-white sm:text-2xl">Quick Stock Entry</h1>
+              <p className="mt-1 max-w-xl text-sm leading-6 text-emerald-50">
+                Add medicines to your inventory quickly when new stock arrives.
+              </p>
+            </div>
           </div>
-          <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.9)', margin: 0 }}>
-            Add stock quickly when medicine arrives or needs emergency entry
-          </p>
+
+          <button
+            type="button"
+            onClick={() => navigate('/franchise/inventory')}
+            className="inline-flex shrink-0 items-center justify-center gap-2 self-start rounded-lg border border-white/30 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/20 sm:self-center"
+          >
+            <ArrowLeft size={16} />
+            Back to Inventory
+          </button>
         </div>
       </div>
 
       {/* Help Banner */}
-      <div style={{ 
-        background: 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)', 
-        border: '2px solid #3b82f6',
-        borderRadius: 12,
-        padding: '16px 20px',
-        display: 'flex',
-        alignItems: 'start',
-        gap: 12
-      }}>
-        <AlertCircle size={20} style={{ color: '#1e40af', marginTop: 2, flexShrink: 0 }} />
-        <div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: '#1e40af', marginBottom: 4 }}>
-            💡 When to use Quick Stock Entry:
-          </div>
-          <div style={{ fontSize: 12, color: '#1e3a8a', lineHeight: 1.6 }}>
-            • Medicine just arrived from supplier<br/>
-            • Emergency stock addition needed<br/>
-            • Sample/bonus stock received<br/>
-            • Stock return to be re-added
-          </div>
+      <div className="flex items-start gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4 sm:p-5">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-700">
+          <AlertCircle size={19} />
+        </div>
+
+        <div className="min-w-0">
+          <h2 className="text-sm font-bold text-blue-900">When to use Quick Stock Entry</h2>
+          <p className="mt-1 text-sm leading-6 text-blue-800">
+            Use this form when medicine arrives from a supplier, emergency stock needs to be added,
+            sample stock is received, or returned stock needs to be re-added.
+          </p>
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: 20, alignItems: 'start' }}>
+      {/* Main Layout */}
+      <div className="grid min-w-0 grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
         {/* Main Form */}
-        <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: '24px 28px' }}>
-          <h3 style={{ margin: '0 0 20px', fontSize: 16, fontWeight: 800, color: '#374151' }}>
-            Stock Entry Details
-          </h3>
+        <div className="min-w-0 rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
+          <SectionHeading
+            icon={Package}
+            title="Stock Entry Details"
+            description="Select a medicine and enter its stock, pricing and purchase details."
+          />
 
-          {/* Medicine Selection */}
-          <div style={{ marginBottom: 20 }}>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 }}>
-              <Package size={14} style={{ display: 'inline', marginRight: 6 }} />
-              Select Medicine *
-            </label>
-            <Autocomplete
-              options={medicines}
-              getOptionLabel={(option) => `${option.name} ${option.strength ? `(${option.strength})` : ''}`}
-              value={selectedMedicine}
-              onChange={(e, newValue) => handleMedicineSelect(newValue)}
-              loading={loading}
-              renderInput={(params) => (
-                <TextField 
-                  {...params} 
-                  placeholder="Search medicine by name..."
-                  variant="outlined"
+          <div className="space-y-6">
+            {/* Medicine Selection */}
+            <div>
+              <FormField label="Select Medicine" icon={Package}>
+                <Autocomplete
+                  options={medicines}
+                  getOptionLabel={(option) =>
+                    `${option.name || ''}${option.strength ? ` (${option.strength})` : ''}`
+                  }
+                  isOptionEqualToValue={(option, value) => option._id === value._id}
+                  value={selectedMedicine}
+                  onChange={(_, newValue) => handleMedicineSelect(newValue)}
+                  loading={loading}
+                  fullWidth
                   size="small"
+                  noOptionsText={loading ? 'Loading medicines...' : 'No medicines found'}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      placeholder="Search medicine by name..."
+                      variant="outlined"
+                      size="small"
+                      InputProps={{
+                        ...params.InputProps,
+                        className: 'rounded-lg bg-white text-sm',
+                      }}
+                    />
+                  )}
+                  slotProps={{
+                    paper: {
+                      sx: {
+                        '& .MuiAutocomplete-option': {
+                          fontSize: '14px',
+                          py: 1,
+                        },
+                      },
+                    },
+                  }}
                 />
-              )}
-              style={{ width: '100%' }}
-            />
+                <p className="mt-1.5 text-xs text-gray-500">
+                  Search and select the medicine you want to add.
+                </p>
+              </FormField>
+            </div>
+
+            {selectedMedicine && (
+              <>
+                {/* Selected Medicine */}
+                <div className="flex flex-col gap-3 rounded-xl border border-emerald-100 bg-emerald-50/70 p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex min-w-0 items-start gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700">
+                      <Package size={20} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="break-words text-sm font-bold text-gray-800">
+                        {selectedMedicine.name}
+                      </p>
+                      {selectedMedicine.strength && (
+                        <p className="mt-1 text-xs text-gray-600">
+                          Strength: {selectedMedicine.strength}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <span className="inline-flex w-fit shrink-0 items-center rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
+                    Medicine Selected
+                  </span>
+                </div>
+
+                {/* Batch and Quantity */}
+                <section>
+                  <SectionHeading
+                    icon={Hash}
+                    title="Batch & Quantity"
+                    description="Enter the batch identification and the quantity received."
+                  />
+
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <FormField label="Batch Number" icon={Hash}>
+                      <input
+                        type="text"
+                        value={formData.batchNo}
+                        onChange={(e) => handleInputChange('batchNo', e.target.value)}
+                        placeholder="e.g. BT12345"
+                        className={inputClass}
+                        required
+                      />
+                    </FormField>
+
+                    <FormField label="Quantity" icon={Package}>
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={formData.quantity}
+                        onChange={(e) => handleInputChange('quantity', e.target.value)}
+                        placeholder="Enter quantity"
+                        className={inputClass}
+                        required
+                      />
+                    </FormField>
+                  </div>
+                </section>
+
+                {/* Pricing */}
+                <section>
+                  <SectionHeading
+                    icon={IndianRupee}
+                    title="Pricing Details"
+                    description="Enter the medicine prices. Existing medicine prices are filled automatically when available."
+                  />
+
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <FormField label="MRP" icon={IndianRupee}>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={formData.mrp}
+                        onChange={(e) => handleInputChange('mrp', e.target.value)}
+                        placeholder="0.00"
+                        className={inputClass}
+                      />
+                    </FormField>
+
+                    <FormField label="PTR" icon={IndianRupee}>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={formData.ptr}
+                        onChange={(e) => handleInputChange('ptr', e.target.value)}
+                        placeholder="0.00"
+                        className={inputClass}
+                      />
+                    </FormField>
+
+                    <FormField label="Purchase Price" icon={IndianRupee}>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={formData.purchasePrice}
+                        onChange={(e) => handleInputChange('purchasePrice', e.target.value)}
+                        placeholder="0.00"
+                        className={inputClass}
+                        required
+                      />
+                    </FormField>
+                  </div>
+                </section>
+
+                {/* Expiry, GST and Discount */}
+                <section>
+                  <SectionHeading
+                    icon={Calendar}
+                    title="Expiry, GST & Discount"
+                    description="Set the expiry month and applicable tax and discount percentages."
+                  />
+
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <FormField label="Expiry Date" icon={Calendar}>
+                      <input
+                        type="month"
+                        value={formData.expiryDate}
+                        onChange={(e) => handleInputChange('expiryDate', e.target.value)}
+                        className={inputClass}
+                        required
+                      />
+                    </FormField>
+
+                    <FormField label="GST Rate" icon={Percent}>
+                      <select
+                        value={formData.gst}
+                        onChange={(e) => handleInputChange('gst', e.target.value)}
+                        className={inputClass}
+                      >
+                        <option value="0">0%</option>
+                        <option value="5">5%</option>
+                        <option value="12">12%</option>
+                        <option value="18">18%</option>
+                        <option value="28">28%</option>
+                      </select>
+                    </FormField>
+
+                    <FormField label="Discount" icon={Percent}>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="0.01"
+                          value={formData.discountPercent}
+                          onChange={(e) => handleInputChange('discountPercent', e.target.value)}
+                          placeholder="0"
+                          className={`${inputClass} pr-9`}
+                        />
+                        <Percent
+                          size={15}
+                          className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+                        />
+                      </div>
+                    </FormField>
+                  </div>
+                </section>
+
+                {/* Supplier and Invoice */}
+                <section>
+                  <SectionHeading
+                    icon={Truck}
+                    title="Supplier & Invoice Details"
+                    description="These fields are optional and can be completed using your purchase invoice."
+                  />
+
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <FormField label="Supplier" icon={Truck} optional>
+                      <select
+                        value={formData.supplier}
+                        onChange={(e) => handleInputChange('supplier', e.target.value)}
+                        className={inputClass}
+                      >
+                        <option value="">— Select Supplier —</option>
+                        {suppliers.map((sup) => (
+                          <option key={sup._id} value={sup.name || sup._id}>
+                            {sup.name || 'Unknown Supplier'}
+                          </option>
+                        ))}
+                      </select>
+                    </FormField>
+
+                    <FormField label="Invoice Number" icon={Receipt} optional>
+                      <input
+                        type="text"
+                        value={formData.invoiceNo}
+                        onChange={(e) => handleInputChange('invoiceNo', e.target.value)}
+                        placeholder="e.g. INV-123"
+                        className={inputClass}
+                      />
+                    </FormField>
+
+                    <FormField label="Invoice Date" icon={Calendar} optional>
+                      <input
+                        type="date"
+                        value={formData.invoiceDate}
+                        onChange={(e) => handleInputChange('invoiceDate', e.target.value)}
+                        className={inputClass}
+                      />
+                    </FormField>
+                  </div>
+                </section>
+              </>
+            )}
+
+            {!selectedMedicine && (
+              <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 px-4 py-10 text-center">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 text-gray-400">
+                  <Package size={24} />
+                </div>
+                <h3 className="mt-3 text-sm font-semibold text-gray-700">
+                  Select a medicine to continue
+                </h3>
+                <p className="mx-auto mt-1 max-w-sm text-sm leading-6 text-gray-500">
+                  Once you select a medicine, the batch, quantity, pricing, expiry and invoice
+                  fields will appear here.
+                </p>
+              </div>
+            )}
           </div>
-
-          {selectedMedicine && (
-            <>
-              {/* Batch & Quantity */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 }}>
-                    <Hash size={14} style={{ display: 'inline', marginRight: 6 }} />
-                    Batch Number *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.batchNo}
-                    onChange={(e) => handleInputChange('batchNo', e.target.value)}
-                    placeholder="e.g., BT12345"
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      border: '2px solid #e5e7eb',
-                      borderRadius: 8,
-                      fontSize: 14,
-                      outline: 'none',
-                      transition: 'all 0.2s',
-                      boxSizing: 'border-box'
-                    }}
-                    onFocus={(e) => e.target.style.borderColor = '#10b981'}
-                    onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 }}>
-                    <Package size={14} style={{ display: 'inline', marginRight: 6 }} />
-                    Quantity *
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.quantity}
-                    onChange={(e) => handleInputChange('quantity', e.target.value)}
-                    placeholder="Enter quantity"
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      border: '2px solid #e5e7eb',
-                      borderRadius: 8,
-                      fontSize: 14,
-                      outline: 'none',
-                      transition: 'all 0.2s',
-                      boxSizing: 'border-box'
-                    }}
-                    onFocus={(e) => e.target.style.borderColor = '#10b981'}
-                    onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
-                  />
-                </div>
-              </div>
-
-              {/* Pricing */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, marginBottom: 20 }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 }}>
-                    <IndianRupee size={14} style={{ display: 'inline', marginRight: 6 }} />
-                    MRP
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={formData.mrp}
-                    onChange={(e) => handleInputChange('mrp', e.target.value)}
-                    placeholder="0.00"
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      border: '1px solid #e5e7eb',
-                      borderRadius: 8,
-                      fontSize: 14,
-                      outline: 'none',
-                      boxSizing: 'border-box'
-                    }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 }}>
-                    PTR
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={formData.ptr}
-                    onChange={(e) => handleInputChange('ptr', e.target.value)}
-                    placeholder="0.00"
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      border: '1px solid #e5e7eb',
-                      borderRadius: 8,
-                      fontSize: 14,
-                      outline: 'none',
-                      boxSizing: 'border-box'
-                    }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 }}>
-                    Purchase Price *
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={formData.purchasePrice}
-                    onChange={(e) => handleInputChange('purchasePrice', e.target.value)}
-                    placeholder="0.00"
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      border: '2px solid #e5e7eb',
-                      borderRadius: 8,
-                      fontSize: 14,
-                      outline: 'none',
-                      boxSizing: 'border-box'
-                    }}
-                    onFocus={(e) => e.target.style.borderColor = '#10b981'}
-                    onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
-                  />
-                </div>
-              </div>
-
-              {/* Expiry & GST */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, marginBottom: 20 }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 }}>
-                    <Calendar size={14} style={{ display: 'inline', marginRight: 6 }} />
-                    Expiry Date *
-                  </label>
-                  <input
-                    type="month"
-                    value={formData.expiryDate}
-                    onChange={(e) => handleInputChange('expiryDate', e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      border: '2px solid #e5e7eb',
-                      borderRadius: 8,
-                      fontSize: 14,
-                      outline: 'none',
-                      boxSizing: 'border-box'
-                    }}
-                    onFocus={(e) => e.target.style.borderColor = '#10b981'}
-                    onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 }}>
-                    <Percent size={14} style={{ display: 'inline', marginRight: 6 }} />
-                    GST %
-                  </label>
-                  <select
-                    value={formData.gst}
-                    onChange={(e) => handleInputChange('gst', e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      border: '1px solid #e5e7eb',
-                      borderRadius: 8,
-                      fontSize: 14,
-                      outline: 'none',
-                      background: '#fff',
-                      cursor: 'pointer',
-                      boxSizing: 'border-box'
-                    }}
-                  >
-                    <option value="0">0%</option>
-                    <option value="5">5%</option>
-                    <option value="12">12%</option>
-                    <option value="18">18%</option>
-                    <option value="28">28%</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 }}>
-                    Discount %
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={formData.discountPercent}
-                    onChange={(e) => handleInputChange('discountPercent', e.target.value)}
-                    placeholder="0.00"
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      border: '1px solid #e5e7eb',
-                      borderRadius: 8,
-                      fontSize: 14,
-                      outline: 'none',
-                      boxSizing: 'border-box'
-                    }}
-                  />
-                </div>
-              </div>
-
-              {/* Supplier Info (Optional) */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, marginBottom: 20 }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#6b7280', marginBottom: 8 }}>
-                    Supplier (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.supplier}
-                    onChange={(e) => handleInputChange('supplier', e.target.value)}
-                    placeholder="Supplier name"
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      border: '1px solid #e5e7eb',
-                      borderRadius: 8,
-                      fontSize: 13,
-                      outline: 'none',
-                      background: '#f9fafb',
-                      boxSizing: 'border-box'
-                    }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#6b7280', marginBottom: 8 }}>
-                    Invoice No
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.invoiceNo}
-                    onChange={(e) => handleInputChange('invoiceNo', e.target.value)}
-                    placeholder="INV-123"
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      border: '1px solid #e5e7eb',
-                      borderRadius: 8,
-                      fontSize: 13,
-                      outline: 'none',
-                      background: '#f9fafb',
-                      boxSizing: 'border-box'
-                    }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#6b7280', marginBottom: 8 }}>
-                    Invoice Date
-                  </label>
-                  <input
-                    type="date"
-                    value={formData.invoiceDate}
-                    onChange={(e) => handleInputChange('invoiceDate', e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      border: '1px solid #e5e7eb',
-                      borderRadius: 8,
-                      fontSize: 13,
-                      outline: 'none',
-                      background: '#f9fafb',
-                      boxSizing: 'border-box'
-                    }}
-                  />
-                </div>
-              </div>
-            </>
-          )}
         </div>
 
         {/* Summary Sidebar */}
-        <div style={{ position: 'sticky', top: 20 }}>
-          {/* Calculation Summary */}
-          <div style={{ 
-            background: '#fff', 
-            border: '1px solid #e5e7eb', 
-            borderRadius: 12, 
-            padding: '20px 24px',
-            marginBottom: 16
-          }}>
-            <h4 style={{ margin: '0 0 16px', fontSize: 14, fontWeight: 800, color: '#374151' }}>
-              Amount Summary
-            </h4>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {[
-                { l: 'Gross Amount', v: `₹ ${totals.grossAmount}`, color: '#6b7280' },
-                { l: 'Discount', v: `- ₹ ${totals.discountAmount}`, color: '#16a34a' },
-                { l: 'Taxable Amount', v: `₹ ${totals.taxableAmount}`, color: '#6b7280' },
-                { l: 'GST Amount', v: `₹ ${totals.gstAmount}`, color: '#6b7280' },
-              ].map(({ l, v, color }) => (
-                <div key={l} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-                  <span style={{ color: '#6b7280' }}>{l}</span>
-                  <span style={{ fontWeight: 600, color }}>{v}</span>
-                </div>
-              ))}
+        <aside className="min-w-0 space-y-4 xl:sticky xl:top-5">
+          {/* Amount Summary */}
+          <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+            <div className="flex items-center gap-3 border-b border-gray-100 px-5 py-4">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+                <Calculator size={20} />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-gray-800">Amount Summary</h3>
+                <p className="mt-0.5 text-xs text-gray-500">Live purchase calculation</p>
+              </div>
             </div>
 
-            <div style={{ 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              padding: '12px 0 0', 
-              marginTop: 12,
-              borderTop: '2px solid #e5e7eb',
-              fontSize: 16 
-            }}>
-              <span style={{ fontWeight: 800, color: '#374151' }}>Total Amount</span>
-              <span style={{ fontWeight: 800, color: '#10b981' }}>₹ {totals.totalAmount}</span>
+            <div className="space-y-4 p-5">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm text-gray-500">Quantity</span>
+                <span className="text-sm font-semibold text-gray-800">
+                  {Number(formData.quantity) || 0} units
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm text-gray-500">Purchase Price</span>
+                <span className="text-sm font-semibold text-gray-800">
+                  {formatCurrency(Number(formData.purchasePrice) || 0)}
+                </span>
+              </div>
+
+              <div className="border-t border-dashed border-gray-200" />
+
+              {summaryItems.map((item) => (
+                <div key={item.label} className="flex items-center justify-between gap-3">
+                  <span className="text-sm text-gray-500">{item.label}</span>
+                  <span className={`shrink-0 text-right text-sm font-semibold ${item.color}`}>
+                    {item.prefix || ''}
+                    {formatCurrency(item.value)}
+                  </span>
+                </div>
+              ))}
+
+              <div className="mt-2 rounded-xl bg-emerald-50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
+                  Total Amount
+                </p>
+                <p className="mt-1 break-words text-2xl font-extrabold text-emerald-700">
+                  {formatCurrency(totals.totalAmount)}
+                </p>
+                <p className="mt-1 text-xs text-emerald-700/80">Including discount and GST</p>
+              </div>
+
+              {!selectedMedicine && (
+                <p className="text-xs leading-5 text-gray-400">
+                  Select a medicine and enter quantity and purchase price to calculate the purchase
+                  amount.
+                </p>
+              )}
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {/* Actions */}
+          <div className="space-y-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
             <button
+              type="button"
               onClick={handleSubmit}
-              disabled={saving || !selectedMedicine}
-              style={{
-                padding: '14px',
-                background: saving || !selectedMedicine 
-                  ? '#d1d5db' 
-                  : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                color: '#fff',
-                border: 'none',
-                borderRadius: 10,
-                fontSize: 15,
-                fontWeight: 800,
-                cursor: saving || !selectedMedicine ? 'not-allowed' : 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                boxShadow: saving || !selectedMedicine ? 'none' : '0 4px 12px rgba(16, 185, 129, 0.3)',
-                transition: 'all 0.2s'
-              }}
+              disabled={saving || loading || !selectedMedicine}
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-emerald-500 to-emerald-600 px-4 py-3.5 text-sm font-bold text-white shadow-md shadow-emerald-600/20 transition hover:from-emerald-600 hover:to-emerald-700 disabled:cursor-not-allowed disabled:bg-none disabled:bg-gray-300 disabled:shadow-none"
             >
               {saving ? (
-                <>Saving...</>
+                <>
+                  <LoaderCircle size={18} className="animate-spin" />
+                  Saving Stock...
+                </>
               ) : (
                 <>
                   <CheckCircle size={18} />
@@ -593,23 +692,24 @@ export default function QuickStockEntry() {
             </button>
 
             <button
+              type="button"
               onClick={() => navigate('/franchise/inventory')}
-              style={{
-                padding: '12px',
-                background: '#fff',
-                color: '#6b7280',
-                border: '1px solid #e5e7eb',
-                borderRadius: 10,
-                fontSize: 14,
-                fontWeight: 600,
-                cursor: 'pointer',
-                transition: 'all 0.2s'
-              }}
+              disabled={saving}
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm font-semibold text-gray-600 transition hover:border-gray-400 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
+              <ArrowLeft size={16} />
               Cancel
             </button>
+
+            <div className="flex items-start gap-2 rounded-lg bg-gray-50 p-3">
+              <FileText size={16} className="mt-0.5 shrink-0 text-gray-400" />
+              <p className="text-xs leading-5 text-gray-500">
+                Verify the batch number, expiry, quantity and purchase amount before submitting the
+                stock entry.
+              </p>
+            </div>
           </div>
-        </div>
+        </aside>
       </div>
     </div>
   )

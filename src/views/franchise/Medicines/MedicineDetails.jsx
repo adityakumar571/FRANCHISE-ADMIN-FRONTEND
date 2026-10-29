@@ -15,15 +15,28 @@ import PageHeader from '../components/PageHeader'
 import { getRequest } from '../../../Helpers'
 
 /* ── helpers ── */
-const Row = ({ label, value, color, mono }) => (
-  <div className="flex justify-between items-center py-2 border-b border-gray-50 last:border-0">
-    <span className="text-xs text-gray-400 font-medium">{label}</span>
-    <span className={`text-sm font-semibold text-right max-w-[55%] truncate ${mono ? 'font-mono' : ''}`}
-      style={{ color: color || '#374151' }}>
-      {value ?? '—'}
-    </span>
-  </div>
-)
+const Row = ({ label, value, color, mono }) => {
+  // Handle objects - extract name property
+  let displayValue = value
+  if (value && typeof value === 'object') {
+    displayValue = value.name || value._id || JSON.stringify(value).slice(0, 20)
+  }
+  
+  // Fallback for empty strings or null-like values
+  if (!displayValue || displayValue === '[object Object]' || displayValue === '{}') {
+    displayValue = null
+  }
+  
+  return (
+    <div className="flex justify-between items-center py-2 border-b border-gray-50 last:border-0">
+      <span className="text-xs text-gray-400 font-medium">{label}</span>
+      <span className={`text-sm font-semibold text-right max-w-[55%] truncate ${mono ? 'font-mono' : ''}`}
+        style={{ color: color || '#374151' }}>
+        {displayValue ?? '—'}
+      </span>
+    </div>
+  )
+}
 
 const SectionCard = ({ title, icon: Icon, color = '#0c3b73', children }) => (
   <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
@@ -147,13 +160,13 @@ export default function MedicineDetails() {
             {med.imageUrl ? (
               <img src={med.imageUrl} alt={med.name}
                 className="w-40 h-40 rounded-xl object-cover mx-auto mb-4 border border-gray-100"
-                onError={e => { e.target.style.display='none'; e.target.nextSibling.style.display='flex' }}/>
+                onError={e => { e.target.style.display='none'; e.target.parentElement.querySelector('[data-placeholder]').style.display='flex' }}/>
             ) : null}
-            <div className={`w-40 h-40 rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 border border-gray-100 mx-auto mb-4 items-center justify-center text-7xl ${med.imageUrl ? 'hidden' : 'flex'}`}>
+            <div data-placeholder className={`w-40 h-40 rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 border border-gray-100 mx-auto mb-4 items-center justify-center text-7xl ${med.imageUrl ? 'hidden' : 'flex'}`}>
               💊
             </div>
             <p className="text-base font-bold text-gray-800 mb-0.5">{med.name}</p>
-            <p className="text-xs text-gray-400 mb-3">{med.salt} · {med.company}</p>
+            <p className="text-xs text-gray-400 mb-3">{med.salt || med.genericName || '—'} · {typeof med.company === 'object' ? (med.company?.name || '—') : (med.company || '—')}</p>
             {/* Badges */}
             <div className="flex justify-center gap-2 flex-wrap mb-4">
               <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full border ${med.isActive ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-600 border-red-200'}`}>
@@ -173,7 +186,7 @@ export default function MedicineDetails() {
             </div>
             <button onClick={() => navigate(`/franchise/medicines/${med._id}/images`)}
               className="w-full py-2 text-sm font-semibold text-cyan-700 border border-cyan-200 rounded-lg hover:bg-cyan-50 flex items-center justify-center gap-2 transition">
-              <ImageIcon size={13}/> Manage Images
+              <ImageIcon size={13}/> Manage Images ({med.images?.length || 0})
             </button>
           </div>
 
@@ -205,7 +218,23 @@ export default function MedicineDetails() {
           </SectionCard>
 
           {/* Rack Location */}
-          <SectionCard title="Rack Location" icon={MapPin} color="#7c3aed">
+          <SectionCard title="Rack Location & Counter" icon={MapPin} color="#7c3aed">
+            {/* Counter Info */}
+            <div className="mb-4 pb-4 border-b border-gray-200">
+              <p className="text-xs text-gray-400 font-medium uppercase tracking-wide mb-2">Counter Assignment</p>
+              {med.counterId && typeof med.counterId === 'object' ? (
+                <div className="bg-purple-50 border border-purple-100 rounded-lg px-3 py-2">
+                  <p className="text-sm font-bold text-purple-700">{med.counterId.name}</p>
+                  <p className="text-xs text-purple-600 font-mono mt-0.5">{med.counterId.code}</p>
+                </div>
+              ) : med.counterId ? (
+                <div className="text-xs text-gray-500">{typeof med.counterId === 'object' ? (med.counterId?.name || med.counterId?._id || '—') : med.counterId}</div>
+              ) : (
+                <div className="text-xs text-gray-400">No counter assigned</div>
+              )}
+            </div>
+            
+            {/* Rack Location */}
             {rackPos !== '—' ? (
               <div className="bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2.5 mb-3 flex items-center gap-2">
                 <MapPin size={14} className="text-indigo-600 flex-shrink-0"/>
@@ -232,10 +261,15 @@ export default function MedicineDetails() {
               <Row label="Salt / Generic"  value={med.salt}        />
               <Row label="Brand"           value={med.brand}       />
               <Row label="Generic Name"    value={med.genericName} />
-              <Row label="Category"        value={med.category}    />
-              <Row label="Formulation"     value={med.formulation} />
+              <Row label="Category"        value={typeof med.category === 'object' ? (med.category?.name || '—') : (med.category || '—')}    />
+              <Row label="Formulation"     value={(() => {
+                if (typeof med.formulation === 'object') {
+                  return med.formulation?.name || '—';
+                }
+                return med.formulation || '—';
+              })()} />
               <Row label="Strength"        value={med.strength}    />
-              <Row label="Company"         value={med.company}     />
+              <Row label="Company"         value={typeof med.company === 'object' ? (med.company?.name || '—') : (med.company || '—')}     />
               <Row label="Unit"            value={med.unit}        />
               <Row label="Pack Size"       value={med.packSize}    />
               <Row label="Schedule"        value={med.schedule}    />

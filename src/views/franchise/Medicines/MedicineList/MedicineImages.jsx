@@ -40,14 +40,18 @@ export default function MedicineImages() {
 
       // Load images
       const imgRes = await getRequest(`/franchise/medicines/${id}/images`)
-      const rawImages = imgRes?.data?.data?.images || imgRes?.data?.images || []
+      const rawImages = imgRes?.data?.data?.images || []
       
-      // Transform string URLs to objects
-      const transformed = Array.isArray(rawImages) ? rawImages.map((url, idx) => ({
-        url: url,
-        isPrimary: url === medicine?.imageUrl,
-        index: idx
-      })) : []
+      // Transform string URLs or objects to consistent format
+      const transformed = Array.isArray(rawImages) ? rawImages.map((img, idx) => {
+        // Handle both string URLs and image objects
+        const url = typeof img === 'string' ? img : img?.url;
+        return {
+          url: url,
+          isPrimary: url === medicine?.imageUrl,
+          index: idx
+        };
+      }) : []
       
       setImages(transformed)
     } catch (err) {
@@ -164,7 +168,7 @@ export default function MedicineImages() {
             <div style={{ flex: 1 }}>
               <p style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>{med.name}</p>
               <p style={{ margin: 0, fontSize: 12, color: '#6b7280' }}>
-                {med.salt || med.genericName} · {med.company || med.manufacturer} · {med.category}
+                {typeof med.salt === 'object' ? (med.salt?.name || med.salt?.genericName || '—') : (med.salt || med.genericName || '—')} · {typeof med.company === 'object' ? (med.company?.name || '—') : (med.company || med.manufacturer || '—')} · {typeof med.category === 'object' ? (med.category?.name || '—') : (med.category || '—')}
               </p>
             </div>
             <div style={{ textAlign: 'right' }}>

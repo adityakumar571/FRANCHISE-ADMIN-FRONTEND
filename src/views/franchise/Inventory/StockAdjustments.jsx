@@ -6,17 +6,40 @@ import PageHeader from '../components/PageHeader'
 import DataTable from '../components/DataTable'
 import StatusBadge from '../components/StatusBadge'
 import { getRequest, postRequest, putRequest } from '../../../Helpers'
+import Autocomplete from '@mui/material/Autocomplete'
+import TextField from '@mui/material/TextField'
 
-const EMPTY = { medicine: '', batch: '', type: 'damaged', qty: '', reason: '' }
+const EMPTY = { medicineId: '', medicineName: '', batch: '', type: 'damaged', qty: '', reason: '', expiryDate: '' }
 
 const StockAdjustments = () => {
   const [tab, setTab]         = useState('list')
   const [adjustments, setAdjustments] = useState([])
+  const [medicines, setMedicines] = useState([])  // ← NEW: medicines list
+  const [loadingMedicines, setLoadingMedicines] = useState(true)  // ← NEW
   const [loading, setLoading] = useState(true)
   const [saving, setSaving]   = useState(false)
   const [total, setTotal]     = useState(0)
   const [page, setPage]       = useState(1)
   const [form, setForm]       = useState(EMPTY)
+  const [selectedMedicine, setSelectedMedicine] = useState(null)  // ← NEW
+
+  // Fetch medicines for autocomplete
+  useEffect(() => {
+    const fetchMedicines = async () => {
+      try {
+        setLoadingMedicines(true)
+        const res = await getRequest('/franchise/medicines?limit=500')
+        const medList = res.data?.data?.medicines || []
+        setMedicines(medList)
+      } catch (err) {
+        console.error('Error loading medicines:', err)
+        toast.error('Failed to load medicines')
+      } finally {
+        setLoadingMedicines(false)
+      }
+    }
+    fetchMedicines()
+  }, [])
 
   const fetchAdjustments = useCallback(async () => {
     setLoading(true)
@@ -38,13 +61,30 @@ const StockAdjustments = () => {
 
   const handleSave = async (e) => {
     e.preventDefault()
-    if (!form.medicine || !form.qty || !form.reason) { toast.error('Fill in required fields'); return }
+    if (!selectedMedicine) { toast.error('Please select a medicine'); return }
+    if (!form.batch) { toast.error('Please enter batch number'); return }
+    if (!form.qty || form.qty === '') { toast.error('Please enter quantity'); return }
+    if (!form.reason) { toast.error('Please enter reason'); return }
+    
     setSaving(true)
     try {
-      await postRequest({ url: '/franchise/inventory/adjustments', cred: form })
+      await postRequest({ 
+        url: '/franchise/inventory/adjustments', 
+        cred: {
+          medicineId: selectedMedicine._id,
+          medicineName: selectedMedicine.name,
+          batch: form.batch,
+          type: form.type,
+          qty: form.qty,
+          reason: form.reason,
+          expiryDate: form.expiryDate,  // ← NEW: Include expiry date
+          adjustmentType: form.type === 'correction' ? 'correction' : form.type === 'transfer' ? 'transfer' : 'adjustment'
+        }
+      })
       toast.success('Adjustment submitted for approval')
       setTab('list')
       setForm(EMPTY)
+      setSelectedMedicine(null)
       fetchAdjustments()
     } catch (err) {
       toast.error(err?.response?.data?.message || 'Failed to submit')
@@ -58,8 +98,14 @@ const StockAdjustments = () => {
       await putRequest({ url: `/franchise/inventory/adjustments/${id}/approve`, cred: {} })
       toast.success('Adjustment approved')
       fetchAdjustments()
-    } catch {
-      toast.error('Failed to approve')
+    } catch (err) {
+      const message = err?.response?.data?.message || 'Failed to approve'
+      if (message.includes('already approved')) {
+        toast.info('This adjustment was already approved')
+      } else {
+        toast.error(message)
+      }
+      fetchAdjustments() // Refresh to show current status
     }
   }
 
@@ -105,15 +151,48 @@ const StockAdjustments = () => {
             ⚠️ Stock adjustments require approval. Submit the form and await manager confirmation.
           </div>
           <form onSubmit={handleSave}>
-            {[
-              { label: 'Medicine *', name: 'medicine', placeholder: 'Medicine name' },
-              { label: 'Batch No.', name: 'batch', placeholder: 'Batch number' },
-            ].map((f) => (
-              <div key={f.name} style={{ marginBottom: 14 }}>
-                <label style={lbl}>{f.label}</label>
-                <input name={f.name} value={form[f.name]} onChange={onChange} placeholder={f.placeholder} style={inp} />
+            <div style={{ marginBottom: 14 }}>
+              <label style={lbl}>Medicine *</label>
+              <Autocomplete
+                options={medicines}
+                getOptionLabel={(option) => `${option.name} (${option.salt || ''})`}
+                loading={loadingMedicines}
+                value={selectedMedicine}
+                onChange={(event, newValue) => {
+                  setSelectedMedicine(newValue)
+                  if (newValue) {
+                    setForm(p => ({ ...p, medicineName: newValue.name }))
+                  }
+                }}
+                renderInput={(params) => (
+                  <TextField {...params} placeholder="Search medicine name or salt" />
+                )}
+                style={{ width: '100%' }}
+              />
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
+              <div>
+                <label style={lbl}>Batch No. *</label>
+                <input 
+                  name="batch" 
+                  value={form.batch} 
+                  onChange={(e) => setForm(p => ({ ...p, batch: e.target.value }))}
+                  placeholder="Batch number" 
+                  style={inp} 
+                />
               </div>
-            ))}
+              <div>
+                <label style={lbl}>Expiry Date</label>
+                <input 
+                  type="date"
+                  name="expiryDate" 
+                  value={form.expiryDate} 
+                  onChange={(e) => setForm(p => ({ ...p, expiryDate: e.target.value }))}
+                  style={inp} 
+                />
+              </div>
+            </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
               <div>

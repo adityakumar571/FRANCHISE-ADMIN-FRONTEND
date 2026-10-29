@@ -127,12 +127,20 @@ export default function BatchDetails() {
       {/* Medicine identity */}
       {med && (
         <div className="bg-white border border-gray-200 rounded-xl p-4 flex items-center gap-4 flex-wrap">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-50 to-blue-50 border border-gray-100 flex items-center justify-center text-2xl flex-shrink-0">
-            💊
+          {/* Medicine image or icon */}
+          <div className="relative w-16 h-16 rounded-xl bg-gradient-to-br from-cyan-50 to-blue-50 border border-gray-100 flex items-center justify-center text-2xl flex-shrink-0 overflow-hidden">
+            {med.imageUrl ? (
+              <img src={med.imageUrl} alt={med.name} className="w-full h-full object-cover" onError={(e) => {
+                e.target.style.display = 'none'
+              }} />
+            ) : null}
+            <span style={{ display: med.imageUrl ? 'none' : 'inline' }}>💊</span>
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-bold text-gray-800 truncate">{med.name}</p>
-            <p className="text-xs text-gray-400 mt-0.5">{med.salt} · {med.company} · MRP ₹{med.mrp}</p>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {typeof med.salt === 'object' ? med.salt?.name : med.salt} · {typeof med.company === 'object' ? med.company?.name : med.company} · MRP ₹{med.mrp}
+            </p>
           </div>
           {/* KPIs */}
           <div className="flex gap-3 flex-wrap">

@@ -27,15 +27,21 @@ const MasterTab = ({ type, color, placeholder }) => {
     try {
       // Franchise uses its own route — no supplier auth needed
       const res = await getRequest(`/franchise/medicines/masters?type=${type}`)
-      setData(res?.data?.data || [])
-    } catch {
-      message.error(`Failed to load ${type}s`)
+      if (res?.data?.data) {
+        setData(res.data.data)
+      } else {
+        setData([])
+      }
+    } catch (err) {
+      console.error(`Error loading ${type}:`, err)
+      message.error(`Failed to load ${type}s: ${err?.response?.data?.message || err?.message}`)
+      setData([])
     } finally {
       setLoading(false)
     }
   }, [type])
 
-  useEffect(() => { fetch() }, [fetch])
+  useEffect(() => { fetch() }, [fetch, type])
 
   const openAdd = () => {
     setEditing(null)
@@ -53,17 +59,25 @@ const MasterTab = ({ type, color, placeholder }) => {
     setSubmitting(true)
     try {
       if (editing) {
-        await putRequest({ url: `/franchise/medicines/masters/${editing._id}`, cred: values })
-        message.success('Updated successfully')
+        const res = await putRequest({ url: `/franchise/medicines/masters/${editing._id}`, cred: values })
+        if (res?.data?.success || res?.data?._id) {
+          message.success('Updated successfully')
+        } else {
+          throw new Error('Update failed')
+        }
       } else {
-        await postRequest({ url: '/franchise/medicines/masters', cred: { type, ...values } })
-        message.success('Added successfully')
+        const res = await postRequest({ url: '/franchise/medicines/masters', cred: { type, ...values } })
+        if (res?.data?.success || res?.data?._id) {
+          message.success('Added successfully')
+        } else {
+          throw new Error('Add failed')
+        }
       }
       setModalOpen(false)
       form.resetFields()
       fetch()
     } catch (err) {
-      message.error(err?.response?.data?.message || 'Operation failed')
+      message.error(err?.response?.data?.message || err?.message || 'Operation failed')
     } finally {
       setSubmitting(false)
     }
@@ -71,10 +85,16 @@ const MasterTab = ({ type, color, placeholder }) => {
 
   const toggleActive = async (record) => {
     try {
-      await putRequest({ url: `/franchise/medicines/masters/${record._id}`, cred: { isActive: !record.isActive } })
-      fetch()
-    } catch {
-      message.error('Failed to update')
+      const newStatus = !record.isActive
+      await putRequest({ url: `/franchise/medicines/masters/${record._id}`, cred: { isActive: newStatus } })
+      
+      // Update UI immediately
+      setData(prev => prev.map(item => 
+        item._id === record._id ? { ...item, isActive: newStatus } : item
+      ))
+      message.success(`Status updated to ${newStatus ? 'Active' : 'Inactive'}`)
+    } catch (err) {
+      message.error(err?.response?.data?.message || 'Failed to update status')
     }
   }
 
@@ -86,11 +106,15 @@ const MasterTab = ({ type, color, placeholder }) => {
       okType: 'danger',
       onOk: async () => {
         try {
-          await deleteRequest(`/franchise/medicines/masters/${record._id}`)
-          message.success('Deleted')
-          fetch()
-        } catch {
-          message.error('Failed to delete')
+          const res = await deleteRequest(`/franchise/medicines/masters/${record._id}`)
+          if (res?.data?.success || res?.status === 200) {
+            message.success('Deleted successfully')
+            fetch()
+          } else {
+            throw new Error('Delete failed')
+          }
+        } catch (err) {
+          message.error(err?.response?.data?.message || err?.message || 'Failed to delete')
         }
       },
     })
