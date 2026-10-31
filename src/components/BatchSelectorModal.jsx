@@ -1,253 +1,409 @@
-/* eslint-disable prettier/prettier */
-import { useState, useEffect } from 'react'
-import { X, AlertCircle, CheckCircle2 } from 'lucide-react'
 
-/**
- * BatchSelectorModal - FIFO Batch Selection for Sales
- * Shows batches sorted by expiry (earliest first)
- * User can select which batch to sell from
- */
-const BatchSelectorModal = ({ medicine, isOpen, onClose, onSelect }) => {
+import { useEffect, useMemo, useState } from 'react'
+import { Modal, InputNumber, Button, Empty, Tag, Tooltip } from 'antd'
+import {
+  X,
+  AlertCircle,
+  CheckCircle2,
+  Package,
+  CalendarDays,
+  IndianRupee,
+  ShoppingCart,
+  Clock,
+  Info,
+} from 'lucide-react'
+
+const BatchSelectorModal = ({
+  medicine,
+  isOpen,
+  onClose,
+  onSelect,
+}) => {
   const [selectedBatchId, setSelectedBatchId] = useState(null)
   const [selectedQty, setSelectedQty] = useState(1)
 
-  if (!isOpen || !medicine) return null
+  // Reset selection whenever modal opens or medicine changes
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedBatchId(null)
+      setSelectedQty(1)
+    }
+  }, [isOpen, medicine])
 
-  // Get active batches sorted by expiry (FIFO)
-  const activeBatches = (medicine.batches || [])
-    .filter(b => b.isActive && (b.availableQty || b.quantity) > 0)
-    .sort((a, b) => new Date(a.expiryDate) - new Date(b.expiryDate))
-
-  // Calculate days left for each batch
+  // Calculate batch information
   const getBatchInfo = (batch) => {
-    const now = new Date()
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
     const expiry = new Date(batch.expiryDate)
-    const daysLeft = Math.ceil((expiry - now) / (1000 * 60 * 60 * 24))
-    const qty = batch.availableQty !== undefined ? batch.availableQty : batch.quantity
-    
+    expiry.setHours(0, 0, 0, 0)
+
+    const daysLeft = Math.ceil(
+      (expiry - today) / (1000 * 60 * 60 * 24)
+    )
+
+    const qty = Number(
+      batch.availableQty ?? batch.quantity ?? 0
+    )
+
     return {
       daysLeft,
       qty,
       isExpired: daysLeft < 0,
-      isExpiringSoon: daysLeft <= 30 && daysLeft >= 0,
+      isExpiringSoon: daysLeft >= 0 && daysLeft <= 30,
     }
+  }
+
+  // Active batches sorted by earliest expiry
+  const activeBatches = useMemo(() => {
+    return (medicine?.batches || [])
+      .filter((batch) => {
+        const qty = Number(
+          batch.availableQty ?? batch.quantity ?? 0
+        )
+
+        return batch.isActive && qty > 0
+      })
+      .sort(
+        (a, b) =>
+          new Date(a.expiryDate) - new Date(b.expiryDate)
+      )
+  }, [medicine])
+
+  const selectedBatch = activeBatches.find(
+    (batch) => batch._id === selectedBatchId
+  )
+
+  const selectedBatchInfo = selectedBatch
+    ? getBatchInfo(selectedBatch)
+    : null
+
+  const maxQty = selectedBatchInfo?.qty || 0
+
+  const handleBatchSelect = (batch) => {
+    setSelectedBatchId(batch._id)
+    setSelectedQty(1)
   }
 
   const handleSelect = () => {
-    if (!selectedBatchId || !selectedQty) return
-    const batch = activeBatches.find(b => b._id === selectedBatchId)
-    if (batch) {
-      onSelect({ batch, qty: parseInt(selectedQty) })
-      setSelectedBatchId(null)
-      setSelectedQty(1)
+    if (!selectedBatch || !selectedBatchInfo) return
+
+    const qty = Number(selectedQty)
+
+    if (
+      !Number.isInteger(qty) ||
+      qty < 1 ||
+      qty > selectedBatchInfo.qty
+    ) {
+      return
     }
+
+    onSelect({
+      batch: selectedBatch,
+      qty,
+    })
+
+    setSelectedBatchId(null)
+    setSelectedQty(1)
+  }
+
+  const formatDate = (date) => {
+    if (!date) return '—'
+
+    const parsedDate = new Date(date)
+
+    if (Number.isNaN(parsedDate.getTime())) return '—'
+
+    return parsedDate.toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    })
+  }
+
+  const getExpiryTag = (info) => {
+    if (info.isExpired) {
+      return <Tag color="error">Expired</Tag>
+    }
+
+    if (info.isExpiringSoon) {
+      return <Tag color="warning">{info.daysLeft} Days Left</Tag>
+    }
+
+    return <Tag color="success">{info.daysLeft} Days Left</Tag>
   }
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      background: 'rgba(0,0,0,0.7)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 9999,
-    }}>
-      <div style={{
-        background: '#fff',
-        borderRadius: 12,
-        padding: 24,
-        maxWidth: 500,
-        maxHeight: '80vh',
-        overflowY: 'auto',
-        boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
-      }}>
-        {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#111827' }}>
-            Select Batch - {medicine.name}
-          </h3>
-          <button
-            onClick={onClose}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}
-          >
-            <X size={20} />
-          </button>
-        </div>
-
-        {/* Info Box */}
-        <div style={{
-          background: '#f0fdf4',
-          border: '1px solid #bbf7d0',
-          borderRadius: 8,
-          padding: 12,
-          marginBottom: 20,
-          fontSize: 12,
-          color: '#166534',
-          display: 'flex',
-          gap: 8,
-        }}>
-          <CheckCircle2 size={16} style={{ flexShrink: 0, marginTop: 2 }} />
-          <p style={{ margin: 0 }}>
-            ⏱️ <strong>FIFO Method:</strong> Batches are sorted by expiry date. Select the one expiring first (recommended).
-          </p>
-        </div>
-
-        {/* Batches List */}
-        {activeBatches.length === 0 ? (
-          <div style={{
-            background: '#fee2e2',
-            border: '1px solid #fecaca',
-            borderRadius: 8,
-            padding: 16,
-            textAlign: 'center',
-            color: '#991b1b',
-            fontSize: 12,
-          }}>
-            <AlertCircle size={16} style={{ margin: '0 auto 8px', display: 'block' }} />
-            No active batches available
+    <Modal
+      open={isOpen}
+      onCancel={onClose}
+      footer={null}
+      centered
+      width={650}
+      closeIcon={<X size={18} />}
+      destroyOnHidden
+      title={
+        <div className="flex items-center gap-3 pr-6">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+            <Package size={21} />
           </div>
-        ) : (
-          <div style={{ marginBottom: 20 }}>
-            {activeBatches.map((batch, idx) => {
-              const info = getBatchInfo(batch)
-              const isSelected = selectedBatchId === batch._id
-              
-              return (
-                <div
-                  key={batch._id}
-                  onClick={() => setSelectedBatchId(batch._id)}
-                  style={{
-                    border: `2px solid ${isSelected ? '#3b82f6' : '#e5e7eb'}`,
-                    borderRadius: 8,
-                    padding: 12,
-                    marginBottom: 10,
-                    cursor: 'pointer',
-                    background: isSelected ? '#eff6ff' : '#fff',
-                    transition: 'all 0.2s',
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 6 }}>
-                    <div>
-                      <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#111827' }}>
-                        {idx === 0 && '🔴 FIFO: '} Batch {batch.batchNo}
-                      </p>
-                      <p style={{ margin: '2px 0 0', fontSize: 11, color: '#6b7280' }}>
-                        Mfg: {new Date(batch.purchaseDate).toLocaleDateString('en-IN')}
-                      </p>
-                    </div>
-                    <span style={{
-                      background: info.isExpired ? '#fee2e2' : info.isExpiringSoon ? '#fef3c7' : '#d1fae5',
-                      color: info.isExpired ? '#991b1b' : info.isExpiringSoon ? '#92400e' : '#166534',
-                      padding: '2px 8px',
-                      borderRadius: 4,
-                      fontSize: 11,
-                      fontWeight: 600,
-                    }}>
-                      {info.isExpired ? '❌ Expired' : `${info.daysLeft} days`}
-                    </span>
-                  </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, fontSize: 12 }}>
-                    <div>
-                      <p style={{ margin: 0, color: '#6b7280', fontSize: 11 }}>Expiry</p>
-                      <p style={{ margin: '2px 0 0', fontWeight: 600, color: '#111827' }}>
-                        {new Date(batch.expiryDate).toLocaleDateString('en-IN')}
-                      </p>
-                    </div>
-                    <div>
-                      <p style={{ margin: 0, color: '#6b7280', fontSize: 11 }}>Available Qty</p>
-                      <p style={{ margin: '2px 0 0', fontWeight: 600, color: '#111827' }}>
-                        {info.qty} units
-                      </p>
-                    </div>
-                    <div>
-                      <p style={{ margin: 0, color: '#6b7280', fontSize: 11 }}>MRP</p>
-                      <p style={{ margin: '2px 0 0', fontWeight: 600, color: '#111827' }}>
-                        ₹{batch.mrp || '—'}
-                      </p>
-                    </div>
-                    <div>
-                      <p style={{ margin: 0, color: '#6b7280', fontSize: 11 }}>Purchase Price</p>
-                      <p style={{ margin: '2px 0 0', fontWeight: 600, color: '#111827' }}>
-                        ₹{batch.purchasePrice || '—'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
+          <div className="min-w-0">
+            <h3 className="text-base font-bold text-gray-800">
+              Select Medicine Batch
+            </h3>
+            <p className="truncate text-xs font-normal text-gray-500">
+              {medicine?.name || 'Medicine'}
+            </p>
           </div>
-        )}
+        </div>
+      }
+      styles={{
+        body: {
+          paddingTop: 1,
+          paddingBottom: 1,
+        },
+      }}
+    >
+      <div className="space-y-4">
 
-        {/* Quantity Selector */}
-        {selectedBatchId && (
-          <div style={{ marginBottom: 20, paddingTop: 12, borderTop: '1px solid #e5e7eb' }}>
-            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 8 }}>
-              Quantity to Sell
-            </label>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <input
-                type="number"
-                min={1}
-                max={activeBatches.find(b => b._id === selectedBatchId)?.availableQty || 1}
-                value={selectedQty}
-                onChange={(e) => setSelectedQty(e.target.value)}
-                style={{
-                  flex: 1,
-                  padding: '8px 12px',
-                  border: '1px solid #e5e7eb',
-                  borderRadius: 6,
-                  fontSize: 13,
-                  outline: 'none',
-                }}
+        {/* FIFO Information */}
+        {/* <div className="flex items-start gap-3 rounded-xl border border-blue-200 bg-blue-50 p-3">
+          <div className="mt-0.5 text-blue-600">
+            <CheckCircle2 size={18} />
+          </div>
+
+          <div>
+            <p className="text-sm font-semibold text-blue-800">
+              FIFO Method (First Expiry First Out)
+            </p>
+            <p className="mt-1 text-xs leading-5 text-blue-700">
+              Batches are automatically sorted by expiry date.
+              The batch expiring earliest is recommended first.
+            </p>
+          </div>
+        </div> */}
+
+        {/* Batch Summary */}
+        {/* <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-xl border border-gray-200 bg-white p-3">
+            <p className="text-xs text-gray-500">
+              Available Batches
+            </p>
+            <p className="mt-1 text-xl font-bold text-gray-800">
+              {activeBatches.length}
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-gray-200 bg-white p-3">
+            <p className="text-xs text-gray-500">
+              Total Available Stock
+            </p>
+            <p className="mt-1 text-xl font-bold text-gray-800">
+              {activeBatches.reduce(
+                (total, batch) =>
+                  total +
+                  Number(batch.availableQty ?? batch.quantity ?? 0),
+                0
+              )}
+            </p>
+          </div>
+        </div> */}
+
+        {/* Batch List */}
+
+        {/* Batch List */}
+        <div>
+          <div className="mb-1 flex items-center justify-between">
+            <h2 className="text-sm font-bold text-gray-800">
+              Available Batches
+            </h2>
+
+            {/* <span className="text-xs text-gray-500">
+              {activeBatches.length} batches found
+            </span> */}
+          </div>
+
+          {activeBatches.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-gray-300 py-6">
+              <Empty
+                image={Empty.PRESENTED_IMAGE_SIMPLE}
+                description="No active batches available"
               />
-              <span style={{ fontSize: 12, color: '#6b7280' }}>
-                / {activeBatches.find(b => b._id === selectedBatchId)?.availableQty || 0} available
+            </div>
+          ) : (
+            <div className="custom-scrollbar max-h-[300px] space-y-2 pr-2">
+
+              {activeBatches.map((batch, index) => {
+                const info = getBatchInfo(batch)
+                const isSelected = selectedBatchId === batch._id
+
+                return (
+                  <div
+                    key={batch._id}
+                    onClick={() => handleBatchSelect(batch)}
+                    className={`cursor-pointer rounded-lg border p-2.5 transition-all duration-200 ${isSelected
+                        ? 'border-blue-500 bg-blue-50 shadow-sm'
+                        : 'border-gray-200 bg-white hover:border-blue-300 hover:bg-gray-50'
+                      }`}
+                  >
+                    {/* Batch Header */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <div
+                          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md ${isSelected
+                              ? 'bg-blue-100 text-blue-600'
+                              : 'bg-gray-100 text-gray-500'
+                            }`}
+                        >
+                          <Package size={14} />
+                        </div>
+
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <p className="text-xs font-bold text-gray-800">
+                              Batch {batch.batchNo || 'N/A'}
+                            </p>
+
+                            {index === 0 && (
+                              <Tag color="processing" className="!m-0 !text-[10px] !leading-4">
+                                FIFO
+                              </Tag>
+                            )}
+                          </div>
+
+                          <p className="mt-0.5 text-[11px] text-gray-500">
+                            Mfg: {formatDate(batch.purchaseDate)}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="shrink-0">
+                        {getExpiryTag(info)}
+                      </div>
+                    </div>
+
+                    {/* Batch Details */}
+                    <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-2 sm:grid-cols-4">
+                      <div>
+                        <div className="flex items-center gap-1 text-[11px] text-gray-500">
+                          <CalendarDays size={12} />
+                          Expiry
+                        </div>
+                        <p className="mt-0.5 text-xs font-semibold text-gray-800">
+                          {formatDate(batch.expiryDate)}
+                        </p>
+                      </div>
+
+                      <div>
+                        <div className="flex items-center gap-1 text-[11px] text-gray-500">
+                          <Package size={12} />
+                          Available
+                        </div>
+                        <p className="mt-0.5 text-xs font-semibold text-gray-800">
+                          {info.qty} Units
+                        </p>
+                      </div>
+
+                      <div>
+                        <div className="flex items-center gap-1 text-[11px] text-gray-500">
+                          <IndianRupee size={12} />
+                          MRP
+                        </div>
+                        <p className="mt-0.5 text-xs font-semibold text-gray-800">
+                          ₹{batch.mrp ?? '—'}
+                        </p>
+                      </div>
+
+                      <div>
+                        <div className="flex items-center gap-1 text-[11px] text-gray-500">
+                          <IndianRupee size={12} />
+                          Purchase
+                        </div>
+                        <p className="mt-0.5 text-xs font-semibold text-gray-800">
+                          ₹{batch.purchasePrice ?? '—'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Selection Indicator */}
+                    {isSelected && (
+                      <div className="mt-2 flex items-center gap-1.5 border-t border-blue-200 pt-1.5 text-[11px] font-semibold text-blue-600">
+                        <CheckCircle2 size={13} />
+                        Selected Batch
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Quantity Selection */}
+        {/* {selectedBatch && (
+          <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <div>
+                <h4 className="text-sm font-bold text-gray-800">
+                  Quantity to Sell
+                </h4>
+                <p className="mt-1 text-xs text-gray-500">
+                  Batch: {selectedBatch.batchNo}
+                </p>
+              </div>
+
+              <Tag color="blue">
+                {maxQty} Available
+              </Tag>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <InputNumber
+                min={1}
+                max={maxQty}
+                precision={0}
+                value={selectedQty}
+                onChange={(value) => setSelectedQty(value ?? 1)}
+                className="w-full sm:w-40"
+                size="large"
+              />
+
+              <span className="text-xs text-gray-500">
+                Maximum {maxQty} units can be sold.
               </span>
             </div>
           </div>
-        )}
+        )} */}
 
-        {/* Buttons */}
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-          <button
+        {/* Footer Actions */}
+        {/* <div className="flex flex-col-reverse justify-end gap-2 border-t border-gray-200 pt-4 sm:flex-row">
+          <Button
+            size="large"
             onClick={onClose}
-            style={{
-              padding: '8px 16px',
-              borderRadius: 6,
-              border: '1px solid #e5e7eb',
-              background: '#fff',
-              fontWeight: 600,
-              fontSize: 12,
-              cursor: 'pointer',
-              color: '#374151',
-            }}
+            className="w-full sm:w-auto"
           >
             Cancel
-          </button>
-          <button
+          </Button>
+
+          <Button
+            type="primary"
+            size="large"
+            icon={<ShoppingCart size={16} />}
+            disabled={
+              !selectedBatch ||
+              !Number.isInteger(Number(selectedQty)) ||
+              Number(selectedQty) < 1 ||
+              Number(selectedQty) > maxQty
+            }
             onClick={handleSelect}
-            disabled={!selectedBatchId || !selectedQty}
-            style={{
-              padding: '8px 16px',
-              borderRadius: 6,
-              border: 'none',
-              background: selectedBatchId && selectedQty ? '#3b82f6' : '#d1d5db',
-              color: '#fff',
-              fontWeight: 600,
-              fontSize: 12,
-              cursor: selectedBatchId && selectedQty ? 'pointer' : 'not-allowed',
-            }}
+            className="w-full sm:w-auto"
           >
             Select & Continue
-          </button>
-        </div>
+          </Button>
+        </div> */}
       </div>
-    </div>
+    </Modal>
   )
 }
 

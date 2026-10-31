@@ -775,8 +775,9 @@ export default function PharmacyLayout3D() {
               })}
             </div>
           ) : (
-            <p className="m-0 mb-4 text-xs text-slate-500 text-center py-4 border border-dashed border-slate-700 rounded-lg">3D me kisi cube pe click karo — medicine ki details yahan dikhengi</p>
-          )}
+<p className="m-0 mb-4 text-xs text-slate-500 text-center py-4 border border-dashed border-slate-700 rounded-lg">
+  Click on any cube in the 3D view to see medicine details here.
+</p>          )}
 
           <p className="m-0 mb-2 text-xs font-bold text-slate-400 uppercase flex items-center gap-1">
             <Package size={12} /> Rack medicines ({rackMeds.length})

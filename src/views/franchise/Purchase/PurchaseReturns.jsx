@@ -1,385 +1,902 @@
 /* eslint-disable prettier/prettier */
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { RotateCcw, Plus, Trash2, Save, Search, ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react'
+
+import { useState, useEffect, useRef } from 'react'
+import { RotateCcw, Plus, Trash2, Save } from 'lucide-react'
+import { Select, Spin, Empty, Badge, Input, Table, Button } from 'antd'
 import toast from 'react-hot-toast'
+
 import PageHeader from '../components/PageHeader'
 import StatusBadge from '../components/StatusBadge'
 import { getRequest, postRequest } from '../../../Helpers'
-import PTRInput from '../../../components/PTRInput'
-import MarginCalculator from '../../../components/MarginCalculator'
 
-const LIMIT = 20
+const EMPTY_ITEM = {
+  medicineId: '',
+  medicineName: '',
+  batchNo: '',
+  batchId: '',
+  qty: 1,
+  ptr: '',
+  mrp: '',
+  reason: 'damaged',
+  note: '',
+  availableBatches: [],
+}
 
-const EMPTY_ITEM = { medicineId: '', medicineName: '', batchNo: '', qty: 1, ptr: '', mrp: '', reason: 'damaged', note: '' }
-function MedicineCell({ value, onSelect, cellStyle }) {
-  const [query, setQuery]   = useState(value || '')
-  const [results, setResults] = useState([])
-  const [open, setOpen]     = useState(false)
-  const debounce            = useRef()
-  const wrapRef             = useRef()
+const cellInputClass =
+  'box-border h-[30px] rounded-[5px] border border-gray-200 bg-[#fafafa] px-[7px] text-[12px] outline-none transition focus:border-blue-400 focus:bg-white'
 
-  useEffect(() => {
-    const handler = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false) }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
+// ======================================================
+// MEDICINE SEARCH COMPONENT
+// ======================================================
 
-  const handleChange = (val) => {
-    setQuery(val)
-    setOpen(true)
-    clearTimeout(debounce.current)
-    if (val.length < 2) { setResults([]); return }
-    debounce.current = setTimeout(async () => {
+function MedicineCell({ value, item, onSelect }) {
+  const [medicines, setMedicines] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [searchText, setSearchText] = useState('')
+  const timerRef = useRef(null)
+
+  // SEARCH MEDICINE API
+  const handleSearch = (searchValue) => {
+    setSearchText(searchValue)
+
+    if (timerRef.current) {
+      clearTimeout(timerRef.current)
+    }
+
+    if (searchValue.trim().length < 2) {
+      setMedicines([])
+      setLoading(false)
+      return
+    }
+
+    timerRef.current = setTimeout(async () => {
+      setLoading(true)
+
       try {
-        const res = await getRequest(`/franchise/pos/medicines/search?q=${encodeURIComponent(val)}&limit=8`)
-        setResults(res.data?.data?.medicines || [])
-      } catch { setResults([]) }
+        const res = await getRequest(
+          `/franchise/medicines?search=${encodeURIComponent(searchValue)}&limit=10`
+        )
+
+        setMedicines(
+          res.data?.data?.medicines || []
+        )
+      } catch (err) {
+        console.error('Search error:', err)
+        setMedicines([])
+      } finally {
+        setLoading(false)
+      }
     }, 300)
   }
 
-  const handleSelect = (med) => {
-    setQuery(med.name)
-    setResults([])
-    setOpen(false)
-    onSelect({ medicineId: med.id || med._id, medicineName: med.name })
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current)
+      }
+    }
+  }, [])
+
+  // SELECT MEDICINE
+  const handleSelect = (medicineId) => {
+    const med = medicines.find(
+      (medicine) => medicine._id === medicineId
+    )
+
+    if (!med) return
+
+    const activeBatches = (med.batches || []).filter(
+      (batch) =>
+        batch.isActive &&
+        (batch.availableQty || batch.quantity) > 0
+    )
+
+    onSelect({
+      medicineId: med._id,
+      medicineName: med.name,
+      availableBatches: activeBatches,
+      batchNo: '',
+      batchId: '',
+    })
+
+    setSearchText('')
+    setMedicines([])
   }
 
-  return (
-    <div ref={wrapRef} style={{ position:'relative' }}>
-      <input value={query} onChange={e=>handleChange(e.target.value)} placeholder="Search medicine..."
-        onFocus={() => query.length >= 2 && setOpen(true)} style={cellStyle} />
-      {open && results.length > 0 && (
-        <div style={{ position:'absolute', top:'100%', left:0, zIndex:100, background:'#fff', border:'1px solid #e5e7eb', borderRadius:8, boxShadow:'0 8px 24px rgba(0,0,0,0.12)', minWidth:260, maxHeight:180, overflowY:'auto' }}>
-          {results.map(m => (
-            <div key={m.id||m._id} onMouseDown={()=>handleSelect(m)}
-              style={{ padding:'7px 12px', cursor:'pointer', fontSize:12, borderBottom:'1px solid #f3f4f6' }}
-              onMouseEnter={e=>e.currentTarget.style.background='#f0f4ff'}
-              onMouseLeave={e=>e.currentTarget.style.background=''}>
-              <p style={{ margin:0, fontWeight:600, color:'#111827' }}>{m.name}</p>
-              <p style={{ margin:0, fontSize:10, color:'#9ca3af' }}>{m.company} · Stock: {m.stock}</p>
+  // ANT DESIGN DROPDOWN OPTIONS
+  const options = medicines.map((med) => {
+    const activeBatches = (med.batches || []).filter(
+      (batch) =>
+        batch.isActive &&
+        (batch.availableQty || batch.quantity) > 0
+    )
+
+    return {
+      value: med._id,
+
+      label: (
+        <div className="flex w-full items-center justify-between gap-3 py-1">
+
+          <div className="min-w-0">
+
+            <div className="truncate text-[13px] font-semibold text-gray-900">
+              {med.name}
             </div>
-          ))}
+
+            <div className="mt-0.5 text-[11px] text-gray-400">
+              {med.company || 'N/A'} · Stock: {med.currentStock}
+            </div>
+
+          </div>
+
+          <Badge
+            count={activeBatches.length}
+            color={
+              activeBatches.length > 0
+                ? '#10b981'
+                : '#ef4444'
+            }
+            className="shrink-0"
+            style={{
+              fontSize: 10,
+              fontWeight: 600,
+            }}
+          />
+
         </div>
-      )}
-    </div>
+      ),
+    }
+  })
+
+  const selectedMedicine = item?.medicineName || ''
+
+  return (
+    <Select
+      showSearch
+      allowClear
+      value={item?.medicineName || undefined}
+      searchValue={searchText}
+      onSearch={handleSearch}
+      onSelect={handleSelect}
+      onClear={() => {
+        setSearchText('')
+        setMedicines([])
+        onSelect({ ...EMPTY_ITEM })
+      }}
+      placeholder="Search medicine..."
+      options={options}
+      loading={loading}
+      filterOption={false}
+      notFoundContent={
+        loading ? (
+          <div className="py-5 text-center">
+            <Spin size="small" />
+          </div>
+        ) : searchText.trim().length > 0 ? (
+          <Empty
+            description="No medicines found"
+            className="my-5"
+          />
+        ) : (
+          <Empty
+            description="Type to search..."
+            className="my-5"
+          />
+        )
+      }
+      className="med-select-table"
+      size="large"
+      optionLabelProp="label"
+      maxTagTextLength={30}
+      popupMatchSelectWidth={false}
+      style={{
+        width: '100%',
+        minWidth: 0,
+        fontSize: 13,
+        height: 38,
+      }}
+    />
   )
 }
 
+// ======================================================
+// PURCHASE RETURNS COMPONENT
+// ======================================================
+
 const PurchaseReturns = () => {
-  const [tab, setTab]         = useState('list')
+  const [tab, setTab] = useState('list')
+
   const [returns, setReturns] = useState([])
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving]   = useState(false)
-  const [suppliers, setSuppliers] = useState([])
-  const [supplierId, setSupplierId] = useState('')
-  const [supplierName, setSupplierName] = useState('')
-  const [grnRef, setGrn]      = useState('')
-  const [items, setItems]     = useState([{ ...EMPTY_ITEM }])
+  const [saving, setSaving] = useState(false)
+
+  const [items, setItems] = useState([
+    { ...EMPTY_ITEM },
+  ])
+
+  // ======================================================
+  // FETCH PURCHASE RETURNS
+  // ======================================================
 
   const fetchReturns = async () => {
     setLoading(true)
+
     try {
-      const res = await getRequest('/franchise/purchase/returns')
-      setReturns(res.data?.data?.returns || [])
-    } catch { toast.error('Failed to load purchase returns') }
-    finally   { setLoading(false) }
+      const res = await getRequest(
+        '/franchise/purchase/returns'
+      )
+
+      setReturns(
+        res.data?.data?.returns || []
+      )
+    } catch {
+      toast.error('Failed to load purchase returns')
+    } finally {
+      setLoading(false)
+    }
   }
+
+  // ======================================================
+  // FETCH SUPPLIERS
+  // ======================================================
 
   useEffect(() => {
     fetchReturns()
-    // Use correct endpoint for suppliers
-    const fetchSuppliers = async () => {
-      try {
-        const res = await getRequest('/franchise-suppliers/suppliers')
-        let suppliersList = []
-        if (Array.isArray(res?.data)) {
-          suppliersList = res.data
-        } else if (Array.isArray(res?.data?.data)) {
-          suppliersList = res.data.data
-        } else if (Array.isArray(res?.data?.suppliers)) {
-          suppliersList = res.data.suppliers
-        }
-        setSuppliers(suppliersList)
-      } catch (err) {
-        console.error('Failed to fetch suppliers:', err)
-      }
-    }
-    fetchSuppliers()
   }, [])
 
-  const addItem  = () => setItems(p => [...p, { ...EMPTY_ITEM }])
-  const delItem  = (i) => setItems(p => p.filter((_, idx) => idx !== i))
-  const setItem  = (i, f, v) => setItems(p => p.map((it, idx) => idx === i ? { ...it, [f]: v } : it))
-  const setMedForRow = (i, medData) => setItems(p => p.map((it, idx) => idx === i ? { ...it, ...medData } : it))
+  // ======================================================
+  // ITEM FUNCTIONS
+  // ======================================================
 
-  const handleSave = async (e) => {
-    e.preventDefault()
-    
-    // Validation
-    if (!supplierId) { 
-      toast.error('Please select a supplier'); 
-      return 
-    }
-    
-    const validItems = items.filter(it => it.medicineName || it.medicineId)
-    if (!validItems.length) { 
-      toast.error('Add at least one medicine to return'); 
-      return 
-    }
-    
-    // Check if all items have required fields
-    const invalidItems = validItems.filter(it => !it.qty || it.qty < 1)
-    if (invalidItems.length > 0) {
-      toast.error('All items must have valid quantity (> 0)')
+  const addItem = () => {
+    setItems((prev) => [
+      ...prev,
+      { ...EMPTY_ITEM },
+    ])
+  }
+
+  const delItem = (index) => {
+    setItems((prev) =>
+      prev.filter((_, idx) => idx !== index)
+    )
+  }
+
+  const setItem = (index, field, value) => {
+    setItems((prev) =>
+      prev.map((item, idx) =>
+        idx === index
+          ? {
+            ...item,
+            [field]: value,
+          }
+          : item
+      )
+    )
+  }
+
+  const setMedForRow = (index, medData) => {
+    setItems((prev) =>
+      prev.map((item, idx) =>
+        idx === index
+          ? {
+            ...item,
+            ...medData,
+            batchNo: '',
+            batchId: '',
+          }
+          : item
+      )
+    )
+  }
+
+  // ======================================================
+  // SAVE PURCHASE RETURN
+  // ======================================================
+
+  const handleSave = async (event) => {
+    event.preventDefault()
+
+    const validItems = items.filter(
+      (item) =>
+        item.medicineName &&
+        item.medicineId
+    )
+
+    if (!validItems.length) {
+      toast.error(
+        'Add at least one medicine to return'
+      )
       return
     }
-    
-    // Confirm return action
-    const totalQty = validItems.reduce((sum, it) => sum + Number(it.qty || 0), 0)
-    const confirm = window.confirm(
-      `⚠️ Confirm Purchase Return\n\n` +
-      `Supplier: ${supplierName}\n` +
-      `Items: ${validItems.length}\n` +
-      `Total Qty: ${totalQty}\n\n` +
-      `This will reduce your stock. Continue?`
+
+    const invalidItems = validItems.filter(
+      (item) =>
+        !item.qty ||
+        item.qty < 1 ||
+        !item.batchNo
     )
-    
-    if (!confirm) return
-    
+
+    if (invalidItems.length > 0) {
+      toast.error(
+        'All items must have: valid quantity (> 0) AND selected batch'
+      )
+      return
+    }
+
+    // Get supplier from first batch
+    const firstBatch = validItems[0]?.availableBatches?.find(
+      (b) => b.batchNo === validItems[0].batchNo
+    )
+    const supplierName = firstBatch?.supplierName || 'Unknown Supplier'
+
     setSaving(true)
+
     try {
-      await postRequest({ url: '/franchise/purchase/returns', cred: {
-        supplierId, 
-        supplier: supplierName, 
-        grnRef,
-        items: validItems.map(it => ({
-          medicineId:   it.medicineId,
-          medicineName: it.medicineName,
-          batchNo:      it.batchNo,
-          qty:          Number(it.qty),
-          ptr:          Number(it.ptr || 0),
-          mrp:          Number(it.mrp || 0),
-          reason:       it.reason,
-          note:         it.note || '',
-        })),
-      }})
-      toast.success('✅ Purchase return submitted successfully')
+      await postRequest({
+        url: '/franchise/purchase/returns',
+
+        cred: {
+          supplier: supplierName,
+
+          items: validItems.map((item) => ({
+            medicineId: item.medicineId,
+            medicineName: item.medicineName,
+            batchNo: item.batchNo,
+            batchId: item.batchId || '',
+            qty: Number(item.qty),
+            ptr: Number(item.ptr || 0),
+            mrp: Number(item.mrp || 0),
+            reason: item.reason,
+            note: item.note || '',
+          })),
+        },
+      })
+
+      toast.success(
+        '✅ Purchase return submitted successfully'
+      )
+
       setTab('list')
-      setSupplierId(''); setSupplierName(''); setGrn('')
       setItems([{ ...EMPTY_ITEM }])
+
       fetchReturns()
     } catch (err) {
-      console.error('Return submission error:', err)
-      toast.error(err?.response?.data?.message || 'Failed to submit return')
+      console.error(
+        'Return submission error:',
+        err
+      )
+
+      toast.error(
+        err?.response?.data?.message ||
+        'Failed to submit return'
+      )
     } finally {
       setSaving(false)
     }
   }
 
+  // ======================================================
+  // TABLE COLUMNS
+  // ======================================================
+
   const columns = [
-    { title: 'Return No.', key: 'returnNo', render: (v) => <span style={{ fontWeight: 700, color: '#d97706' }}>{v}</span> },
-    { title: 'GRN Ref.', key: 'grnRef' },
-    { title: 'Supplier', key: 'supplier' },
-    { title: 'Reason', key: 'reason' },
-    { title: 'Items', key: 'items', align: 'center' },
-    { title: 'Date', key: 'date' },
-    { title: 'Status', key: 'status', render: (v) => <StatusBadge status={v} /> },
+    {
+      title: 'Return No.',
+      key: 'returnNo',
+
+      render: (value) => (
+        <span className="font-bold text-amber-600">
+          {value}
+        </span>
+      ),
+    },
+
+    // {
+    //   title: 'GRN Ref.',
+    //   key: 'grnRef',
+    // },
+
+    {
+      title: 'Supplier',
+      key: 'supplier',
+    },
+
+    {
+      title: 'Reason',
+      key: 'reason',
+    },
+
+    {
+      title: 'Items',
+      key: 'items',
+      align: 'center',
+    },
+
+    {
+      title: 'Date',
+      key: 'date',
+    },
+
+    {
+      title: 'Status',
+      key: 'status',
+
+      render: (value) => (
+        <StatusBadge status={value} />
+      ),
+    },
   ]
+
+  // ======================================================
+  // UI
+  // ======================================================
 
   return (
     <div>
-      <PageHeader icon={RotateCcw} title="Purchase Returns" subtitle="Return damaged, incorrect or expired stock to suppliers" color="#d97706">
-        <button onClick={() => setTab(tab === 'list' ? 'new' : 'list')}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 8, border: 'none', background: tab === 'new' ? '#e5e7eb' : '#0c3b73', color: tab === 'new' ? '#374151' : '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
-          {tab === 'new' ? '← Back to List' : <><Plus size={14} /> New Return</>}
+
+      <PageHeader
+        icon={RotateCcw}
+        title="Purchase Returns"
+        subtitle="Return damaged, incorrect or expired stock to suppliers"
+        color="#d97706"
+      >
+        <button
+          onClick={() =>
+            setTab(
+              tab === 'list'
+                ? 'new'
+                : 'list'
+            )
+          }
+          className={`flex cursor-pointer items-center gap-1.5 rounded-lg border-0 px-4 py-2 text-[13px] font-semibold ${tab === 'new'
+            ? 'bg-gray-200 text-gray-700'
+            : 'bg-[#0c3b73] text-white'
+            }`}
+        >
+          {tab === 'new' ? (
+            '← Back to List'
+          ) : (
+            <>
+              <Plus size={14} />
+              New Return
+            </>
+          )}
         </button>
       </PageHeader>
 
+      {/* PURCHASE RETURN LIST */}
+
       {tab === 'list' ? (
-        <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+
+        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+
+          <div className="overflow-x-auto">
+
+            <table className="w-full border-collapse">
+
               <thead>
-                <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-                  {columns.map(c => (
-                    <th key={c.key} style={{ padding: '10px 14px', textAlign: c.align || 'left', fontWeight: 600, color: '#374151', fontSize: 12, whiteSpace: 'nowrap' }}>
-                      {c.title}
+                <tr className="border-b border-gray-200 bg-gray-50">
+
+                  {columns.map((column) => (
+                    <th
+                      key={column.key}
+                      className={`whitespace-nowrap px-[14px] py-[10px] text-[12px] font-semibold text-gray-700 ${column.align === 'center'
+                        ? 'text-center'
+                        : 'text-left'
+                        }`}
+                    >
+                      {column.title}
                     </th>
                   ))}
+
                 </tr>
               </thead>
+
               <tbody>
+
                 {loading ? (
-                  Array(5).fill(0).map((_, i) => (
-                    <tr key={i}>
-                      {columns.map((_, j) => (
-                        <td key={j} style={{ padding: '10px 14px' }}>
-                          <div style={{ height: 13, background: '#f3f4f6', borderRadius: 4 }} />
-                        </td>
-                      ))}
-                    </tr>
-                  ))
+
+                  Array(5)
+                    .fill(0)
+                    .map((_, index) => (
+                      <tr key={index}>
+
+                        {columns.map((column) => (
+                          <td
+                            key={column.key}
+                            className="px-[14px] py-[10px]"
+                          >
+                            <div className="h-[13px] rounded bg-gray-100" />
+                          </td>
+                        ))}
+
+                      </tr>
+                    ))
+
                 ) : returns.length === 0 ? (
+
                   <tr>
-                    <td colSpan={columns.length} style={{ padding: 40, textAlign: 'center', color: '#9ca3af' }}>
+                    <td
+                      colSpan={columns.length}
+                      className="p-10 text-center text-gray-400"
+                    >
                       No purchase returns found
                     </td>
                   </tr>
+
                 ) : (
-                  returns.map((row, i) => (
+
+                  returns.map((row, index) => (
                     <tr
-                      key={row._id || i}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = '#fafafa')}
-                      onMouseLeave={(e) => (e.currentTarget.style.background = '')}
+                      key={row._id || index}
+                      className="hover:bg-[#fafafa]"
                     >
-                      {columns.map((c) => (
-                        <td key={c.key} style={{ padding: '10px 14px', textAlign: c.align || 'left', color: '#374151', verticalAlign: 'middle' }}>
-                          {c.render ? c.render(row[c.key], row, i) : row[c.key] ?? '—'}
+
+                      {columns.map((column) => (
+                        <td
+                          key={column.key}
+                          className={`px-[14px] py-[10px] align-middle text-gray-700 ${column.align === 'center'
+                            ? 'text-center'
+                            : ''
+                            }`}
+                        >
+                          {column.render
+                            ? column.render(
+                              row[column.key],
+                              row,
+                              index
+                            )
+                            : row[column.key] ?? '—'}
                         </td>
                       ))}
+
                     </tr>
                   ))
+
                 )}
+
               </tbody>
+
             </table>
+
           </div>
+
         </div>
+
       ) : (
-        <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', padding: 24 }}>
-          <h3 style={{ fontSize: 15, fontWeight: 700, margin: '0 0 20px' }}>New Purchase Return</h3>
+        <div className="rounded-xl border border-gray-200 bg-white p-6">
+          {/* NEW PURCHASE RETURN FORM */}
+          <h3 className="mb-5 mt-0 text-[15px] font-bold">
+            New Purchase Return
+          </h3>
+
           <form onSubmit={handleSave}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 20 }}>
-              <div>
-                <label style={lbl}>Supplier *</label>
-                <select value={supplierId} onChange={e => {
-                  setSupplierId(e.target.value)
-                  const s = suppliers.find(x => x._id === e.target.value)
-                  setSupplierName(s?.companyName || s?.name || '')
-                }} style={{ ...inp, cursor: 'pointer' }}>
-                  <option value="">Select Supplier</option>
-                  {suppliers.map(s => <option key={s._id} value={s._id}>{s.companyName || s.name}</option>)}
-                </select>
-              </div>
-              <div>
-                <label style={lbl}>GRN Reference</label>
-                <input value={grnRef} onChange={e => setGrn(e.target.value)} placeholder="GRN No." style={inp} />
-              </div>
+
+            {/* MEDICINE TABLE */}
+
+            <div className="mb-4">
+              <Table
+                dataSource={items.map((item, idx) => ({
+                  ...item,
+                  key: idx,
+                }))}
+                columns={[
+                  {
+                    title: 'Medicine *',
+                    dataIndex: 'medicineId',
+                    key: 'medicine',
+                    width: 200,
+                    render: (_, record, index) => (
+                      <MedicineCell
+                        value={record.medicineId}
+                        item={record}
+                        onSelect={(medicine) =>
+                          setMedForRow(index, medicine)
+                        }
+                      />
+                    ),
+                  },
+                  {
+                    title: 'Batch No.',
+                    dataIndex: 'batchNo',
+                    key: 'batch',
+                    width: 150,
+                    render: (_, record, index) => {
+                      if (
+                        record.availableBatches?.length >
+                        0
+                      ) {
+                        return (
+                          <Select
+                            value={
+                              record.batchNo ||
+                              undefined
+                            }
+                            onChange={(value) => {
+                              const selectedBatch =
+                                record.availableBatches.find(
+                                  (batch) =>
+                                    batch.batchNo ===
+                                    value
+                                )
+
+                              setItem(
+                                index,
+                                'batchNo',
+                                value
+                              )
+
+                              setItem(
+                                index,
+                                'batchId',
+                                selectedBatch?._id ||
+                                ''
+                              )
+
+                              setItem(
+                                index,
+                                'mrp',
+                                selectedBatch?.mrp ||
+                                record.mrp
+                              )
+
+                              setItem(
+                                index,
+                                'ptr',
+                                selectedBatch?.purchasePrice ||
+                                record.ptr
+                              )
+                            }}
+                            placeholder="Select..."
+                            size="medium"
+                            style={{ width: '100%' }}
+                            options={record.availableBatches.map(
+                              (batch) => {
+                                const daysLeft =
+                                  Math.ceil(
+                                    (new Date(
+                                      batch.expiryDate
+                                    ) -
+                                      new Date()) /
+                                    (1000 * 60 * 60 * 24)
+                                  )
+
+                                const expirySoon =
+                                  daysLeft < 30 &&
+                                  daysLeft >= 0
+
+                                return {
+                                  value: batch.batchNo,
+                                  label: `${batch.batchNo} (${batch.availableQty || batch.quantity}) ${expirySoon ? '⚠️ Soon' : ''}`,
+                                }
+                              }
+                            )}
+                            popupMatchSelectWidth={
+                              false
+                            }
+                          />
+                        )
+                      } else {
+                        return (
+                          <span className="text-gray-400">
+                            No batches
+                          </span>
+                        )
+                      }
+                    },
+                  },
+                  {
+                    title: 'Qty *',
+                    dataIndex: 'qty',
+                    key: 'qty',
+                    width: 80,
+                    render: (_, record, index) => (
+                      <Input
+                        type="number"
+                        min={1}
+                        value={record.qty}
+                        onChange={(event) =>
+                          setItem(
+                            index,
+                            'qty',
+                            event.target.value
+                          )
+                        }
+                        size="small"
+                        style={{ width: '100%' }}
+                      />
+                    ),
+                  },
+                  {
+                    title: 'PTR (₹)',
+                    dataIndex: 'ptr',
+                    key: 'ptr',
+                    width: 90,
+                    render: (_, record, index) => (
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={record.ptr}
+                        onChange={(event) =>
+                          setItem(
+                            index,
+                            'ptr',
+                            event.target.value
+                          )
+                        }
+                        placeholder="0.00"
+                        size="small"
+                        style={{ width: '100%' }}
+                      />
+                    ),
+                  },
+                  {
+                    title: 'MRP (₹)',
+                    dataIndex: 'mrp',
+                    key: 'mrp',
+                    width: 90,
+                    render: (_, record, index) => (
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={record.mrp}
+                        onChange={(event) =>
+                          setItem(
+                            index,
+                            'mrp',
+                            event.target.value
+                          )
+                        }
+                        placeholder="0.00"
+                        size="small"
+                        style={{ width: '100%' }}
+                      />
+                    ),
+                  },
+                  {
+                    title: 'Reason *',
+                    dataIndex: 'reason',
+                    key: 'reason',
+                    width: 120,
+                    render: (_, record, index) => (
+                      <Select
+                        value={record.reason}
+                        onChange={(value) =>
+                          setItem(index, 'reason', value)
+                        }
+                        size="small"
+                        style={{ width: '100%' }}
+                        options={[
+                          {
+                            value: 'damaged',
+                            label: 'Damaged',
+                          },
+                          {
+                            value: 'expired',
+                            label: 'Expired',
+                          },
+                          {
+                            value: 'near_expiry',
+                            label: 'Near Expiry',
+                          },
+                          {
+                            value: 'incorrect',
+                            label: 'Incorrect',
+                          },
+                          {
+                            value: 'quality',
+                            label: 'Quality Issue',
+                          },
+                          {
+                            value: 'other',
+                            label: 'Other',
+                          },
+                        ]}
+                        popupMatchSelectWidth={
+                          false
+                        }
+                      />
+                    ),
+                  },
+                  {
+                    title: 'Note',
+                    dataIndex: 'note',
+                    key: 'note',
+                    width: 140,
+                    render: (_, record, index) => (
+                      <Input
+                        value={record.note || ''}
+                        onChange={(event) =>
+                          setItem(
+                            index,
+                            'note',
+                            event.target.value
+                          )
+                        }
+                        placeholder="Optional"
+                        size="small"
+                        style={{ width: '100%' }}
+                      />
+                    ),
+                  },
+                  {
+                    title: 'Action',
+                    key: 'action',
+                    width: 50,
+                    render: (_, record, index) => (
+                      items.length > 1 && (
+                        <Button
+                          type="text"
+                          danger
+                          size="small"
+                          onClick={() =>
+                            delItem(index)
+                          }
+                          icon={
+                            <Trash2 size={14} />
+                          }
+                        />
+                      )
+                    ),
+                  },
+                ]}
+                pagination={false}
+                size="small"
+                bordered
+                scroll={{ x: 1000 }}
+                style={{
+                  fontSize: 13,
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '8px',
+                }}
+              />
             </div>
 
-            <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'auto', marginBottom: 16 }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 900 }}>
-                <thead>
-                  <tr style={{ background: '#f9fafb' }}>
-                    {['Medicine *', 'Batch No.', 'Qty *', 'PTR (₹)', 'MRP (₹)', 'Reason *', 'Note', ''].map((h) => (
-                      <th key={h} style={{ padding: '8px 10px', fontWeight: 600, color: '#374151', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((item, i) => (
-                    <tr key={i} style={{ borderTop: '1px solid #f3f4f6' }}>
-                      <td style={{ padding: '6px 8px', minWidth: 200 }}>
-                        <MedicineCell
-                          value={item.medicineName}
-                          onSelect={(med) => setMedForRow(i, med)}
-                          cellStyle={cell}
-                        />
-                      </td>
-                      <td style={{ padding: '6px 8px' }}>
-                        <input 
-                          value={item.batchNo} 
-                          onChange={(e) => setItem(i, 'batchNo', e.target.value)} 
-                          placeholder="Batch" 
-                          style={{ ...cell, width: 100 }} 
-                        />
-                      </td>
-                      <td style={{ padding: '6px 8px' }}>
-                        <input 
-                          type="number" 
-                          min={1} 
-                          value={item.qty} 
-                          onChange={(e) => setItem(i, 'qty', e.target.value)} 
-                          style={{ ...cell, width: 60 }} 
-                          required
-                        />
-                      </td>
-                      <td style={{ padding: '6px 8px' }}>
-                        <input 
-                          type="number" 
-                          step="0.01" 
-                          value={item.ptr} 
-                          onChange={(e) => setItem(i, 'ptr', e.target.value)} 
-                          placeholder="0.00" 
-                          style={{ ...cell, width: 80 }} 
-                        />
-                      </td>
-                      <td style={{ padding: '6px 8px' }}>
-                        <input 
-                          type="number" 
-                          step="0.01" 
-                          value={item.mrp} 
-                          onChange={(e) => setItem(i, 'mrp', e.target.value)} 
-                          placeholder="0.00" 
-                          style={{ ...cell, width: 80 }} 
-                        />
-                      </td>
-                      <td style={{ padding: '6px 8px' }}>
-                        <select 
-                          value={item.reason} 
-                          onChange={(e) => setItem(i, 'reason', e.target.value)} 
-                          style={{ ...cell, background: '#fff', width: 120 }}
-                        >
-                          <option value="damaged">Damaged</option>
-                          <option value="expired">Expired</option>
-                          <option value="near_expiry">Near Expiry</option>
-                          <option value="incorrect">Incorrect Item</option>
-                          <option value="quality">Quality Issue</option>
-                          <option value="other">Other</option>
-                        </select>
-                      </td>
-                      <td style={{ padding: '6px 8px' }}>
-                        <input 
-                          value={item.note || ''} 
-                          onChange={(e) => setItem(i, 'note', e.target.value)} 
-                          placeholder="Optional note" 
-                          style={{ ...cell, width: 140 }} 
-                        />
-                      </td>
-                      <td style={{ padding: '6px 8px', textAlign: 'center' }}>
-                        {items.length > 1 && (
-                          <button 
-                            type="button" 
-                            onClick={() => delItem(i)} 
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#e11d48' }}
-                          >
-                            <Trash2 size={13} />
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <button type="button" onClick={addItem} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 12px', borderRadius: 6, border: '1px solid #d9780640', background: '#d9780610', color: '#d97706', fontSize: 12, fontWeight: 600, cursor: 'pointer', marginBottom: 16 }}>
-              <Plus size={13} /> Add Item
+            {/* ADD ITEM */}
+
+            <button
+              type="button"
+              onClick={addItem}
+              className="mb-4 flex cursor-pointer items-center gap-1 rounded-md border border-[#d9780640] bg-[#d9780610] px-3 py-[5px] text-[12px] font-semibold text-amber-600"
+            >
+              <Plus size={13} />
+              Add Item
             </button>
 
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button type="button" onClick={() => setTab('list')} style={{ padding: '9px 20px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Cancel</button>
-              <button type="submit" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 22px', borderRadius: 8, border: 'none', background: saving ? '#fde68a' : '#d97706', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
-                <Save size={14} /> {saving ? 'Submitting...' : 'Submit Return'}
+            {/* ACTION BUTTONS */}
+
+            <div className="flex justify-end gap-[10px]">
+
+              <button
+                type="button"
+                onClick={() => setTab('list')}
+                className="cursor-pointer rounded-lg border border-gray-200 bg-white px-5 py-[9px] text-[13px] font-semibold"
+              >
+                Cancel
               </button>
+
+              <button
+                type="submit"
+                disabled={saving}
+                className={`flex cursor-pointer items-center gap-1.5 rounded-lg border-0 px-[22px] py-[9px] text-[13px] font-bold text-white ${saving
+                  ? 'bg-amber-200'
+                  : 'bg-amber-600'
+                  }`}
+              >
+                <Save size={14} />
+
+                {saving
+                  ? 'Submitting...'
+                  : 'Submit Return'}
+              </button>
+
             </div>
+
           </form>
         </div>
       )}
     </div>
   )
 }
-
-const lbl  = { display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 5 }
-const inp  = { width: '100%', height: 38, border: '1px solid #e5e7eb', borderRadius: 7, padding: '0 11px', fontSize: 13, outline: 'none', background: '#fafafa', boxSizing: 'border-box' }
-const cell = { width: '100%', height: 30, border: '1px solid #e5e7eb', borderRadius: 5, padding: '0 7px', fontSize: 12, outline: 'none', background: '#fafafa', boxSizing: 'border-box' }
 
 export default PurchaseReturns
