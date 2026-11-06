@@ -271,9 +271,11 @@ export default function PharmacyLayout3D() {
   const [rot, setRot] = useState(PRESETS.angle)
   const [zoom, setZoom] = useState(1)
   const [auto, setAuto] = useState(false)
+  const [searchResults, setSearchResults] = useState([])
+  const [showDropdown, setShowDropdown] = useState(false)
   const drag = useRef({ on: false, moved: false, sx: 0, sy: 0, ox: 0, oy: 0 })
 
-  const debouncedSearch = useDebounce(search, 800)
+  const debouncedSearch = useDebounce(search, 500)
   const dataRef = useRef({ racks: [], counters: [] })
   dataRef.current = { racks, counters }
 
@@ -405,35 +407,40 @@ export default function PharmacyLayout3D() {
   /* ── SEARCH (debounced) ── */
   useEffect(() => {
     const q = debouncedSearch.trim()
-    if (!q) { setFoundMed(null); return }
+    if (!q) { 
+      setSearchResults([])
+      setShowDropdown(false)
+      setFoundMed(null)
+      return 
+    }
     let cancelled = false
     ;(async () => {
       setSearchLoading(true)
       try {
-        const res = await getRequest(`/franchise/medicines?search=${encodeURIComponent(q)}&limit=1`)
-        if (cancelled) return
-        const med = res?.data?.data?.medicines?.[0]
-        if (!med) { setFoundMed(null); toast.error('Medicine not found'); return }
-        setFoundMed(med)
-        const loc = med.rackLocation
-        if (loc?.rackId) {
-          const r = dataRef.current.racks.find((x) => x.code === loc.rackId)
-          if (r) {
-            setCounterId(idOf(r.counterId) || idOf(med.counterId))
-            setRackId(r._id)
-            setSelectedKey(slotKey(loc.shelf, loc.row, loc.column))
-            setRot(PRESETS.angle)
-          }
+        // سب medicines میں سے filter کریں
+        const filtered = medicines.filter(m => {
+          const name = String(m.name || '').toLowerCase()
+          const salt = String(m.salt || '').toLowerCase()
+          const company = String(m.company || '').toLowerCase()
+          const searchQuery = q.toLowerCase()
+          return name.includes(searchQuery) || salt.includes(searchQuery) || company.includes(searchQuery)
+        }).slice(0, 8) // زیادہ سے زیادہ 8 نتائج
+        
+        if (!cancelled) {
+          setSearchResults(filtered)
+          setShowDropdown(filtered.length > 0)
         }
-        toast.success('Found: ' + txt(med.name, ''))
       } catch {
-        if (!cancelled) { setFoundMed(null); toast.error('Search failed') }
+        if (!cancelled) { 
+          setSearchResults([])
+          setShowDropdown(false)
+        }
       } finally {
         if (!cancelled) setSearchLoading(false)
       }
     })()
     return () => { cancelled = true }
-  }, [debouncedSearch])
+  }, [debouncedSearch, medicines])
 
   /* ── AUTO ROTATE ── */
   useEffect(() => {
@@ -460,7 +467,30 @@ export default function PharmacyLayout3D() {
   // click tab hi select jab drag nahi hua
   const handleSelect = (k) => { if (!drag.current.moved) setSelectedKey(k) }
 
-  const clearSearch = () => { setSearch(''); setFoundMed(null) }
+  const clearSearch = () => { setSearch(''); setFoundMed(null); setSearchResults([]); setShowDropdown(false) }
+
+  const handleSelectFromDropdown = (medicine) => {
+    setFoundMed(medicine)
+    setSearch('')
+    setSearchResults([])
+    setShowDropdown(false)
+    
+    const loc = medicine.rackLocation
+    if (loc?.rackId) {
+      const r = dataRef.current.racks.find((x) => x.code === loc.rackId)
+      if (r) {
+        setCounterId(idOf(r.counterId) || idOf(medicine.counterId))
+        setRackId(r._id)
+        setSelectedKey(slotKey(loc.shelf, loc.row, loc.column))
+        setRot(PRESETS.angle)
+        toast.success('Found: ' + txt(medicine.name, ''))
+      } else {
+        toast.error('Rack config nahi mila')
+      }
+    } else {
+      toast.error('Rack location nahi assign hai')
+    }
+  }
 
   /* ── Handle medicine click for batch selection ── */
   const handleMedicineClick = (medicine) => {
@@ -560,15 +590,51 @@ export default function PharmacyLayout3D() {
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
               <input
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => {
+                  setSearch(e.target.value)
+                  if (e.target.value.trim()) setShowDropdown(true)
+                }}
+                onFocus={() => search.trim() && searchResults.length > 0 && setShowDropdown(true)}
                 placeholder="Type medicine name..."
                 className="w-full pl-9 pr-9 py-2 bg-slate-800 border border-slate-700 focus:border-blue-500 rounded-lg text-white text-sm placeholder-slate-500 outline-none"
               />
               {searchLoading ? (
                 <RefreshCw size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-blue-400 animate-spin" />
               ) : search ? (
-                <X size={14} onClick={clearSearch} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 cursor-pointer" />
+                <X size={14} onClick={clearSearch} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 cursor-pointer hover:text-slate-300" />
               ) : null}
+              
+              {/* Dropdown */}
+              {showDropdown && searchResults.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-slate-800 border border-slate-700 rounded-lg shadow-lg z-10 max-h-64 overflow-y-auto">
+                  {searchResults.map((med) => {
+                    const st = stockState(med)
+                    return (
+                      <div
+                        key={med._id}
+                        onClick={() => handleSelectFromDropdown(med)}
+                        className="px-3 py-2.5 border-b border-slate-700 last:border-b-0 cursor-pointer hover:bg-slate-700 transition-colors text-xs"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1">
+                            <p className="m-0 font-bold text-sm text-white">{txt(med.name)}</p>
+                            <p className="m-0 mt-0.5 text-slate-400 text-xs">{txt(med.salt, '')} • {txt(med.company, '')}</p>
+                          </div>
+                          <span className="w-2 h-2 rounded-full mt-1 shrink-0" style={{ background: COLORS[st].main }} />
+                        </div>
+                        <div className="flex items-center gap-2 mt-1 text-slate-400">
+                          <span>Stock: {txt(med.currentStock, 0)}</span>
+                          <span>•</span>
+                          <span className="font-semibold text-white">₹{txt(med.mrp, 0)}</span>
+                        </div>
+                        {med.rackLocation?.position && (
+                          <p className="m-0 mt-1 text-blue-400 text-xs"><MapPin size={10} className="inline" /> {med.rackLocation.position}</p>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
             {foundMed && (
               <div className="mt-3 p-3 bg-slate-800 rounded-lg border border-sky-500/50">
