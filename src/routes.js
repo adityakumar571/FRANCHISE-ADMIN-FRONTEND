@@ -120,6 +120,7 @@ const B2BOrders = l(() => import('./views/franchise/B2BOrders/B2BOrders'))
 
 // ── Customers ─────────────────────────────────────────────────────────────────
 const CustomerList = l(() => import('./views/franchise/Customers/CustomerList'))
+const AddCustomer = l(() => import('./views/franchise/Customers/AddCustomer'))
 const CustomerDetails = l(() => import('./views/franchise/Customers/CustomerDetails'))
 const CustomerWallet = l(() => import('./views/franchise/Customers/CustomerWallet'))
 const PurchaseHistory = l(() => import('./views/franchise/Customers/PurchaseHistory'))
@@ -279,6 +280,7 @@ const routes = [
 
   /* ── Customers ── */
   { path: '/franchise/customers', element: CustomerList, accessKey: 'customers_list' },
+  { path: '/franchise/customers/add', element: AddCustomer, accessKey: 'customers_list' },
   { path: '/franchise/customers/:id', element: CustomerDetails, accessKey: 'customers_list' },
   { path: '/franchise/customers/:id/wallet', element: CustomerWallet, accessKey: 'customers_wallet' },
   { path: '/franchise/customers/:id/history', element: PurchaseHistory, accessKey: 'customers_history' },

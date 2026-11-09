@@ -255,26 +255,26 @@ export default function CustomerList() {
                             style={{ padding: '4px 8px', border: 'none', borderRadius: 5, background: '#fffbeb', color: '#d97706', fontSize: 11, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3 }}>
                             <Edit2 size={10} /> Edit
                           </button>
-                          <button onClick={() => go(c._id, '/wallet')}
+                          {/* <button onClick={() => go(c._id, '/wallet')}
                             style={{ padding: '4px 7px', border: 'none', borderRadius: 5, background: '#f0fdf4', color: '#16a34a', fontSize: 10, cursor: 'pointer' }} title="Wallet">
                             <Wallet size={11} />
-                          </button>
-                          <button onClick={() => go(c._id, '/loyalty')}
+                          </button> */}
+                          {/* <button onClick={() => go(c._id, '/loyalty')}
                             style={{ padding: '4px 7px', border: 'none', borderRadius: 5, background: '#fef3c7', color: '#d97706', fontSize: 10, cursor: 'pointer' }} title="Loyalty">
                             <Star size={11} />
-                          </button>
-                          <button onClick={() => go(c._id, '/membership')}
+                          </button> */}
+                          {/* <button onClick={() => go(c._id, '/membership')}
                             style={{ padding: '4px 7px', border: 'none', borderRadius: 5, background: '#f5f3ff', color: '#7c3aed', fontSize: 10, cursor: 'pointer' }} title="Membership">
                             <Crown size={11} />
-                          </button>
-                          <button onClick={() => go(c._id, '/reminders')}
+                          </button> */}
+                          {/* <button onClick={() => go(c._id, '/reminders')}
                             style={{ padding: '4px 7px', border: 'none', borderRadius: 5, background: '#eff6ff', color: '#3b82f6', fontSize: 10, cursor: 'pointer' }} title="Reminders">
                             <Bell size={11} />
-                          </button>
-                          <button onClick={() => go(c._id, '/carecoin')}
+                          </button> */}
+                          {/* <button onClick={() => go(c._id, '/carecoin')}
                             style={{ padding: '4px 7px', border: 'none', borderRadius: 5, background: '#fff7ed', color: '#f97316', fontSize: 10, cursor: 'pointer' }} title="CareCoin">
                             <Award size={11} />
-                          </button>
+                          </button> */}
                           <button onClick={() => setConfirmId(c._id)}
                             style={{ padding: '4px 7px', border: 'none', borderRadius: 5, background: '#fee2e2', color: '#dc2626', fontSize: 10, cursor: 'pointer' }} title="Delete">
                             <Trash2 size={11} />

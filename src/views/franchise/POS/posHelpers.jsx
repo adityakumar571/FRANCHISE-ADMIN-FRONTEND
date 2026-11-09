@@ -145,3 +145,181 @@ export const calcTotal = (cart, discount = 0) => {
   const gst      = taxable * 0.05
   return taxable + gst
 }
+
+
+/* ─────────────────────────────────────────────────────────
+   CRITICAL UTILITY FUNCTIONS FOR API INTEGRATION
+   Handles field mapping, validation, calculations
+───────────────────────────────────────────────────────── */
+
+// ✅ Normalize medicine response from backend API
+export const normalizeMedicine = (med) => {
+  if (!med) return null
+  return {
+    _id: med._id || med.id,
+    id: med._id || med.id,
+    name: med.name || '',
+    salt: med.salt || '',
+    company: med.company || '',
+    category: med.category || '',
+    formulation: med.formulation || '',
+    packSize: med.packSize || med.pack || '',
+    mrp: Number(med.mrp) || 0,
+    ptr: Number(med.ptr || med.mrp) || 0,
+    gst: Number(med.gst || med.gstPercent || 5),
+    barcode: med.barcode || '',
+    stock: Number(med.stock || med.currentStock || 0),
+    batch: med.batch || med.batchNo || '—',
+    exp: med.exp || (med.expiryDate ? new Date(med.expiryDate).toLocaleDateString('en-IN') : '—'),
+    batchId: med.batchId || med._id || med.id,
+  }
+}
+
+// ✅ Convert cart item to API payload
+export const cartItemToPayload = (item) => ({
+  medicineId: item._id || item.medicineId,
+  medicineName: item.name || item.medicineName,
+  batchNo: item.batch || item.batchNo || '',
+  batchId: item.batchId || item._id,
+  qty: Number(item.qty) || 1,
+  mrp: Number(item.mrp) || 0,
+  ptr: Number(item.ptr || item.mrp) || 0,
+  discount: Number(item.discount) || 0,
+  gst: Number(item.gst) || 5,
+  amount: Number(item.mrp || 0) * Number(item.qty || 1) * (1 - (Number(item.discount) || 0) / 100),
+})
+
+// ✅ Calculate bill accurately with per-item GST
+export const calcBillAccurate = (cartItems = [], extraDiscountPercent = 0) => {
+  if (!Array.isArray(cartItems) || cartItems.length === 0) {
+    return {
+      mrpTotal: 0,
+      itemDiscountAmount: 0,
+      afterItemDiscount: 0,
+      extraDiscountAmount: 0,
+      subtotal: 0,
+      gstAmount: 0,
+      roundOff: 0,
+      totalAmount: 0,
+    }
+  }
+
+  try {
+    // Calculate per-item amounts
+    const rows = cartItems.map(item => {
+      const qty = Number(item.qty) || 1
+      const mrp = Number(item.mrp) || 0
+      const itemDiscount = Number(item.discount) || 0
+      const gstPercent = Number(item.gst) || 5
+
+      const gross = mrp * qty
+      const discountAmount = (gross * itemDiscount) / 100
+      const afterDiscount = gross - discountAmount
+      const gstAmount = (afterDiscount * gstPercent) / 100
+
+      return {
+        gross,
+        itemDiscount: discountAmount,
+        afterDiscount,
+        gstAmount,
+        total: afterDiscount + gstAmount,
+      }
+    })
+
+    // Calculate totals
+    const mrpTotal = rows.reduce((s, r) => s + r.gross, 0)
+    const itemDiscountTotal = rows.reduce((s, r) => s + r.itemDiscount, 0)
+    const afterItemDiscount = mrpTotal - itemDiscountTotal
+    const extraDiscountAmount = (afterItemDiscount * Math.min(extraDiscountPercent, 100)) / 100
+    const subtotal = afterItemDiscount - extraDiscountAmount
+    const gstAmount = rows.reduce((s, r) => s + r.gstAmount, 0)
+    const roundOff = Math.round(subtotal + gstAmount) - (subtotal + gstAmount)
+    const totalAmount = Math.max(0, subtotal + gstAmount + roundOff)
+
+    return {
+      mrpTotal,
+      itemDiscountAmount: itemDiscountTotal,
+      afterItemDiscount,
+      extraDiscountAmount,
+      subtotal,
+      gstAmount,
+      roundOff,
+      totalAmount,
+    }
+  } catch (err) {
+    console.error('Bill calculation error:', err)
+    return {
+      mrpTotal: 0,
+      itemDiscountAmount: 0,
+      afterItemDiscount: 0,
+      extraDiscountAmount: 0,
+      subtotal: 0,
+      gstAmount: 0,
+      roundOff: 0,
+      totalAmount: 0,
+    }
+  }
+}
+
+// ✅ Normalize customer response
+export const normalizeCustomer = (cust) => {
+  if (!cust) return null
+  return {
+    _id: cust._id || cust.id,
+    id: cust._id || cust.id,
+    name: cust.name || 'Walk-in',
+    phone: cust.phone || '',
+    walletBalance: Number(cust.walletBalance || cust.credit || 0),
+  }
+}
+
+// ✅ Validate medicine for cart
+export const validateMedicineForCart = (medicine) => {
+  if (!medicine) return { valid: false, error: 'Medicine not selected' }
+  if (!medicine._id && !medicine.id) return { valid: false, error: 'Invalid medicine ID' }
+  if (!medicine.name || medicine.name.trim().length === 0) return { valid: false, error: 'Medicine name missing' }
+  if (!medicine.batch || medicine.batch === '—') return { valid: false, error: 'Batch information missing' }
+  if (!medicine.batchId) return { valid: false, error: 'Batch ID missing' }
+  if (Number(medicine.stock || 0) < 1) return { valid: false, error: 'Out of stock' }
+  return { valid: true }
+}
+
+// ✅ Validate cart before payment
+export const validateCartBeforePayment = (cart) => {
+  if (!Array.isArray(cart) || cart.length === 0) {
+    return { valid: false, error: 'Add items to cart' }
+  }
+
+  for (const item of cart) {
+    if (!item._id && !item.medicineId) {
+      return { valid: false, error: 'Some items have invalid medicine ID' }
+    }
+    if (!item.batchId) {
+      return { valid: false, error: `Batch missing for ${item.name || 'item'}` }
+    }
+    const qty = Number(item.qty) || 0
+    if (qty < 1) {
+      return { valid: false, error: `Invalid quantity for ${item.name}` }
+    }
+    const mrp = Number(item.mrp) || 0
+    if (mrp < 0.01) {
+      return { valid: false, error: `Invalid price for ${item.name}` }
+    }
+  }
+
+  return { valid: true }
+}
+
+// ✅ Format currency
+export const money = (n) => {
+  if (n === undefined || n === null || n === '') return '—'
+  return `₹${Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
+// ✅ Safe API response handler
+export const handleApiResponse = (response, defaultValue = null) => {
+  if (!response || !response.data) return defaultValue
+  // Try different response structures
+  const data = response.data?.data || response.data
+  return data || defaultValue
+}

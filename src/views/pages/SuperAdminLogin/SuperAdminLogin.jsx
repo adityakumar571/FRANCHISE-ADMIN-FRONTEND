@@ -21,15 +21,18 @@ export default function SuperAdminLogin() {
 
   const handleSubmit = async e => {
     e.preventDefault()
-    if (!form.email || !form.password) { toast.error('Email and password are required'); return }
+    if (!form.email || !form.password) { toast.error('User ID and password are required'); return }
     setLoading(true)
     try {
-      const res = await axios.post(`${BASE_URL}auth/superadmin/login`, { email: form.email, password: form.password })
+      const res = await axios.post(`${BASE_URL}auth/superadmin/login`, { userId: form.email, password: form.password })
       const { token, user } = res.data?.data || {}
       if (token) {
         Cookies.set('SA_TOKEN', token, { expires: 1, path: '/' })
         Cookies.set('LMS', token, { expires: 1, path: '/' }) // shared token for API calls
         Cookies.set('accessToken', token, { expires: 1, path: '/' }) // For Super Admin API calls
+        // Also save to localStorage for cross-domain access
+        localStorage.setItem('SA_TOKEN', token)
+        localStorage.setItem('superadmin_token', token)
         localStorage.setItem('sa_user', JSON.stringify(user || { email: form.email, role: 'SuperAdmin' }))
         toast.success('Welcome, Super Admin!')
         navigate('/superadmin/dashboard', { replace: true })
@@ -86,9 +89,9 @@ export default function SuperAdminLogin() {
           <form onSubmit={handleSubmit}>
             <div style={{ marginBottom: 16 }}>
               <label style={{ fontSize: 12, fontWeight: 700, color: '#374151', display: 'block', marginBottom: 6, textTransform: 'uppercase' }}>
-                Email Address <span style={{ color: '#dc2626' }}>*</span>
+                User ID <span style={{ color: '#dc2626' }}>*</span>
               </label>
-              <input name="email" type="email" value={form.email} onChange={handleChange} placeholder="admin@pharmanexus.in" required style={inp} />
+              <input name="email" type="text" value={form.email} onChange={handleChange} placeholder="superadmin" required style={inp} />
             </div>
 
             <div style={{ marginBottom: 24 }}>

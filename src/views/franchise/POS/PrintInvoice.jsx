@@ -79,10 +79,13 @@ export default function PrintInvoice() {
   const printRef      = useRef(null)
 
   const [invoice, setInvoice] = useState(null)
+  const [editedInvoice, setEditedInvoice] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState(null)
   const [copies,  setCopies]  = useState(1)
   const [paper,   setPaper]   = useState('A4')
+  const [isEditing, setIsEditing] = useState(false)
+  const [editMode, setEditMode] = useState(null) // 'discount', 'customer', 'remarks', etc.
 
   /* fetch */
   useEffect(() => {
@@ -90,25 +93,72 @@ export default function PrintInvoice() {
     getRequest(`/franchise/pos/sales/invoice/${invoiceId}`)
       .then(res => {
         const d = res?.data?.data || res?.data
-        if (d?._id || d?.invoiceNo) setInvoice(d)
+        if (d?._id || d?.invoiceNo) {
+          setInvoice(d)
+          setEditedInvoice(d) // Initialize edited version
+        }
         else setError('Invoice not found')
       })
       .catch(() => setError('Failed to load invoice'))
       .finally(() => setLoading(false))
   }, [invoiceId])
 
+  /* handle field edits */
+  const updateField = (field, value) => {
+    setEditedInvoice(prev => ({ ...prev, [field]: value }))
+  }
+
+  const updateItem = (index, field, value) => {
+    setEditedInvoice(prev => {
+      const newItems = [...(prev?.items || [])]
+      newItems[index] = { ...newItems[index], [field]: value }
+      return { ...prev, items: newItems }
+    })
+  }
+
+  const recalculateTotals = () => {
+    const items = editedInvoice?.items || []
+    let subtotal = 0
+    items.forEach(item => {
+      const qty = Number(item.qty || 0)
+      const mrp = Number(item.mrp || 0)
+      const disc = Number(item.discountPct || 0)
+      const amount = mrp * qty * (1 - disc / 100)
+      item.amount = amount
+      subtotal += amount
+    })
+    const discAmt = subtotal * (Number(editedInvoice?.discountPct || 0) / 100)
+    const gstAmt = (subtotal - discAmt) * (Number(editedInvoice?.gstPct || 18) / 100)
+    const total = subtotal - discAmt + gstAmt + Number(editedInvoice?.roundOff || 0)
+    
+    setEditedInvoice(prev => ({
+      ...prev,
+      subtotal: subtotal,
+      discountAmt: discAmt,
+      gstAmt: gstAmt,
+      totalAmt: total
+    }))
+  }
+
   /* derived */
-  const items      = invoice?.items    || []
-  const subtotal   = Number(invoice?.subtotal    || 0)
-  const discAmt    = Number(invoice?.discountAmt || 0)
-  const discPct    = Number(invoice?.discountPct || 0)
-  const gstAmt     = Number(invoice?.gstAmt      || 0)
-  const roundOff   = Number(invoice?.roundOff    || 0)
-  const totalAmt   = Number(invoice?.totalAmt    || 0)
-  const paidAmt    = Number(invoice?.paidAmt     || totalAmt)
-  const dueAmt     = Number(invoice?.dueAmt      || 0)
+  const invoiceData = isEditing ? editedInvoice : invoice
+  const items      = invoiceData?.items    || []
+  const subtotal   = Number(invoiceData?.subtotal    || 0)
+  const discAmt    = Number(invoiceData?.discountAmt || 0)
+  const discPct    = Number(invoiceData?.discountPct || 0)
+  const gstAmt     = Number(invoiceData?.gstAmt      || 0)
+  const roundOff   = Number(invoiceData?.roundOff    || 0)
+  const totalAmt   = Number(invoiceData?.totalAmt    || 0)
+  const paidAmt    = Number(invoiceData?.paidAmt     || totalAmt)
+  const dueAmt     = Number(invoiceData?.dueAmt      || 0)
   const netTotal   = totalAmt - roundOff
-  const invoiceDate = invoice?.invoiceDate || invoice?.createdAt
+  const invoiceDate = invoiceData?.invoiceDate || invoiceData?.createdAt
+  const storeName = invoiceData?.franchiseName || invoiceData?.storeName || 'Pharmacy Store'
+  const storeAddress = invoiceData?.address || ''
+  const storePhone = invoiceData?.phone || ''
+  const storeEmail = invoiceData?.email || ''
+  const gstNo = invoiceData?.gstNo || ''
+  const drugLicenseNo = invoiceData?.drugLicenseNo || ''
 
   /* HSN/GST summary */
   const hsnGroups = {}
@@ -127,6 +177,18 @@ export default function PrintInvoice() {
 
   const handlePrint = () => {
     for (let i = 0; i < copies; i++) window.print()
+  }
+
+  const handleSaveChanges = () => {
+    setInvoice(editedInvoice)
+    setIsEditing(false)
+    setEditMode(null)
+  }
+
+  const handleDiscard = () => {
+    setEditedInvoice(invoice)
+    setIsEditing(false)
+    setEditMode(null)
   }
 
   /* ── loading ── */
@@ -149,8 +211,6 @@ export default function PrintInvoice() {
     </div>
   )
 
-  const storeName = invoice?.franchiseName || invoice?.storeName || 'PARVATI MEDICINE'
-
   /* ════════════════════════════════════════════════
      RENDER
   ════════════════════════════════════════════════ */
@@ -169,10 +229,28 @@ export default function PrintInvoice() {
             </button>
             <div>
               <p style={{ margin:0, fontSize:17, fontWeight:800, color:'#111827' }}>Print Invoice</p>
-              <p style={{ margin:0, fontSize:12, color:'#9ca3af' }}>{invoice?.invoiceNo} · {date_(invoiceDate)}</p>
+              <p style={{ margin:0, fontSize:12, color:'#9ca3af' }}>{invoiceData?.invoiceNo} · {date_(invoiceDate)}</p>
             </div>
           </div>
           <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+            {isEditing && (
+              <>
+                <button onClick={handleSaveChanges}
+                  style={{ padding:'8px 16px', border:'none', borderRadius:8, background:'#10b981', color:'#fff', fontSize:13, fontWeight:600, cursor:'pointer' }}>
+                  ✓ Save Changes
+                </button>
+                <button onClick={handleDiscard}
+                  style={{ padding:'8px 16px', border:'1px solid #e5e7eb', borderRadius:8, background:'#f9fafb', color:'#374151', fontSize:13, fontWeight:600, cursor:'pointer' }}>
+                  ✕ Discard
+                </button>
+              </>
+            )}
+            {!isEditing && (
+              <button onClick={() => setIsEditing(true)}
+                style={{ padding:'8px 16px', border:'1px solid #e5e7eb', borderRadius:8, background:'#f9fafb', color:'#374151', fontSize:13, fontWeight:600, cursor:'pointer' }}>
+                ✎ Edit
+              </button>
+            )}
             <div style={{ display:'flex', alignItems:'center', gap:6, border:'1px solid #e5e7eb', borderRadius:8, padding:'4px 10px', background:'#f9fafb' }}>
               <button onClick={() => setCopies(c => Math.max(1,c-1))} style={{ background:'none', border:'none', cursor:'pointer', color:'#374151', display:'flex', padding:2 }}><Minus size={12}/></button>
               <span style={{ fontSize:13, fontWeight:700, minWidth:18, textAlign:'center' }}>{copies}</span>
@@ -213,14 +291,14 @@ export default function PrintInvoice() {
                     <div style={{ fontSize:16, fontWeight:900, color:'#000', letterSpacing:'0.5px', marginBottom:3 }}>
                       {storeName}
                     </div>
-                    {invoice?.address && (
-                      <div style={{ fontSize:9, color:'#000', lineHeight:1.5 }}>{invoice.address}</div>
+                    {storeAddress && (
+                      <div style={{ fontSize:9, color:'#000', lineHeight:1.5 }}>{storeAddress}</div>
                     )}
                     <div style={{ fontSize:9, color:'#000', lineHeight:1.6 }}>
-                      {invoice?.phone && <div>Phone : {invoice.phone}</div>}
-                      {invoice?.email && <div>E-Mail : {invoice.email}</div>}
-                      {invoice?.drugLicenseNo && <div>D.L NO : {invoice.drugLicenseNo}</div>}
-                      {invoice?.gstNo && <div>GSTIN : {invoice.gstNo}</div>}
+                      {storePhone && <div>Phone : {storePhone}</div>}
+                      {storeEmail && <div>E-Mail : {storeEmail}</div>}
+                      {drugLicenseNo && <div>D.L NO : {drugLicenseNo}</div>}
+                      {gstNo && <div>GSTIN : {gstNo}</div>}
                     </div>
                   </td>
 
@@ -490,15 +568,51 @@ export default function PrintInvoice() {
           <div className="no-print" style={{ display:'flex', flexDirection:'column', gap:14, position:'sticky', top:80 }}>
 
             {/* quick stats */}
-            {invoice && (
+            {invoiceData && (
               <div style={{ background:'linear-gradient(135deg,#0c3b73,#1e40af)', borderRadius:12, padding:'16px 18px', color:'#fff' }}>
                 <p style={{ margin:'0 0 4px', fontSize:11, color:'rgba(255,255,255,0.7)', textTransform:'uppercase', letterSpacing:'0.5px' }}>Invoice</p>
-                <p style={{ margin:'0 0 6px', fontSize:15, fontWeight:800 }}>{invoice.invoiceNo}</p>
-                <p style={{ margin:'0 0 2px', fontSize:12, color:'rgba(255,255,255,0.85)' }}>{invoice.customerName || 'Walk-In'}</p>
+                <p style={{ margin:'0 0 6px', fontSize:15, fontWeight:800 }}>{invoiceData.invoiceNo}</p>
+                <p style={{ margin:'0 0 2px', fontSize:12, color:'rgba(255,255,255,0.85)' }}>{invoiceData.customerName || 'Walk-In'}</p>
                 <p style={{ margin:'0 0 10px', fontSize:11, color:'rgba(255,255,255,0.65)' }}>{date_(invoiceDate)}</p>
                 <div style={{ borderTop:'1px solid rgba(255,255,255,0.2)', paddingTop:10 }}>
                   <p style={{ margin:0, fontSize:22, fontWeight:900 }}>{Rs(totalAmt)}</p>
                 </div>
+              </div>
+            )}
+
+            {/* edit panel */}
+            {isEditing && (
+              <div style={{ background:'#fffbeb', border:'1px solid #fcd34d', borderRadius:12, padding:'16px' }}>
+                <p style={{ margin:'0 0 12px', fontSize:13, fontWeight:700, color:'#b45309' }}>Quick Edit</p>
+                
+                <div style={{ marginBottom:12 }}>
+                  <label style={{ fontSize:11, fontWeight:600, color:'#6b7280', textTransform:'uppercase' }}>Customer</label>
+                  <input type="text" value={editedInvoice?.customerName || ''} 
+                    onChange={(e) => updateField('customerName', e.target.value)}
+                    style={{ width:'100%', padding:'6px 8px', border:'1px solid #fcd34d', borderRadius:6, fontSize:12, marginTop:4 }}
+                  />
+                </div>
+
+                <div style={{ marginBottom:12 }}>
+                  <label style={{ fontSize:11, fontWeight:600, color:'#6b7280', textTransform:'uppercase' }}>Discount %</label>
+                  <input type="number" value={editedInvoice?.discountPct || 0} 
+                    onChange={(e) => updateField('discountPct', e.target.value)}
+                    style={{ width:'100%', padding:'6px 8px', border:'1px solid #fcd34d', borderRadius:6, fontSize:12, marginTop:4 }}
+                  />
+                </div>
+
+                <div style={{ marginBottom:12 }}>
+                  <label style={{ fontSize:11, fontWeight:600, color:'#6b7280', textTransform:'uppercase' }}>Round Off</label>
+                  <input type="number" step="0.01" value={editedInvoice?.roundOff || 0} 
+                    onChange={(e) => updateField('roundOff', e.target.value)}
+                    style={{ width:'100%', padding:'6px 8px', border:'1px solid #fcd34d', borderRadius:6, fontSize:12, marginTop:4 }}
+                  />
+                </div>
+
+                <button onClick={recalculateTotals}
+                  style={{ width:'100%', padding:'8px', background:'#fbbf24', border:'none', borderRadius:6, fontSize:12, fontWeight:600, cursor:'pointer' }}>
+                  Recalculate
+                </button>
               </div>
             )}
 

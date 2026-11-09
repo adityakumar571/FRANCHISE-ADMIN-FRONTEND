@@ -55,7 +55,7 @@ export const AppProvider = ({ children }) => {
     const subdomain = getSubdomain()
     if (!token || !subdomain) return
     try {
-      const res = await axios.get(`${BASE_URL}auth/profile`, {
+      const res = await axios.get(`${BASE_URL}/auth/profile`, {
         headers: {
           Authorization:   token,
           'x-tenant-id':   subdomain,
@@ -88,7 +88,7 @@ export const AppProvider = ({ children }) => {
     const subdomain = getSubdomain()
     if (!subdomain) return
     try {
-      const res = await axios.get(`${BASE_URL}franchise/info?subdomain=${subdomain}`, {
+      const res = await axios.get(`${BASE_URL}/franchise/info?subdomain=${subdomain}`, {
         headers: {
           'x-tenant-id':   subdomain,
           'Cache-Control': 'no-cache',

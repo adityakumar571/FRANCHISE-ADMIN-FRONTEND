@@ -9,14 +9,16 @@ import {
   LayoutDashboard, ScanLine, TrendingUp, TrendingDown,
   ShoppingCart, Warehouse, ArrowLeftRight, RotateCcw,
   FileText, Store, Users, Truck, BookOpen, BarChart2,
-  Star, UserCheck, Settings, ShieldCheck, AlertCircle,
-  AlertTriangle, Trash2, Zap, Layers, Calendar, ClipboardList,
+  Star, UserCheck, Settings, ShieldCheck,
+  AlertTriangle, Zap, Layers, ClipboardList,
   List, Wallet, Crown, Bell, Award, History,
   CreditCard, Pause, Printer, Search, UploadCloud,
   BookMarked, Scale, LayoutTemplate, Landmark,
   ArrowDownCircle, ArrowUpCircle, CalendarDays,
-  Tag, GitCompare, Send, StarHalf, FlaskConical, Plus, IndianRupee,
-  Map, Package, MapPin, XCircle, AlertOctagon, Archive, CheckCircle,
+  Tag, GitCompare, Send, StarHalf, FlaskConical, Plus, XCircle, 
+  Archive, CheckCircle,
+  Package,
+  AlertOctagon,
 } from 'lucide-react'
 
 
@@ -40,7 +42,7 @@ const franchiseNav = [
     component: CNavItem,
     name: 'Location / Rack Layout',
     to: '/franchise/layout-3d',
-    icon: ic(Map),
+    icon: ic(Layers),
     badge: { color: 'info', text: '3D' },
     accessKey: 'dashboard_layout3d',
   },
@@ -78,10 +80,10 @@ const franchiseNav = [
     icon: ic(TrendingUp),
     accessKey: 'pos',
     items: [
-      { component: CNavItem, name: "Today's Sale",  to: '/franchise/reports/sales',   icon: ic(FileText),  accessKey: 'reports_sales' },
-      { component: CNavItem, name: 'Sales History', to: '/franchise/reports/sales',   icon: ic(BookOpen),  accessKey: 'reports_sales' },
-      { component: CNavItem, name: 'Sale Return',   to: '/franchise/pos/return-bill', icon: ic(RotateCcw), accessKey: 'pos_return'    },
-      { component: CNavItem, name: 'Day Closing',   to: '/franchise/pos/day-closing', icon: ic(FileText),  accessKey: 'pos_dayclosing'},
+      { component: CNavItem, name: "Today's Sale",  to: '/franchise/reports/sales?filter=today',   icon: ic(TrendingUp),  accessKey: 'reports_sales' },
+      { component: CNavItem, name: 'Sales History', to: '/franchise/reports/sales',                 icon: ic(History),     accessKey: 'reports_sales' },
+      { component: CNavItem, name: 'Sale Return',   to: '/franchise/pos/return-bill',              icon: ic(RotateCcw),   accessKey: 'pos_return'    },
+      { component: CNavItem, name: 'Day Closing',   to: '/franchise/pos/day-closing',              icon: ic(FileText),    accessKey: 'pos_dayclosing'},
     ],
   },
 
@@ -206,13 +208,12 @@ const franchiseNav = [
     icon: ic(Users),
     accessKey: 'customers',
     items: [
-      { component: CNavItem, name: 'Customer List',     to: '/franchise/customers',   icon: ic(List),    accessKey: 'customers_list'       },
-      { component: CNavItem, name: 'Customer Wallet',   to: '/franchise/customers',   icon: ic(Wallet),  accessKey: 'customers_wallet',    badge: { color: 'light', text: 'Select customer first' } },
-      { component: CNavItem, name: 'Purchase History',  to: '/franchise/customers',   icon: ic(History), accessKey: 'customers_history',   badge: { color: 'light', text: 'Select customer first' } },
-      { component: CNavItem, name: 'Medicine Reminder', to: '/franchise/customers',   icon: ic(Bell),    accessKey: 'customers_reminder',  badge: { color: 'light', text: 'Select customer first' } },
-      { component: CNavItem, name: 'Membership',        to: '/franchise/customers',   icon: ic(Crown),   accessKey: 'customers_membership',badge: { color: 'light', text: 'Select customer first' } },
-      // { component: CNavItem, name: 'Loyalty',           to: '/franchise/customers',   icon: ic(Star),    accessKey: 'customers_loyalty',   badge: { color: 'light', text: 'Select customer first' } },
-      { component: CNavItem, name: 'CareCoin',          to: '/franchise/customers',   icon: ic(Award),   accessKey: 'customers_carecoin',  badge: { color: 'light', text: 'Select customer first' } },
+      { component: CNavItem, name: 'Customer List',     to: '/franchise/customers',        icon: ic(List),    accessKey: 'customers_list'        },
+      // { component: CNavItem, name: 'Customer Wallet',   to: '/franchise/customers',        icon: ic(Wallet),  accessKey: 'customers_wallet',     badge: { color: 'light', text: 'Select customer' } },
+      // { component: CNavItem, name: 'Purchase History',  to: '/franchise/customers',        icon: ic(History), accessKey: 'customers_history',    badge: { color: 'light', text: 'Select customer' } },
+      // { component: CNavItem, name: 'Medicine Reminder', to: '/franchise/customers',        icon: ic(Bell),    accessKey: 'customers_reminder',   badge: { color: 'light', text: 'Select customer' } },
+      // { component: CNavItem, name: 'Membership',        to: '/franchise/customers',        icon: ic(Crown),   accessKey: 'customers_membership', badge: { color: 'light', text: 'Select customer' } },
+      // { component: CNavItem, name: 'CareCoin',          to: '/franchise/customers',        icon: ic(Award),   accessKey: 'customers_carecoin',   badge: { color: 'light', text: 'Select customer' } },
     ],
   },
 
@@ -281,36 +282,36 @@ const franchiseNav = [
   // },
 
   /* 16 ── Staff & Users ── */
-  {
-    component: CNavGroup,
-    name: 'Staff & Users',
-    to: '/franchise/staff',
-    icon: ic(UserCheck),
-    accessKey: 'staff',
-    items: [
-      { component: CNavItem, name: 'Staff List',          to: '/franchise/staff',             icon: ic(List),        accessKey: 'staff_list'   },
-      { component: CNavItem, name: 'Role Master',         to: '/franchise/staff/roles',       icon: ic(ShieldCheck), accessKey: 'staff_access' },
-      { component: CNavItem, name: 'Menu Access Control', to: '/franchise/staff/menu-access', icon: ic(ShieldCheck), accessKey: 'staff_access' },
-    ],
-  },
+  // {
+  //   component: CNavGroup,
+  //   name: 'Staff & Users',
+  //   to: '/franchise/staff',
+  //   icon: ic(UserCheck),
+  //   accessKey: 'staff',
+  //   items: [
+  //     { component: CNavItem, name: 'Staff List',          to: '/franchise/staff',             icon: ic(List),        accessKey: 'staff_list'   },
+  //     { component: CNavItem, name: 'Role Master',         to: '/franchise/staff/roles',       icon: ic(ShieldCheck), accessKey: 'staff_access' },
+  //     { component: CNavItem, name: 'Menu Access Control', to: '/franchise/staff/menu-access', icon: ic(ShieldCheck), accessKey: 'staff_access' },
+  //   ],
+  // },
 
   /* 17 ── Settings ── */
-  {
-    component: CNavItem,
-    name: 'Settings',
-    to: '/franchise/settings',
-    icon: ic(Settings),
-    accessKey: 'settings',
-  },
+  // {
+  //   component: CNavItem,
+  //   name: 'Settings',
+  //   to: '/franchise/settings',
+  //   icon: ic(Settings),
+  //   accessKey: 'settings',
+  // },
 
   /* 18 ── Audit Logs ── */
-  {
-    component: CNavItem,
-    name: 'Audit Logs',
-    to: '/franchise/audit',
-    icon: ic(ShieldCheck),
-    accessKey: 'audit_logs',
-  },
+  // {
+  //   component: CNavItem,
+  //   name: 'Audit Logs',
+  //   to: '/franchise/audit',
+  //   icon: ic(ShieldCheck),
+  //   accessKey: 'audit_logs',
+  // },
 ]
 
 const useNav = () => franchiseNav

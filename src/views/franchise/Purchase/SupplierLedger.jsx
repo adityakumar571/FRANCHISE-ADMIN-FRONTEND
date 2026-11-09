@@ -10,7 +10,6 @@ import {
   Eye,
   Download,
   RefreshCw,
-  TrendingUp,
   AlertCircle,
 } from 'lucide-react'
 
