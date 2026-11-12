@@ -84,6 +84,10 @@ const franchiseNav = [
       { component: CNavItem, name: 'Sales History', to: '/franchise/reports/sales',                 icon: ic(History),     accessKey: 'reports_sales' },
       { component: CNavItem, name: 'Sale Return',   to: '/franchise/pos/return-bill',              icon: ic(RotateCcw),   accessKey: 'pos_return'    },
       { component: CNavItem, name: 'Day Closing',   to: '/franchise/pos/day-closing',              icon: ic(FileText),    accessKey: 'pos_dayclosing'},
+      // { component: CNavItem, name: "Today's Sale",  to: '/franchise/reports/sales',   icon: ic(FileText),  accessKey: 'reports_sales' },
+      { component: CNavItem, name: 'Sales History', to: '/franchise/reports/sales',   icon: ic(BookOpen),  accessKey: 'reports_sales' },
+      { component: CNavItem, name: 'Sale Return',   to: '/franchise/pos/return-bill', icon: ic(RotateCcw), accessKey: 'pos_return'    },
+      { component: CNavItem, name: 'Day Closing',   to: '/franchise/pos/day-closing', icon: ic(FileText),  accessKey: 'pos_dayclosing'},
     ],
   },
 
@@ -214,6 +218,8 @@ const franchiseNav = [
       // { component: CNavItem, name: 'Medicine Reminder', to: '/franchise/customers',        icon: ic(Bell),    accessKey: 'customers_reminder',   badge: { color: 'light', text: 'Select customer' } },
       // { component: CNavItem, name: 'Membership',        to: '/franchise/customers',        icon: ic(Crown),   accessKey: 'customers_membership', badge: { color: 'light', text: 'Select customer' } },
       // { component: CNavItem, name: 'CareCoin',          to: '/franchise/customers',        icon: ic(Award),   accessKey: 'customers_carecoin',   badge: { color: 'light', text: 'Select customer' } },
+      { component: CNavItem, name: 'Customer List',     to: '/franchise/customers',          icon: ic(List),    accessKey: 'customers_list'     },
+      { component: CNavItem, name: 'Purchase History',  to: '/franchise/purchase-history',   icon: ic(History), accessKey: 'customers_history'  },
     ],
   },
 

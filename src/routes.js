@@ -284,6 +284,7 @@ const routes = [
   { path: '/franchise/customers/:id', element: CustomerDetails, accessKey: 'customers_list' },
   { path: '/franchise/customers/:id/wallet', element: CustomerWallet, accessKey: 'customers_wallet' },
   { path: '/franchise/customers/:id/history', element: PurchaseHistory, accessKey: 'customers_history' },
+  { path: '/franchise/purchase-history', element: PurchaseHistory, accessKey: 'customers_history' },
   { path: '/franchise/customers/:id/reminders', element: MedicineReminder, accessKey: 'customers_reminder' },
   { path: '/franchise/customers/:id/membership', element: Membership, accessKey: 'customers_membership' },
   { path: '/franchise/customers/:id/loyalty', element: Loyalty, accessKey: 'customers_loyalty' },

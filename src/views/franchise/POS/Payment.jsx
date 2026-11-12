@@ -30,7 +30,7 @@ export default function Payment() {
   const subtotal     = cart.reduce((s, i) => s + (i.mrp || 0) * i.qty, 0)
   const discAmt      = subtotal * (discount / 100)
   const gst          = (subtotal - discAmt) * 0.05
-  const totalPayable = +(subtotal - discAmt + gst).toFixed(2) || 0
+  const totalPayable = +(subtotal - discAmt + gst).toFixed(2) ||0
   const receivedAmt  = parseFloat(received || totalPayable)
   const change       = Math.max(0, receivedAmt - totalPayable)
 

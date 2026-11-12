@@ -39,7 +39,10 @@ const stockState = (m) => {
   return 'ok'
 }
 
-const rowIndex = (letter) => (String(letter || 'A').toUpperCase().charCodeAt(0) - 65) || 0
+const rowIndex = (letter) =>
+  String(letter || 'A')
+    .toUpperCase()
+    .charCodeAt(0) - 65 || 0
 const slotKey = (shelf, row, col) => `${shelf}-${String(row).toUpperCase()}-${col}`
 const idOf = (v) => String(v?._id || v || '')
 
@@ -92,8 +95,23 @@ const Cube = ({ x, y, z, state, label, active, found, onClick }) => {
         '--glow': c.main,
       }}
     >
-      <div style={face(`translateZ(${half}px)`, { display: 'flex', alignItems: 'center', justifyContent: 'center' })}>
-        <span className="text-white font-extrabold" style={{ fontSize: 9, textShadow: '0 1px 2px #000', padding: 2, textAlign: 'center', lineHeight: 1.05 }}>
+      <div
+        style={face(`translateZ(${half}px)`, {
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        })}
+      >
+        <span
+          className="text-white font-extrabold"
+          style={{
+            fontSize: 9,
+            textShadow: '0 1px 2px #000',
+            padding: 2,
+            textAlign: 'center',
+            lineHeight: 1.05,
+          }}
+        >
           {label}
         </span>
       </div>
@@ -132,7 +150,7 @@ const Rack3D = ({ shelves, rows, cols, slotMap, foundKey, selectedKey, onSelect,
   const rowLetters = Array.from({ length: rows }, (_, i) => String.fromCharCode(65 + i))
 
   const px = (col) => (col - 0.5 - cols / 2) * PITCH
-  const pz = (r) => ((rows / 2) - (r + 0.5)) * PITCH // row A = front
+  const pz = (r) => (rows / 2 - (r + 0.5)) * PITCH // row A = front
   const py = (shelf) => (shelf - 0.5 - shelves / 2) * LEVEL // shelf 1 = top
 
   // decorative panels kabhi click nahi rokenge
@@ -168,13 +186,59 @@ const Rack3D = ({ shelves, rows, cols, slotMap, foundKey, selectedKey, onSelect,
       />
 
       {/* back + side glass panels */}
-      <div style={panel({ width: W + 20, height: H + 20, left: -(W + 20) / 2, top: -(H + 20) / 2, transform: `translateZ(${-D / 2 - 10}px)`, background: 'rgba(30,41,59,0.55)', border: '1px solid rgba(148,163,184,0.3)' })} />
-      <div style={panel({ width: D + 20, height: H + 20, left: -(D + 20) / 2, top: -(H + 20) / 2, transform: `translateX(${-W / 2 - 10}px) rotateY(90deg)`, background: 'rgba(30,41,59,0.35)', border: '1px solid rgba(148,163,184,0.25)' })} />
-      <div style={panel({ width: D + 20, height: H + 20, left: -(D + 20) / 2, top: -(H + 20) / 2, transform: `translateX(${W / 2 + 10}px) rotateY(90deg)`, background: 'rgba(30,41,59,0.35)', border: '1px solid rgba(148,163,184,0.25)' })} />
+      <div
+        style={panel({
+          width: W + 20,
+          height: H + 20,
+          left: -(W + 20) / 2,
+          top: -(H + 20) / 2,
+          transform: `translateZ(${-D / 2 - 10}px)`,
+          background: 'rgba(30,41,59,0.55)',
+          border: '1px solid rgba(148,163,184,0.3)',
+        })}
+      />
+      <div
+        style={panel({
+          width: D + 20,
+          height: H + 20,
+          left: -(D + 20) / 2,
+          top: -(H + 20) / 2,
+          transform: `translateX(${-W / 2 - 10}px) rotateY(90deg)`,
+          background: 'rgba(30,41,59,0.35)',
+          border: '1px solid rgba(148,163,184,0.25)',
+        })}
+      />
+      <div
+        style={panel({
+          width: D + 20,
+          height: H + 20,
+          left: -(D + 20) / 2,
+          top: -(H + 20) / 2,
+          transform: `translateX(${W / 2 + 10}px) rotateY(90deg)`,
+          background: 'rgba(30,41,59,0.35)',
+          border: '1px solid rgba(148,163,184,0.25)',
+        })}
+      />
 
       {/* corner posts */}
-      {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz], i) => (
-        <div key={i} style={panel({ width: 8, height: H + 24, left: -4, top: -(H + 24) / 2, transform: `translate3d(${sx * (W / 2 + 10)}px, 0, ${sz * (D / 2 + 10)}px)`, background: 'linear-gradient(90deg,#64748b,#334155)', borderRadius: 3 })} />
+      {[
+        [-1, -1],
+        [1, -1],
+        [-1, 1],
+        [1, 1],
+      ].map(([sx, sz], i) => (
+        <div
+          key={i}
+          style={panel({
+            width: 8,
+            height: H + 24,
+            left: -4,
+            top: -(H + 24) / 2,
+            transform: `translate3d(${sx * (W / 2 + 10)}px, 0, ${sz * (D / 2 + 10)}px)`,
+            background: 'linear-gradient(90deg,#64748b,#334155)',
+            borderRadius: 3,
+          })}
+        />
       ))}
 
       {/* shelf boards + labels */}
@@ -182,7 +246,10 @@ const Rack3D = ({ shelves, rows, cols, slotMap, foundKey, selectedKey, onSelect,
         const s = i + 1
         const yBottom = py(s) + CELL / 2 + 3
         return (
-          <div key={s} style={{ position: 'absolute', transformStyle: 'preserve-3d', pointerEvents: 'none' }}>
+          <div
+            key={s}
+            style={{ position: 'absolute', transformStyle: 'preserve-3d', pointerEvents: 'none' }}
+          >
             <div
               style={panel({
                 width: W + 20,
@@ -197,7 +264,14 @@ const Rack3D = ({ shelves, rows, cols, slotMap, foundKey, selectedKey, onSelect,
             />
             <div
               className="text-slate-300 font-bold"
-              style={panel({ left: -(W / 2) - 62, top: py(s) - 10, width: 44, textAlign: 'right', fontSize: 11, transform: 'translateZ(' + (D / 2) + 'px)' })}
+              style={panel({
+                left: -(W / 2) - 62,
+                top: py(s) - 10,
+                width: 44,
+                textAlign: 'right',
+                fontSize: 11,
+                transform: 'translateZ(' + D / 2 + 'px)',
+              })}
             >
               S{s}
             </div>
@@ -207,13 +281,35 @@ const Rack3D = ({ shelves, rows, cols, slotMap, foundKey, selectedKey, onSelect,
 
       {/* column labels (front floor) */}
       {Array.from({ length: cols }).map((_, i) => (
-        <div key={i} className="text-sky-300 font-bold" style={panel({ left: px(i + 1) - 14, top: -8, width: 28, textAlign: 'center', fontSize: 12, transform: `translate3d(0, ${H / 2 + 14}px, ${D / 2 + 40}px) rotateX(90deg)` })}>
+        <div
+          key={i}
+          className="text-sky-300 font-bold"
+          style={panel({
+            left: px(i + 1) - 14,
+            top: -8,
+            width: 28,
+            textAlign: 'center',
+            fontSize: 12,
+            transform: `translate3d(0, ${H / 2 + 14}px, ${D / 2 + 40}px) rotateX(90deg)`,
+          })}
+        >
           C{i + 1}
         </div>
       ))}
       {/* row labels (right floor) */}
       {rowLetters.map((l, r) => (
-        <div key={l} className="text-pink-300 font-bold" style={panel({ left: -14, top: -8, width: 28, textAlign: 'center', fontSize: 12, transform: `translate3d(${W / 2 + 40}px, ${H / 2 + 14}px, ${pz(r)}px) rotateX(90deg)` })}>
+        <div
+          key={l}
+          className="text-pink-300 font-bold"
+          style={panel({
+            left: -14,
+            top: -8,
+            width: 28,
+            textAlign: 'center',
+            fontSize: 12,
+            transform: `translate3d(${W / 2 + 40}px, ${H / 2 + 14}px, ${pz(r)}px) rotateX(90deg)`,
+          })}
+        >
           R{l}
         </div>
       ))}
@@ -245,8 +341,8 @@ const Rack3D = ({ shelves, rows, cols, slotMap, foundKey, selectedKey, onSelect,
                 onClick={() => onSelect(key)}
               />
             )
-          })
-        )
+          }),
+        ),
       )}
     </div>
   )
@@ -271,9 +367,11 @@ export default function PharmacyLayout3D() {
   const [rot, setRot] = useState(PRESETS.angle)
   const [zoom, setZoom] = useState(1)
   const [auto, setAuto] = useState(false)
+  const [searchResults, setSearchResults] = useState([])
+  const [showDropdown, setShowDropdown] = useState(false)
   const drag = useRef({ on: false, moved: false, sx: 0, sy: 0, ox: 0, oy: 0 })
 
-  const debouncedSearch = useDebounce(search, 800)
+  const debouncedSearch = useDebounce(search, 500)
   const dataRef = useRef({ racks: [], counters: [] })
   dataRef.current = { racks, counters }
 
@@ -293,7 +391,9 @@ export default function PharmacyLayout3D() {
           try {
             const full = await getRequest(`/franchise/medicines?limit=${d.total}&layout=true`)
             meds = full?.data?.data?.medicines || meds
-          } catch { /* pehle wali list rakho */ }
+          } catch {
+            /* pehle wali list rakho */
+          }
         }
         setMedicines(meds)
       }
@@ -324,7 +424,7 @@ export default function PharmacyLayout3D() {
   /* ── DERIVED ── */
   const counterRacks = useMemo(
     () => racks.filter((r) => !counterId || idOf(r.counterId) === counterId),
-    [racks, counterId]
+    [racks, counterId],
   )
 
   // default rack = first rack of selected counter
@@ -337,11 +437,13 @@ export default function PharmacyLayout3D() {
 
   const rackMeds = useMemo(
     () => (rack ? medicines.filter((m) => m.rackLocation?.rackId === rack.code) : []),
-    [medicines, rack]
+    [medicines, rack],
   )
 
   const dims = useMemo(() => {
-    let maxShelf = 0, maxRow = 0, maxCol = 0
+    let maxShelf = 0,
+      maxRow = 0,
+      maxCol = 0
     rackMeds.forEach((m) => {
       maxShelf = Math.max(maxShelf, Number(m.rackLocation?.shelf) || 0)
       maxRow = Math.max(maxRow, rowIndex(m.rackLocation?.row) + 1)
@@ -375,14 +477,19 @@ export default function PharmacyLayout3D() {
   const percent = capacity ? Math.min(100, Math.round((rackMeds.length / capacity) * 100)) : 0
 
   const counterOfRack = useMemo(
-    () => counters.find((c) => c._id === idOf(rack?.counterId)) || (typeof rack?.counterId === 'object' ? rack.counterId : null),
-    [counters, rack]
+    () =>
+      counters.find((c) => c._id === idOf(rack?.counterId)) ||
+      (typeof rack?.counterId === 'object' ? rack.counterId : null),
+    [counters, rack],
   )
 
   // jin medicines ki rack nahi hai ya rack list me nahi mili
   const unassignedMeds = useMemo(
-    () => medicines.filter((m) => !m.rackLocation?.rackId || !racks.some((r) => r.code === m.rackLocation.rackId)),
-    [medicines, racks]
+    () =>
+      medicines.filter(
+        (m) => !m.rackLocation?.rackId || !racks.some((r) => r.code === m.rackLocation.rackId),
+      ),
+    [medicines, racks],
   )
 
   const stats = useMemo(() => {
@@ -396,44 +503,62 @@ export default function PharmacyLayout3D() {
     }
   }, [medicines, unassignedMeds])
 
-  const foundKey = foundMed?.rackLocation && foundMed.rackLocation.rackId === rack?.code
-    ? slotKey(foundMed.rackLocation.shelf, foundMed.rackLocation.row, foundMed.rackLocation.column)
-    : null
+  const foundKey =
+    foundMed?.rackLocation && foundMed.rackLocation.rackId === rack?.code
+      ? slotKey(
+          foundMed.rackLocation.shelf,
+          foundMed.rackLocation.row,
+          foundMed.rackLocation.column,
+        )
+      : null
 
   const selectedMeds = selectedKey ? slotMap[selectedKey] || [] : []
 
   /* ── SEARCH (debounced) ── */
   useEffect(() => {
     const q = debouncedSearch.trim()
-    if (!q) { setFoundMed(null); return }
+    if (!q) {
+      setSearchResults([])
+      setShowDropdown(false)
+      setFoundMed(null)
+      return
+    }
     let cancelled = false
     ;(async () => {
       setSearchLoading(true)
       try {
-        const res = await getRequest(`/franchise/medicines?search=${encodeURIComponent(q)}&limit=1`)
-        if (cancelled) return
-        const med = res?.data?.data?.medicines?.[0]
-        if (!med) { setFoundMed(null); toast.error('Medicine not found'); return }
-        setFoundMed(med)
-        const loc = med.rackLocation
-        if (loc?.rackId) {
-          const r = dataRef.current.racks.find((x) => x.code === loc.rackId)
-          if (r) {
-            setCounterId(idOf(r.counterId) || idOf(med.counterId))
-            setRackId(r._id)
-            setSelectedKey(slotKey(loc.shelf, loc.row, loc.column))
-            setRot(PRESETS.angle)
-          }
+        // سب medicines میں سے filter کریں
+        const filtered = medicines
+          .filter((m) => {
+            const name = String(m.name || '').toLowerCase()
+            const salt = String(m.salt || '').toLowerCase()
+            const company = String(m.company || '').toLowerCase()
+            const searchQuery = q.toLowerCase()
+            return (
+              name.includes(searchQuery) ||
+              salt.includes(searchQuery) ||
+              company.includes(searchQuery)
+            )
+          })
+          .slice(0, 8) // زیادہ سے زیادہ 8 نتائج
+
+        if (!cancelled) {
+          setSearchResults(filtered)
+          setShowDropdown(filtered.length > 0)
         }
-        toast.success('Found: ' + txt(med.name, ''))
       } catch {
-        if (!cancelled) { setFoundMed(null); toast.error('Search failed') }
+        if (!cancelled) {
+          setSearchResults([])
+          setShowDropdown(false)
+        }
       } finally {
         if (!cancelled) setSearchLoading(false)
       }
     })()
-    return () => { cancelled = true }
-  }, [debouncedSearch])
+    return () => {
+      cancelled = true
+    }
+  }, [debouncedSearch, medicines])
 
   /* ── AUTO ROTATE ── */
   useEffect(() => {
@@ -456,21 +581,54 @@ export default function PharmacyLayout3D() {
     if (Math.abs(dx) + Math.abs(dy) > 4) d.moved = true
     if (d.moved) setRot({ x: Math.max(-90, Math.min(10, d.ox - dy * 0.4)), y: d.oy + dx * 0.5 })
   }
-  const onUp = () => { drag.current.on = false }
+  const onUp = () => {
+    drag.current.on = false
+  }
   // click tab hi select jab drag nahi hua
-  const handleSelect = (k) => { if (!drag.current.moved) setSelectedKey(k) }
+  const handleSelect = (k) => {
+    if (!drag.current.moved) setSelectedKey(k)
+  }
 
-  const clearSearch = () => { setSearch(''); setFoundMed(null) }
+  const clearSearch = () => {
+    setSearch('')
+    setFoundMed(null)
+    setSearchResults([])
+    setShowDropdown(false)
+  }
+
+  const handleSelectFromDropdown = (medicine) => {
+    setFoundMed(medicine)
+    setSearch('')
+    setSearchResults([])
+    setShowDropdown(false)
+
+    const loc = medicine.rackLocation
+    if (loc?.rackId) {
+      const r = dataRef.current.racks.find((x) => x.code === loc.rackId)
+      if (r) {
+        setCounterId(idOf(r.counterId) || idOf(medicine.counterId))
+        setRackId(r._id)
+        setSelectedKey(slotKey(loc.shelf, loc.row, loc.column))
+        setRot(PRESETS.angle)
+        toast.success('Found: ' + txt(medicine.name, ''))
+      } else {
+        toast.error('Rack config nahi mila')
+      }
+    } else {
+      toast.error('Rack location nahi assign hai')
+    }
+  }
 
   /* ── Handle medicine click for batch selection ── */
   const handleMedicineClick = (medicine) => {
     console.log('🔍 Medicine clicked:', medicine)
     console.log('📦 Batches:', medicine.batches)
-    
+
     // Check if medicine has active batches
-    const activeBatches = (medicine.batches || [])
-      .filter(b => b.isActive && (b.availableQty || b.quantity) > 0)
-    
+    const activeBatches = (medicine.batches || []).filter(
+      (b) => b.isActive && (b.availableQty || b.quantity) > 0,
+    )
+
     console.log('✅ Active batches:', activeBatches)
 
     if (activeBatches.length === 0) {
@@ -527,10 +685,15 @@ export default function PharmacyLayout3D() {
             </p>
           </div>
           <div className="flex gap-2 items-center flex-wrap">
-            <button onClick={fetchAllData} className="flex items-center gap-2 px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs md:text-sm font-semibold">
+            <button
+              onClick={fetchAllData}
+              className="flex items-center gap-2 px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs md:text-sm font-semibold"
+            >
               <RefreshCw size={14} /> Refresh
             </button>
-            <span className="text-xs text-slate-400 px-3 py-2 bg-slate-800 rounded-lg">{lastRefresh.toLocaleTimeString()}</span>
+            <span className="text-xs text-slate-400 px-3 py-2 bg-slate-800 rounded-lg">
+              {lastRefresh.toLocaleTimeString()}
+            </span>
           </div>
         </div>
       </div>
@@ -546,7 +709,9 @@ export default function PharmacyLayout3D() {
         ].map(([l, v, c]) => (
           <div key={l} className="bg-slate-900 rounded-lg p-3 border border-slate-800">
             <p className="m-0 text-xs text-slate-400">{l}</p>
-            <p className="m-0 mt-1 text-2xl font-extrabold" style={{ color: c }}>{v}</p>
+            <p className="m-0 mt-1 text-2xl font-extrabold" style={{ color: c }}>
+              {v}
+            </p>
           </div>
         ))}
       </div>
@@ -555,37 +720,100 @@ export default function PharmacyLayout3D() {
         {/* LEFT: search + counters */}
         <div className="lg:col-span-1 flex flex-col gap-3 md:gap-4 order-2 lg:order-1">
           <div className="bg-slate-900 rounded-lg p-3 border border-slate-800">
-            <p className="m-0 mb-2 text-xs font-bold text-slate-400 uppercase">🔍 Search medicine</p>
+            <p className="m-0 mb-2 text-xs font-bold text-slate-400 uppercase">
+              🔍 Search medicine
+            </p>
             <div className="relative">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+              <Search
+                size={14}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"
+              />
               <input
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => {
+                  setSearch(e.target.value)
+                  if (e.target.value.trim()) setShowDropdown(true)
+                }}
+                onFocus={() => search.trim() && searchResults.length > 0 && setShowDropdown(true)}
                 placeholder="Type medicine name..."
                 className="w-full pl-9 pr-9 py-2 bg-slate-800 border border-slate-700 focus:border-blue-500 rounded-lg text-white text-sm placeholder-slate-500 outline-none"
               />
               {searchLoading ? (
-                <RefreshCw size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-blue-400 animate-spin" />
+                <RefreshCw
+                  size={14}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-blue-400 animate-spin"
+                />
               ) : search ? (
-                <X size={14} onClick={clearSearch} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 cursor-pointer" />
+                <X
+                  size={14}
+                  onClick={clearSearch}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 cursor-pointer hover:text-slate-300"
+                />
               ) : null}
+
+              {/* Dropdown */}
+              {showDropdown && searchResults.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-slate-800 border border-slate-700 rounded-lg shadow-lg z-10 max-h-64 overflow-y-auto">
+                  {searchResults.map((med) => {
+                    const st = stockState(med)
+                    return (
+                      <div
+                        key={med._id}
+                        onClick={() => handleSelectFromDropdown(med)}
+                        className="px-3 py-2.5 border-b border-slate-700 last:border-b-0 cursor-pointer hover:bg-slate-700 transition-colors text-xs"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1">
+                            <p className="m-0 font-bold text-sm text-white">{txt(med.name)}</p>
+                            <p className="m-0 mt-0.5 text-slate-400 text-xs">
+                              {txt(med.salt, '')} • {txt(med.company, '')}
+                            </p>
+                          </div>
+                          <span
+                            className="w-2 h-2 rounded-full mt-1 shrink-0"
+                            style={{ background: COLORS[st].main }}
+                          />
+                        </div>
+                        <div className="flex items-center gap-2 mt-1 text-slate-400">
+                          <span>Stock: {txt(med.currentStock, 0)}</span>
+                          <span>•</span>
+                          <span className="font-semibold text-white">₹{txt(med.mrp, 0)}</span>
+                        </div>
+                        {med.rackLocation?.position && (
+                          <p className="m-0 mt-1 text-blue-400 text-xs">
+                            <MapPin size={10} className="inline" /> {med.rackLocation.position}
+                          </p>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
             {foundMed && (
               <div className="mt-3 p-3 bg-slate-800 rounded-lg border border-sky-500/50">
                 <p className="m-0 font-bold text-sky-400 text-xs">✅ Found</p>
                 <p className="m-0 mt-1 font-bold text-sm truncate">{txt(foundMed.name)}</p>
-                <p className="m-0 mt-1 text-xs text-slate-400">Stock: {txt(foundMed.currentStock, 0)} • {txt(foundMed.category)}</p>
+                <p className="m-0 mt-1 text-xs text-slate-400">
+                  Stock: {txt(foundMed.currentStock, 0)} • {txt(foundMed.category)}
+                </p>
                 {foundMed.rackLocation?.position ? (
-                  <p className="m-0 mt-2 text-xs font-semibold text-blue-400 flex items-center gap-1"><MapPin size={12} /> {foundMed.rackLocation.position}</p>
+                  <p className="m-0 mt-2 text-xs font-semibold text-blue-400 flex items-center gap-1">
+                    <MapPin size={12} /> {foundMed.rackLocation.position}
+                  </p>
                 ) : (
-                  <p className="m-0 mt-2 text-xs font-semibold text-amber-400">⚠️ Rack assign nahi hai</p>
+                  <p className="m-0 mt-2 text-xs font-semibold text-amber-400">
+                    ⚠️ Rack assign nahi hai
+                  </p>
                 )}
               </div>
             )}
           </div>
 
           <div className="bg-slate-900 rounded-lg border border-slate-800 overflow-hidden">
-            <div className="px-3 py-2 bg-slate-800 border-b border-slate-700 text-xs font-bold text-slate-400 uppercase">🏪 Counters</div>
+            <div className="px-3 py-2 bg-slate-800 border-b border-slate-700 text-xs font-bold text-slate-400 uppercase">
+              🏪 Counters
+            </div>
             <div className="max-h-72 overflow-y-auto">
               {counters.map((c) => {
                 const n = racks.filter((r) => idOf(r.counterId) === c._id).length
@@ -597,7 +825,9 @@ export default function PharmacyLayout3D() {
                     className={`px-3 py-3 cursor-pointer border-l-4 transition-all text-sm ${on ? 'bg-slate-800 border-blue-500' : 'bg-slate-900 border-transparent hover:bg-slate-800'}`}
                   >
                     <p className="m-0 font-bold">{c.code}</p>
-                    <p className="m-0 mt-0.5 text-xs text-slate-400">{c.name} • {c.location} • {n} racks</p>
+                    <p className="m-0 mt-0.5 text-xs text-slate-400">
+                      {c.name} • {c.location} • {n} racks
+                    </p>
                   </div>
                 )
               })}
@@ -619,7 +849,9 @@ export default function PharmacyLayout3D() {
                 <span className="text-slate-300">Empty slot</span>
               </div>
             </div>
-            <p className="m-0 mt-3 text-xs text-slate-500">S = Shelf (upar→neeche) • R = Row (aage→peeche) • C = Column (left→right)</p>
+            <p className="m-0 mt-3 text-xs text-slate-500">
+              S = Shelf (upar→neeche) • R = Row (aage→peeche) • C = Column (left→right)
+            </p>
           </div>
         </div>
 
@@ -627,7 +859,9 @@ export default function PharmacyLayout3D() {
         <div className="lg:col-span-2 order-1 lg:order-2 flex flex-col gap-3">
           {/* rack chips */}
           <div className="flex gap-2 overflow-x-auto pb-1">
-            {counterRacks.length === 0 && <span className="text-sm text-slate-400 py-2">Is counter me koi rack nahi hai</span>}
+            {counterRacks.length === 0 && (
+              <span className="text-sm text-slate-400 py-2">Is counter me koi rack nahi hai</span>
+            )}
             {counterRacks.map((r) => {
               const count = medicines.filter((m) => m.rackLocation?.rackId === r.code).length
               const on = r._id === rackId
@@ -635,10 +869,16 @@ export default function PharmacyLayout3D() {
               return (
                 <button
                   key={r._id}
-                  onClick={() => { setRackId(r._id); setSelectedKey(null) }}
+                  onClick={() => {
+                    setRackId(r._id)
+                    setSelectedKey(null)
+                  }}
                   className={`shrink-0 px-3 py-2 rounded-lg border text-left transition-all ${on ? 'bg-indigo-600 border-indigo-400' : 'bg-slate-900 border-slate-700 hover:bg-slate-800'}`}
                 >
-                  <p className="m-0 text-sm font-extrabold">{pinned && '📍 '}{r.code}</p>
+                  <p className="m-0 text-sm font-extrabold">
+                    {pinned && '📍 '}
+                    {r.code}
+                  </p>
                   <p className="m-0 text-xs text-slate-300">{count} items</p>
                 </button>
               )
@@ -649,17 +889,44 @@ export default function PharmacyLayout3D() {
             {/* toolbar */}
             <div className="flex flex-wrap items-center gap-2 p-2 md:p-3 border-b border-slate-800 bg-slate-900/80">
               <Layers size={16} className="text-indigo-400" />
-              <span className="text-sm font-bold mr-auto">{rack ? `${rack.code}${rack.name ? ' • ' + rack.name : ''}` : 'Select rack'}</span>
+              <span className="text-sm font-bold mr-auto">
+                {rack ? `${rack.code}${rack.name ? ' • ' + rack.name : ''}` : 'Select rack'}
+              </span>
               {Object.keys(PRESETS).map((p) => (
-                <button key={p} onClick={() => setRot(PRESETS[p])} className="px-2.5 py-1 text-xs capitalize bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-md">{p}</button>
+                <button
+                  key={p}
+                  onClick={() => setRot(PRESETS[p])}
+                  className="px-2.5 py-1 text-xs capitalize bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-md"
+                >
+                  {p}
+                </button>
               ))}
-              <button onClick={() => setAuto((a) => !a)} className="p-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-md" title="Auto rotate">
+              <button
+                onClick={() => setAuto((a) => !a)}
+                className="p-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-md"
+                title="Auto rotate"
+              >
                 {auto ? <Pause size={14} /> : <Play size={14} />}
               </button>
-              <button onClick={() => { setRot(PRESETS.angle); setZoom(1) }} className="p-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-md" title="Reset">
+              <button
+                onClick={() => {
+                  setRot(PRESETS.angle)
+                  setZoom(1)
+                }}
+                className="p-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-md"
+                title="Reset"
+              >
                 <RotateCcw size={14} />
               </button>
-              <input type="range" min="0.5" max="1.6" step="0.05" value={zoom} onChange={(e) => setZoom(Number(e.target.value))} className="w-24 accent-indigo-500" />
+              <input
+                type="range"
+                min="0.5"
+                max="1.6"
+                step="0.05"
+                value={zoom}
+                onChange={(e) => setZoom(Number(e.target.value))}
+                className="w-24 accent-indigo-500"
+              />
             </div>
 
             {/* stage */}
@@ -673,7 +940,8 @@ export default function PharmacyLayout3D() {
                 height: 560,
                 perspective: 1500,
                 overflow: 'hidden',
-                background: 'radial-gradient(ellipse at 50% 30%, #1e1b4b 0%, #0f172a 55%, #020617 100%)',
+                background:
+                  'radial-gradient(ellipse at 50% 30%, #1e1b4b 0%, #0f172a 55%, #020617 100%)',
               }}
             >
               {rack ? (
@@ -691,7 +959,9 @@ export default function PharmacyLayout3D() {
               ) : (
                 <p className="text-center text-slate-400 pt-48">Rack select karo</p>
               )}
-              <div className="absolute bottom-2 left-3 text-xs text-slate-500 pointer-events-none">🖱 Drag = rotate • Slider = zoom • Cube pe click = details</div>
+              <div className="absolute bottom-2 left-3 text-xs text-slate-500 pointer-events-none">
+                🖱 Drag = rotate • Slider = zoom • Cube pe click = details
+              </div>
               <div className="absolute top-2 right-3 text-xs text-slate-300 bg-slate-900/70 px-2 py-1 rounded-md pointer-events-none">
                 {dims.shelves} shelves × {dims.rows} rows × {dims.cols} cols
               </div>
@@ -701,10 +971,18 @@ export default function PharmacyLayout3D() {
             <div className="p-3 border-t border-slate-800">
               <div className="flex justify-between text-xs mb-1">
                 <span className="text-slate-400">Items / rack capacity</span>
-                <span className="font-bold">{rackMeds.length}/{capacity} ({percent}%)</span>
+                <span className="font-bold">
+                  {rackMeds.length}/{capacity} ({percent}%)
+                </span>
               </div>
               <div className="h-2 bg-slate-800 rounded overflow-hidden">
-                <div className="h-full transition-all duration-500" style={{ width: `${percent}%`, background: percent > 80 ? '#ef4444' : percent > 50 ? '#f59e0b' : '#10b981' }} />
+                <div
+                  className="h-full transition-all duration-500"
+                  style={{
+                    width: `${percent}%`,
+                    background: percent > 80 ? '#ef4444' : percent > 50 ? '#f59e0b' : '#10b981',
+                  }}
+                />
               </div>
             </div>
           </div>
@@ -727,7 +1005,10 @@ export default function PharmacyLayout3D() {
               ]
                 .filter(([, v]) => v !== null && v !== undefined && v !== '')
                 .map(([k, v]) => (
-                  <div key={k} className="flex justify-between gap-2 py-1 border-b border-slate-700 last:border-b-0">
+                  <div
+                    key={k}
+                    className="flex justify-between gap-2 py-1 border-b border-slate-700 last:border-b-0"
+                  >
                     <span className="text-slate-400">{k}</span>
                     <span className="font-bold text-right">{txt(v)}</span>
                   </div>
@@ -741,28 +1022,53 @@ export default function PharmacyLayout3D() {
                 <p className="m-0 text-sm font-extrabold text-sky-400 flex items-center gap-1">
                   <MapPin size={14} /> {rack?.code}-{selectedKey}
                 </p>
-                <X size={14} className="cursor-pointer text-slate-400" onClick={() => setSelectedKey(null)} />
+                <X
+                  size={14}
+                  className="cursor-pointer text-slate-400"
+                  onClick={() => setSelectedKey(null)}
+                />
               </div>
               {selectedMeds.length === 0 && (
-                <p className="m-0 text-xs text-slate-500 text-center py-3 border border-dashed border-slate-700 rounded-lg">Is slot me koi medicine nahi</p>
+                <p className="m-0 text-xs text-slate-500 text-center py-3 border border-dashed border-slate-700 rounded-lg">
+                  Is slot me koi medicine nahi
+                </p>
               )}
               {selectedMeds.map((m) => {
                 const st = stockState(m)
                 return (
-                  <div key={m._id} className="p-3 bg-slate-800 rounded-lg border border-slate-700 mb-2 text-xs">
+                  <div
+                    key={m._id}
+                    className="p-3 bg-slate-800 rounded-lg border border-slate-700 mb-2 text-xs"
+                  >
                     <p className="m-0 text-sm font-bold">{txt(m.name)}</p>
                     <p className="m-0 mt-0.5 text-slate-400">{txt(m.salt, '')}</p>
                     <div className="grid grid-cols-2 gap-x-2 gap-y-1 mt-2">
-                      <span className="text-slate-400">Category: <b className="text-white">{txt(m.category)}</b></span>
-                      <span className="text-slate-400">Form: <b className="text-white">{txt(m.formulation)}</b></span>
-                      <span className="text-slate-400">Company: <b className="text-white">{txt(m.company)}</b></span>
-                      <span className="text-slate-400">Pack: <b className="text-white">{txt(m.packSize)}</b></span>
-                      <span className="text-slate-400">MRP: <b className="text-white">₹{txt(m.mrp, 0)}</b></span>
-                      <span className="text-slate-400">GST: <b className="text-white">{txt(m.gstPercent, 0)}%</b></span>
+                      <span className="text-slate-400">
+                        Category: <b className="text-white">{txt(m.category)}</b>
+                      </span>
+                      <span className="text-slate-400">
+                        Form: <b className="text-white">{txt(m.formulation)}</b>
+                      </span>
+                      <span className="text-slate-400">
+                        Company: <b className="text-white">{txt(m.company)}</b>
+                      </span>
+                      <span className="text-slate-400">
+                        Pack: <b className="text-white">{txt(m.packSize)}</b>
+                      </span>
+                      <span className="text-slate-400">
+                        MRP: <b className="text-white">₹{txt(m.mrp, 0)}</b>
+                      </span>
+                      <span className="text-slate-400">
+                        GST: <b className="text-white">{txt(m.gstPercent, 0)}%</b>
+                      </span>
                     </div>
                     <div className="mt-2 flex items-center justify-between">
-                      <span className="font-bold" style={{ color: COLORS[st].main }}>● {COLORS[st].label}</span>
-                      <span className="text-slate-300">Stock: <b>{txt(m.currentStock, 0)}</b> / reorder {txt(m.reorderLevel, 0)}</span>
+                      <span className="font-bold" style={{ color: COLORS[st].main }}>
+                        ● {COLORS[st].label}
+                      </span>
+                      <span className="text-slate-300">
+                        Stock: <b>{txt(m.currentStock, 0)}</b> / reorder {txt(m.reorderLevel, 0)}
+                      </span>
                     </div>
                     <button
                       onClick={() => handleMedicineClick(m)}
@@ -775,14 +1081,19 @@ export default function PharmacyLayout3D() {
               })}
             </div>
           ) : (
-<p className="m-0 mb-4 text-xs text-slate-500 text-center py-4 border border-dashed border-slate-700 rounded-lg">
-  Click on any cube in the 3D view to see medicine details here.
-</p>          )}
+            <p className="m-0 mb-4 text-xs text-slate-500 text-center py-4 border border-dashed border-slate-700 rounded-lg">
+              Click on any cube in the 3D view to see medicine details here.
+            </p>
+          )}
 
           <p className="m-0 mb-2 text-xs font-bold text-slate-400 uppercase flex items-center gap-1">
             <Package size={12} /> Rack medicines ({rackMeds.length})
           </p>
-          {rackMeds.length === 0 && <p className="text-xs text-slate-500 text-center py-4 m-0">Is rack me abhi koi medicine nahi hai</p>}
+          {rackMeds.length === 0 && (
+            <p className="text-xs text-slate-500 text-center py-4 m-0">
+              Is rack me abhi koi medicine nahi hai
+            </p>
+          )}
           {rackMeds.map((m) => {
             const l = m.rackLocation
             const k = slotKey(l.shelf, l.row, l.column)
@@ -795,21 +1106,35 @@ export default function PharmacyLayout3D() {
               >
                 <div className="flex items-center justify-between gap-2">
                   <p className="m-0 font-bold truncate">{txt(m.name)}</p>
-                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: COLORS[st].main }} />
+                  <span
+                    className="w-2.5 h-2.5 rounded-full shrink-0"
+                    style={{ background: COLORS[st].main }}
+                  />
                 </div>
-                <p className="m-0 mt-0.5 text-slate-400">S{l.shelf} • R{String(l.row).toUpperCase()} • C{l.column} • Stock {txt(m.currentStock, 0)}</p>
+                <p className="m-0 mt-0.5 text-slate-400">
+                  S{l.shelf} • R{String(l.row).toUpperCase()} • C{l.column} • Stock{' '}
+                  {txt(m.currentStock, 0)}
+                </p>
               </div>
             )
           })}
 
           {unassignedMeds.length > 0 && (
             <div className="mt-4">
-              <p className="m-0 mb-2 text-xs font-bold text-amber-400 uppercase">⚠️ Rack assign nahi ({unassignedMeds.length})</p>
+              <p className="m-0 mb-2 text-xs font-bold text-amber-400 uppercase">
+                ⚠️ Rack assign nahi ({unassignedMeds.length})
+              </p>
               {unassignedMeds.map((m) => (
-                <div key={m._id} className="p-2 rounded-lg mb-1.5 border border-amber-500/30 bg-slate-800 text-xs">
+                <div
+                  key={m._id}
+                  className="p-2 rounded-lg mb-1.5 border border-amber-500/30 bg-slate-800 text-xs"
+                >
                   <p className="m-0 font-bold truncate">{txt(m.name)}</p>
                   <p className="m-0 mt-0.5 text-slate-400">
-                    {m.rackLocation?.rackId ? `Rack "${m.rackLocation.rackId}" list me nahi mila` : 'Koi rack assign nahi'} • Stock {txt(m.currentStock, 0)}
+                    {m.rackLocation?.rackId
+                      ? `Rack "${m.rackLocation.rackId}" list me nahi mila`
+                      : 'Koi rack assign nahi'}{' '}
+                    • Stock {txt(m.currentStock, 0)}
                   </p>
                 </div>
               ))}
