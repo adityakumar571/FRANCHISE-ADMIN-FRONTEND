@@ -4,13 +4,14 @@ import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import toast from 'react-hot-toast'
 import useCookie from '../../../Hooks/cookie'
-import { FaEye, FaEyeSlash } from 'react-icons/fa'
+import { FaEye, FaEyeSlash, FaChartLine, FaUsers, FaCog } from 'react-icons/fa'
 
 import logo from '../../../assets/auctech-logo.png'
 import { validateMobile } from '../../../Utils'
 import { getRequest, getTenant, postRequest } from '../../../Helpers'
 import { IoMdArrowRoundBack } from 'react-icons/io'
 import { AppContext } from '../../../Context/AppContext'
+import './Login.css'
 
 const Login = () => {
   const navigate = useNavigate()
@@ -39,31 +40,12 @@ const Login = () => {
     if (name === 'userId') {
       setFormData((prev) => ({
         ...prev,
-        // [name]: validateMobile(value),
         [name]: value,
       }))
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }))
     }
   }
-
-  // const handleSubmit = (e) => {
-  //   e.preventDefault()
-  //   setLoading(true)
-  //   axios
-  //     .post(`${import.meta.env.VITE_API_BASE_URL}auth/loginWithPassword`, formData)
-  //     .then((res) => {
-  //       console.log('Login res', res?.data?.data)
-  //       setLoading(false)
-  //       setCookie('LMS', res?.data?.data?.authToken, 30)
-  //       toast.success('User Login Successfully')
-  //       navigate('/')
-  //     })
-  //     .catch((error) => {
-  //       setLoading(false)
-  //       toast.error(error?.response?.data?.message)
-  //     })
-  // }
 
   const handleSubmit = (e) => {
     e.preventDefault()
@@ -78,7 +60,6 @@ const Login = () => {
         cred: formData,
       })
         .then((res) => {
-          // console.log('Login res', res?.data?.data)
           setLoading(false)
           setCookie('LMS', res?.data?.data?.authToken, 30)
           toast.success(res?.data?.message || 'User Login Successfully')
@@ -94,7 +75,6 @@ const Login = () => {
     try {
       setDetailsLoading(true)
       const response = await getRequest('schools?subdomain=' + host)
-      console.log('Tenant details', response)
       setTenantDetails(response?.data?.data?.tenants?.[0] || null)
       setTenantDetail(response?.data?.data?.tenants?.[0] || null)
     } catch (error) {
@@ -107,7 +87,6 @@ const Login = () => {
   useEffect(() => {
     getTenantDetails()
   }, [host])
-  console.log('Tenant details from context', tenantDetail)
 
   useEffect(() => {
     let timer
@@ -141,9 +120,9 @@ const Login = () => {
       .catch((error) => {
         setLoading(false)
         toast.error(error?.response?.data?.message)
-        // console.log('error', error)
       })
   }
+
   const handleResend = (e) => {
     e.preventDefault()
     setLoading(true)
@@ -155,7 +134,6 @@ const Login = () => {
       },
     })
       .then((res) => {
-        // console.log('res', res?.data)
         setLoading(false)
         toast.success(res?.data?.message)
         setiSOtp(true)
@@ -165,9 +143,9 @@ const Login = () => {
       .catch((error) => {
         setLoading(false)
         toast.error(error?.response?.data?.message)
-        // console.log('error', error)
       })
   }
+
   const verifyOtp = (e) => {
     e.preventDefault()
     setLoading(true)
@@ -179,7 +157,6 @@ const Login = () => {
       },
     })
       .then((res) => {
-        // console.log('res', res?.data)
         setLoading(false)
         toast.success(res?.data?.message)
 
@@ -190,247 +167,284 @@ const Login = () => {
       .catch((error) => {
         setLoading(false)
         toast.error(error?.response?.data?.message)
-        // console.log('error', error)
       })
   }
 
   return (
-    <div
-      className="min-vh-100 d-flex justify-content-center align-items-center"
-      style={{ backgroundColor: '#000000' }}
-    >
-      <div className="container">
-        <div className="row justify-content-center">
-          <div className="col-md-6 col-lg-5">
-            <div className="card p-4 bg-white shadow">
-              <div className="card-body text-center">
-                {detailsLoading ? (
-                  <div
-                    className="d-flex justify-content-center align-items-center"
-                    style={{ height: '150px' }}
-                  >
-                    <div className="spinner-border text-primary" role="status">
-                      <span className="visually-hidden">Loading...</span>
-                    </div>
-                  </div>
-                ) : (
-                  <img
-                    // src={`https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSTh8EPDpakbwGppWaZqiBlQsYLb2kBFlVqxw&s`}
-                    src={tenantDetail?.logo || logo}
-                    alt="Logo"
-                    referrerPolicy="no-referrer"
-                    style={{
-                      width: '100px',
-                      marginBottom: '10px',
-                      margin: 'auto',
-                      display: 'block',
-                    }}
-                    onError={(e) => {
-                      e.target.style.display = 'none'
-                    }}
-                  />
-                )}
-                <h3 className="mb-4  text-black">Login</h3>
+    <div className="lp-page">
+      {/* BACKGROUND */}
+      <div className="lp-bg">
+        <div className="lp-bg__grid"></div>
+        <div className="lp-bg__orb lp-bg__orb--1"></div>
+        <div className="lp-bg__orb lp-bg__orb--2"></div>
+        <div className="lp-bg__orb lp-bg__orb--3"></div>
+      </div>
+
+      {/* CONTAINER */}
+      <div className="lp-container">
+        {/* LEFT PANEL — Branding */}
+        <div className="lp-left">
+          <div className="lp-left__inner">
+            <img src={tenantDetail?.logo || logo} alt="Logo" className="lp-logo" />
+
+            <div className="lp-badge">
+              <span className="lp-badge__dot"></span>
+              Franchise Management
+            </div>
+
+            <h1 className="lp-title">
+              Grow Your <span className="lp-title__gold">Franchise</span> Today
+            </h1>
+
+            <p className="lp-desc">
+              Complete management solution for pharmacy franchises. Control operations, maximize revenue, and scale your business.
+            </p>
+
+            <ul className="lp-features">
+              <li className="lp-feature">
+                <div className="lp-feature__icon">
+                  <FaChartLine />
+                </div>
+                <div>
+                  <div className="lp-feature__title">Analytics & Reports</div>
+                  <div className="lp-feature__desc">Real-time insights into your business performance</div>
+                </div>
+              </li>
+
+              <li className="lp-feature">
+                <div className="lp-feature__icon">
+                  <FaUsers />
+                </div>
+                <div>
+                  <div className="lp-feature__title">Team Management</div>
+                  <div className="lp-feature__desc">Manage staff and roles with ease</div>
+                </div>
+              </li>
+
+              <li className="lp-feature">
+                <div className="lp-feature__icon">
+                  <FaCog />
+                </div>
+                <div>
+                  <div className="lp-feature__title">Full Control</div>
+                  <div className="lp-feature__desc">Customize every aspect of your operations</div>
+                </div>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        {/* RIGHT PANEL — Login Form */}
+        <div className="lp-right">
+          <div className="lp-glass">
+            {/* Logo inside glass (shown on small screens) */}
+            <div className="lp-glass__logo-row">
+              <img src={tenantDetail?.logo || logo} alt="Logo" className="lp-glass__logo" />
+            </div>
+
+            {detailsLoading ? (
+              <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+                <div className="lp-spinner"></div>
+              </div>
+            ) : (
+              <>
+                <div className="lp-glass__title">Welcome</div>
+                <div className="lp-glass__sub">Sign in to your franchise account</div>
 
                 {!loaginWithPassword ? (
                   <>
                     {isOtp ? (
-                      <form>
-                        <div>
-                          <div class="input-block text-start mb-1">
-                            <label class="col-form-label text-black">OTP</label>
-                            <input
-                              type="number"
-                              className="form-control bg-white text-black"
-                              placeholder="otp"
-                              name="otp"
-                              value={otp}
-                              onChange={(e) => {
-                                setOtp(e.target.value)
-                              }}
-                              required
-                            />
-                          </div>
-
-                          <div className=" text-start my-2">
-                            {canResend ? (
-                              <button
-                                type="button"
-                                className="btn btn-link p-0 text-decoration-none"
-                                onClick={handleResend}
-                              >
-                                Resend OTP
-                              </button>
-                            ) : (
-                              <span className="text-muted">Resend OTP in {timeLeft}s</span>
-                            )}
-                          </div>
-
-                          <button
-                            type="submit"
-                            className="btn w-100 text-white"
-                            style={{
-                              background: 'linear-gradient(to right, #9F8054, #9F8054)',
-                            }}
-                            onClick={verifyOtp}
+                      <form className="lp-form">
+                        {/* OTP FIELD */}
+                        <div className="lp-field">
+                          <label className="lp-label">Verification Code</label>
+                          <input
+                            type="number"
+                            className="lp-input"
+                            placeholder="Enter OTP"
+                            name="otp"
+                            value={otp}
+                            onChange={(e) => setOtp(e.target.value)}
                             disabled={loading}
-                          >
-                            {loading ? 'Loading...' : 'Verify Otp'}
-                          </button>
-                          <div className="d-flex justify-content-start ">
-                            {' '}
-                            <span
-                              className="d-flex align-items-center gap-2"
-                              style={{ cursor: 'pointer' }}
-                              onClick={() => {
-                                setiSOtp(false)
+                            required
+                          />
+                        </div>
+
+                        {/* RESEND */}
+                        <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.52)', marginBottom: '14px' }}>
+                          {canResend ? (
+                            <button
+                              type="button"
+                              className="btn btn-link p-0 text-decoration-none"
+                              style={{
+                                color: '#fabf22',
+                                fontSize: '12px',
+                                fontWeight: '600',
                               }}
+                              onClick={handleResend}
                             >
-                              <IoMdArrowRoundBack />
-                              <span>back</span>
-                            </span>{' '}
-                          </div>
+                              Resend OTP
+                            </button>
+                          ) : (
+                            <span>Resend OTP in {timeLeft}s</span>
+                          )}
+                        </div>
+
+                        {/* SUBMIT */}
+                        <button
+                          type="submit"
+                          className="lp-btn"
+                          onClick={verifyOtp}
+                          disabled={loading}
+                        >
+                          {loading && <div className="lp-spinner"></div>}
+                          {loading ? 'Verifying...' : 'Verify OTP'}
+                        </button>
+
+                        {/* BACK */}
+                        <div style={{ marginTop: '14px', textAlign: 'center' }}>
+                          <button
+                            type="button"
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: 'rgba(255,255,255,0.52)',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '6px',
+                              fontSize: '13px',
+                              margin: '0 auto',
+                            }}
+                            onClick={() => setiSOtp(false)}
+                          >
+                            <IoMdArrowRoundBack size={14} />
+                            Back
+                          </button>
                         </div>
                       </form>
                     ) : (
-                      <form>
-                        <div>
-                          <div class="input-block text-start mb-4">
-                            <label class="col-form-label text-black">User ID</label>
-                            <input
-                              type="text"
-                              className="form-control bg-white text-black"
-                              placeholder="userId"
-                              name="userId"
-                              value={formData?.userId}
-                              onChange={handleInputChange}
-                              required
-                            />
-                          </div>
-
-                          <button
-                            type="submit"
-                            className="btn w-100 text-white"
-                            style={{
-                              background: 'linear-gradient(to right, #9F8054, #9F8054)',
-                            }}
-                            onClick={sendOtp}
+                      <form className="lp-form">
+                        {/* USER ID */}
+                        <div className="lp-field">
+                          <label className="lp-label">User ID</label>
+                          <input
+                            type="text"
+                            className="lp-input"
+                            placeholder="Enter your user ID"
+                            name="userId"
+                            value={formData?.userId}
+                            onChange={handleInputChange}
                             disabled={loading}
+                            required
+                          />
+                        </div>
+
+                        {/* SUBMIT */}
+                        <button
+                          type="submit"
+                          className="lp-btn"
+                          onClick={sendOtp}
+                          disabled={loading}
+                        >
+                          {loading && <div className="lp-spinner"></div>}
+                          {loading ? 'Sending...' : 'Send OTP'}
+                        </button>
+
+                        {/* SWITCH */}
+                        <div style={{ marginTop: '14px', textAlign: 'center', fontSize: '13px' }}>
+                          <button
+                            type="button"
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: '#fabf22',
+                              cursor: 'pointer',
+                              fontWeight: '600',
+                              textDecoration: 'none',
+                            }}
+                            onClick={() => setLoginWithPassword(true)}
                           >
-                            {loading ? 'Loading...' : 'Send Otp'}
+                            Login with Password
                           </button>
-                          <div className="d-flex justify-content-end ">
-                            {' '}
-                            <span
-                              style={{ cursor: 'pointer' }}
-                              onClick={() => {
-                                setLoginWithPassword(true)
-                              }}
-                            >
-                              Login With Password
-                            </span>{' '}
-                          </div>
                         </div>
                       </form>
                     )}
                   </>
                 ) : (
-                  <form onSubmit={handleSubmit}>
-                    <div class="input-block text-start mb-4">
-                      <label class="col-form-label text-black">User ID</label>
+                  <form onSubmit={handleSubmit} className="lp-form">
+                    {/* USER ID */}
+                    <div className="lp-field">
+                      <label className="lp-label">User ID</label>
                       <input
                         type="text"
-                        className="form-control bg-white text-black"
-                        placeholder="Enter User ID"
+                        className="lp-input"
+                        placeholder="Enter your user ID"
                         name="userId"
                         value={formData?.userId}
                         onChange={handleInputChange}
+                        disabled={loading}
                         required
                       />
                     </div>
-                    <div class="input-block mb-4">
-                      <div class="row align-items-center">
-                        <div class="col text-start">
-                          <label class="col-form-label text-black">Password</label>
-                        </div>
-                        {/* <div class="col-auto ">
-                          <a class=" text-black" href="#">
-                            Forgot password?
-                          </a>
-                        </div> */}
-                      </div>
 
-                      <div class="position-relative">
+                    {/* PASSWORD */}
+                    <div className="lp-field">
+                      <label className="lp-label">Password</label>
+                      <div className="lp-input-wrap">
                         <input
                           type={showPassword ? 'text' : 'password'}
-                          className="form-control bg-white text-black"
-                          placeholder="Password"
+                          className="lp-input lp-input--pw"
+                          placeholder="Enter your password"
                           name="password"
                           value={formData.password}
                           onChange={handleInputChange}
+                          disabled={loading}
                           required
                         />
-                        <span
-                          onClick={() => setShowPassword(!showPassword)}
-                          style={{
-                            position: 'absolute',
-                            top: '50%',
-                            right: '15px',
-                            transform: 'translateY(-50%)',
-                            cursor: 'pointer',
-                          }}
-                        >
-                          {showPassword ? (
-                            <FaEyeSlash className="text-black fs-5" />
-                          ) : (
-                            <FaEye className="text-black fs-5" />
-                          )}
-                        </span>
-                      </div>
-                      <div className="d-flex justify-content-end mt-2">
                         <button
                           type="button"
-                          className="btn btn-link text-decoration-none p-0"
-                          style={{
-                            fontSize: '14px',
-                            fontWeight: '500',
-                          }}
-                          onClick={(e) => {
-                            e.preventDefault()
-                            navigate('/forgot-password')
-                          }}
+                          className="lp-eye"
+                          onClick={() => setShowPassword(!showPassword)}
+                          disabled={loading}
+                          tabIndex="-1"
                         >
-                          Forgot Password?
+                          {showPassword ? <FaEyeSlash /> : <FaEye />}
                         </button>
                       </div>
                     </div>
 
-                    <button
-                      type="submit"
-                      className="btn w-100 text-white"
-                      style={{
-                        background: 'linear-gradient(to right, #9F8054, #9F8054)',
-                      }}
-                      disabled={loading}
-                    >
-                      {loading ? 'Loading...' : 'Login'}
+                    {/* SUBMIT */}
+                    <button type="submit" className="lp-btn" disabled={loading}>
+                      {loading && <div className="lp-spinner"></div>}
+                      {loading ? 'Signing in...' : 'Sign In'}
                     </button>
 
-                    {/* <div className="d-flex justify-content-end ">
-                      {' '}
-                      <span
-                        style={{ cursor: 'pointer' }}
-                        onClick={() => {
-                          setLoginWithPassword(false)
+                    {/* SWITCH TO OTP - Commented out for now */}
+                    {/* <div style={{ marginTop: '14px', textAlign: 'center', fontSize: '13px' }}>
+                      <button
+                        type="button"
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: '#fabf22',
+                          cursor: 'pointer',
+                          fontWeight: '600',
                         }}
+                        onClick={() => setLoginWithPassword(false)}
                       >
-                        Login With Otp
-                      </span>{' '}
+                        Login with OTP
+                      </button>
                     </div> */}
                   </form>
                 )}
-              </div>
-            </div>
+
+                <div className="lp-glass__footer">
+                  © 2024 Franchise Management. All rights reserved.
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>

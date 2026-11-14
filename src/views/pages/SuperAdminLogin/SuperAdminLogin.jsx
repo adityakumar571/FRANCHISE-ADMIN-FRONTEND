@@ -1,10 +1,12 @@
 /* eslint-disable prettier/prettier */
 /**
- * Super Admin Login — SOW Section 4 (Authentication)
+ * Super Admin Login — Premium Glass Morphism
+ * SaaS Platform Central Control
  */
+import './SuperAdminLogin.css'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Shield, Eye, EyeOff, Lock } from 'lucide-react'
+import { Shield, Eye, EyeOff, Lock, BarChart3, Settings, Zap } from 'lucide-react'
 import toast from 'react-hot-toast'
 import axios from 'axios'
 import Cookies from 'js-cookie'
@@ -28,9 +30,8 @@ export default function SuperAdminLogin() {
       const { token, user } = res.data?.data || {}
       if (token) {
         Cookies.set('SA_TOKEN', token, { expires: 1, path: '/' })
-        Cookies.set('LMS', token, { expires: 1, path: '/' }) // shared token for API calls
-        Cookies.set('accessToken', token, { expires: 1, path: '/' }) // For Super Admin API calls
-        // Also save to localStorage for cross-domain access
+        Cookies.set('LMS', token, { expires: 1, path: '/' })
+        Cookies.set('accessToken', token, { expires: 1, path: '/' })
         localStorage.setItem('SA_TOKEN', token)
         localStorage.setItem('superadmin_token', token)
         localStorage.setItem('sa_user', JSON.stringify(user || { email: form.email, role: 'SuperAdmin' }))
@@ -44,78 +45,152 @@ export default function SuperAdminLogin() {
     }
   }
 
-  const inp = {
-    width: '100%', padding: '11px 14px', border: '1px solid #e5e7eb',
-    borderRadius: 8, fontSize: 13, outline: 'none', background: '#fafafa',
-    boxSizing: 'border-box', color: '#111827',
-  }
-
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', fontFamily: 'Inter, sans-serif' }}>
-      {/* Left panel */}
-      <div style={{ flex: 1, background: 'linear-gradient(135deg, #0c3b73 0%, #1e40af 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 40, minWidth: 300 }}>
-        <div style={{ textAlign: 'center', color: '#fff', maxWidth: 360 }}>
-          <div style={{ width: 72, height: 72, borderRadius: 20, background: '#fabf22', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
-            <Shield size={38} color="#0c3b73" />
-          </div>
-          <h1 style={{ fontSize: 28, fontWeight: 800, margin: '0 0 10px', letterSpacing: '-0.5px' }}>Super Admin</h1>
-          <p style={{ fontSize: 14, opacity: 0.8, lineHeight: 1.6, margin: 0 }}>
-            Central command centre for the PharmaNexus SaaS network. Manage franchises, subscriptions, admins and suppliers.
-          </p>
-          <div style={{ marginTop: 36, display: 'flex', flexDirection: 'column', gap: 10, textAlign: 'left' }}>
-            {['Manage franchise network', 'Control subscriptions & plans', 'Assign suppliers to franchises', 'Monitor audit logs & reports'].map(f => (
-              <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#fabf22', flexShrink: 0 }} />
-                <span style={{ fontSize: 13, opacity: 0.85 }}>{f}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+    <div className="sa-page">
+      {/* BACKGROUND */}
+      <div className="sa-bg">
+        <div className="sa-bg__grid"></div>
+        <div className="sa-bg__orb sa-bg__orb--1"></div>
+        <div className="sa-bg__orb sa-bg__orb--2"></div>
+        <div className="sa-bg__orb sa-bg__orb--3"></div>
       </div>
 
-      {/* Right panel */}
-      <div style={{ flex: 1, background: '#f5f6f8', display: 'flex', justifyContent: 'center', alignItems: 'center', padding: 40, minWidth: 340 }}>
-        <div style={{ width: '100%', maxWidth: 420, background: '#fff', padding: 40, borderRadius: 14, boxShadow: '0 4px 24px rgba(0,0,0,0.08)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 28 }}>
-            <div style={{ width: 38, height: 38, borderRadius: 10, background: '#0c3b73', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Lock size={18} color="#fabf22" />
+      {/* CONTAINER */}
+      <div className="sa-container">
+        {/* LEFT PANEL — Branding */}
+        <div className="sa-left">
+          <div className="sa-left__inner">
+            <div className="sa-logo-badge">
+              <Shield size={32} />
             </div>
-            <div>
-              <h2 style={{ fontSize: 18, fontWeight: 800, color: '#0c3b73', margin: 0 }}>Admin Login</h2>
-              <p style={{ fontSize: 12, color: '#9ca3af', margin: 0 }}>Restricted access — authorised users only</p>
+
+            <div className="sa-badge">
+              <span className="sa-badge__dot"></span>
+              Enterprise SaaS Control
             </div>
+
+            <h1 className="sa-title">
+              Super <span className="sa-title__blue">Admin</span> Panel
+            </h1>
+
+            <p className="sa-desc">
+              Central command centre for the entire SaaS network. Manage franchises, subscriptions, suppliers, and global operations.
+            </p>
+
+            <ul className="sa-features">
+              <li className="sa-feature">
+                <div className="sa-feature__icon">
+                  <BarChart3 size={16} />
+                </div>
+                <div>
+                  <div className="sa-feature__title">Network Analytics</div>
+                  <div className="sa-feature__desc">Monitor franchise performance & revenue</div>
+                </div>
+              </li>
+
+              <li className="sa-feature">
+                <div className="sa-feature__icon">
+                  <Settings size={16} />
+                </div>
+                <div>
+                  <div className="sa-feature__title">System Control</div>
+                  <div className="sa-feature__desc">Manage global settings & configurations</div>
+                </div>
+              </li>
+
+              <li className="sa-feature">
+                <div className="sa-feature__icon">
+                  <Zap size={16} />
+                </div>
+                <div>
+                  <div className="sa-feature__title">Power Tools</div>
+                  <div className="sa-feature__desc">Execute bulk operations & migrations</div>
+                </div>
+              </li>
+            </ul>
           </div>
+        </div>
 
-          <form onSubmit={handleSubmit}>
-            <div style={{ marginBottom: 16 }}>
-              <label style={{ fontSize: 12, fontWeight: 700, color: '#374151', display: 'block', marginBottom: 6, textTransform: 'uppercase' }}>
-                User ID <span style={{ color: '#dc2626' }}>*</span>
-              </label>
-              <input name="email" type="text" value={form.email} onChange={handleChange} placeholder="superadmin" required style={inp} />
-            </div>
-
-            <div style={{ marginBottom: 24 }}>
-              <label style={{ fontSize: 12, fontWeight: 700, color: '#374151', display: 'block', marginBottom: 6, textTransform: 'uppercase' }}>
-                Password <span style={{ color: '#dc2626' }}>*</span>
-              </label>
-              <div style={{ position: 'relative' }}>
-                <input name="password" type={showPw ? 'text' : 'password'} value={form.password} onChange={handleChange} placeholder="Enter password" required style={{ ...inp, paddingRight: 42 }} />
-                <span onClick={() => setShowPw(v => !v)} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', cursor: 'pointer', color: '#9ca3af' }}>
-                  {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
-                </span>
+        {/* RIGHT PANEL — Login Form */}
+        <div className="sa-right">
+          <div className="sa-glass">
+            <div className="sa-glass__header">
+              <div className="sa-glass__lock">
+                <Lock size={20} />
+              </div>
+              <div>
+                <div className="sa-glass__title">Admin Access</div>
+                <div className="sa-glass__sub">Restricted — Authorized Personnel Only</div>
               </div>
             </div>
 
-            <button type="submit" disabled={loading}
-              style={{ width: '100%', height: 46, background: loading ? '#6fa3d0' : '#0c3b73', border: 'none', borderRadius: 9, color: '#fff', fontWeight: 700, fontSize: 15, cursor: loading ? 'not-allowed' : 'pointer', transition: 'background 0.2s' }}>
-              {loading ? 'Signing in…' : 'Sign In to Admin Panel'}
-            </button>
-          </form>
+            <form onSubmit={handleSubmit} className="sa-form">
+              {/* USER ID */}
+              <div className="sa-field">
+                <label className="sa-label">User ID</label>
+                <input
+                  name="email"
+                  type="text"
+                  value={form.email}
+                  onChange={handleChange}
+                  placeholder="Enter admin user ID"
+                  required
+                  className="sa-input"
+                  disabled={loading}
+                />
+              </div>
 
-          <div style={{ marginTop: 18, textAlign: 'center' }}>
-            <button onClick={() => navigate('/franchise-login')} style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: 12, cursor: 'pointer' }}>
-              ← Franchise Login
-            </button>
+              {/* PASSWORD */}
+              <div className="sa-field">
+                <label className="sa-label">Password</label>
+                <div className="sa-input-wrap">
+                  <input
+                    name="password"
+                    type={showPw ? 'text' : 'password'}
+                    value={form.password}
+                    onChange={handleChange}
+                    placeholder="Enter password"
+                    required
+                    className="sa-input sa-input--pw"
+                    disabled={loading}
+                  />
+                  <button
+                    type="button"
+                    className="sa-eye"
+                    onClick={() => setShowPw(v => !v)}
+                    disabled={loading}
+                    tabIndex="-1"
+                  >
+                    {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+
+              {/* SUBMIT */}
+              <button type="submit" className="sa-btn" disabled={loading}>
+                {loading && <div className="sa-spinner"></div>}
+                {loading ? 'Signing in...' : 'Enter Admin Panel'}
+              </button>
+            </form>
+
+            {/* FOOTER LINK */}
+            <div className="sa-glass__footer">
+              <button
+                type="button"
+                onClick={() => navigate('/franchise-login')}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'rgba(255,255,255,0.52)',
+                  fontSize: '12px',
+                  cursor: 'pointer',
+                  fontWeight: '500',
+                  textDecoration: 'none',
+                }}
+              >
+                ← Back to Franchise Login
+              </button>
+            </div>
           </div>
         </div>
       </div>
