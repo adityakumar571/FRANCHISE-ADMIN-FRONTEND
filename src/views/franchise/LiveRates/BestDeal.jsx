@@ -249,7 +249,7 @@ export default function BestDeal() {
           <h3 style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 700, color: '#111827' }}>
             Search for Best Deals
           </h3>
-          <p style={{ margin: 0, fontSize: 14, color: '#6b7280', maxWidth: 400, margin: '0 auto' }}>
+          <p style={{ margin: '0 auto', fontSize: 14, color: '#6b7280', maxWidth: 400 }}>
             Enter a medicine name above to find the lowest price from all verified suppliers
           </p>
         </div>

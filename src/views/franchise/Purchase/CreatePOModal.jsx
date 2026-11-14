@@ -187,24 +187,74 @@ const CreatePOModal = ({ open, onClose, onSaved, prefilledSupplier = null, prefi
   if (!open) return null
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: 9999, overflowY: 'auto', padding: '20px 16px' }}>
-      <div style={{ background: '#fff', borderRadius: 12, padding: 28, width: '100%', maxWidth: 820, maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 36, height: 36, borderRadius: 8, background: '#7c3aed18', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <div style={{ padding: '20px' }}>
+        padding: '10px 8px'
+      {/* }
+    }}> */}
+      <div style={{ 
+        background: '#fff', 
+        borderRadius: 12, 
+        padding: '20px',
+        width: '100%', 
+        maxWidth: 'min(90vw, 820px)',
+        maxHeight: '95vh',
+        display: 'flex', 
+        flexDirection: 'column',
+        boxShadow: '0 20px 25px rgba(0,0,0,0.15)'
+      }}>
+        {/* Header */}
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'space-between', 
+          marginBottom: 16,
+          flexWrap: 'wrap',
+          gap: 10
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+            <div style={{ 
+              width: 36, 
+              height: 36, 
+              borderRadius: 8, 
+              background: '#7c3aed18', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              flexShrink: 0
+            }}>
               <ShoppingCart size={18} color="#7c3aed" />
             </div>
-            <div>
-              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Create Purchase Order</h3>
-              <p style={{ margin: 0, fontSize: 12, color: '#9ca3af' }}>Select supplier and add medicines</p>
+            <div style={{ minWidth: 0 }}>
+              <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 700, wordBreak: 'break-word' }}>Create Purchase Order</h3>
+              <p style={{ margin: 0, fontSize: 11, color: '#9ca3af', wordBreak: 'break-word' }}>Select supplier and add medicines</p>
             </div>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}><X size={20} /></button>
+          <button 
+            onClick={onClose} 
+            style={{ 
+              background: 'none', 
+              border: 'none', 
+              cursor: 'pointer', 
+              color: '#6b7280',
+              padding: 4,
+              flexShrink: 0,
+              transition: 'color 0.2s'
+            }}
+            onMouseEnter={(e) => e.target.style.color = '#111827'}
+            onMouseLeave={(e) => e.target.style.color = '#6b7280'}
+          >
+            <X size={20} />
+          </button>
         </div>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-          {/* Header fields */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 20 }}>
+          {/* Header fields - Responsive Grid */}
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+            gap: 12, 
+            marginBottom: 16
+          }}>
             <div>
               <label style={labelStyle}>Supplier / Distributor *</label>
               {loadingSuppliers ? (
@@ -243,15 +293,29 @@ const CreatePOModal = ({ open, onClose, onSaved, prefilledSupplier = null, prefi
               <label style={labelStyle}>Expected Delivery Date</label>
               <input type="date" value={expectedDate} onChange={(e) => setExpDate(e.target.value)} style={inputStyle} />
             </div>
-            <div style={{ gridColumn: 'span 2' }}>
+            <div style={{ gridColumn: 'span 2', maxWidth: 'none' }}>
               <label style={labelStyle}>Notes / Remarks</label>
               <input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional notes" style={inputStyle} />
             </div>
           </div>
 
-          {/* Items table */}
-          <div style={{ flex: 1, minHeight: '400px', maxHeight: '500px', display: 'flex', flexDirection: 'column', marginBottom: 14 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+          {/* Items table - Responsive Wrapper */}
+          <div style={{ 
+            flex: 1, 
+            display: 'flex', 
+            flexDirection: 'column', 
+            marginBottom: 12,
+            minHeight: 300,
+            maxHeight: '55vh'
+          }}>
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'space-between', 
+              marginBottom: 10,
+              gap: 8,
+              flexWrap: 'wrap'
+            }}>
               <label style={{ fontSize: 13, fontWeight: 700, color: '#374151' }}>
                 Order Items ({items.length})
               </label>
@@ -270,19 +334,43 @@ const CreatePOModal = ({ open, onClose, onSaved, prefilledSupplier = null, prefi
                   color: selectedSupplier ? '#0c3b73' : '#9ca3af', 
                   fontSize: 12, 
                   fontWeight: 600, 
-                  cursor: selectedSupplier ? 'pointer' : 'not-allowed' 
+                  cursor: selectedSupplier ? 'pointer' : 'not-allowed',
+                  transition: 'all 0.2s',
+                  whiteSpace: 'nowrap'
                 }}
               >
                 <Plus size={13} /> Add Medicine
               </button>
             </div>
 
-            <div style={{ flex: 1, overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: 8, minHeight: 0 }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <div style={{ 
+              flex: 1, 
+              overflowX: 'auto', 
+              overflowY: 'auto', 
+              border: '1px solid #e5e7eb', 
+              borderRadius: 8, 
+              minHeight: 0,
+              WebkitOverflowScrolling: 'touch'
+            }}>
+              <table style={{ 
+                width: '100%', 
+                borderCollapse: 'collapse', 
+                fontSize: 12,
+                minWidth: 800
+              }}>
                 <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
                   <tr style={{ background: '#f9fafb' }}>
                     {['Medicine', 'Salt/Form', 'Qty', 'PTR (₹)', 'MRP (₹)', 'Scheme', 'Margin', 'Total', ''].map((h) => (
-                      <th key={h} style={{ padding: '10px 8px', textAlign: 'left', fontWeight: 600, color: '#374151', fontSize: 12, borderBottom: '1px solid #e5e7eb' }}>{h}</th>
+                      <th key={h} style={{ 
+                        padding: '10px 8px', 
+                        textAlign: 'left', 
+                        fontWeight: 600, 
+                        color: '#374151', 
+                        fontSize: 11,
+                        borderBottom: '1px solid #e5e7eb',
+                        whiteSpace: 'nowrap',
+                        backgroundColor: '#f9fafb'
+                      }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -302,15 +390,78 @@ const CreatePOModal = ({ open, onClose, onSaved, prefilledSupplier = null, prefi
               </table>
             </div>
 
-            <div style={{ textAlign: 'right', marginTop: 12, padding: '12px 16px', background: '#f9fafb', borderRadius: 8, border: '1px solid #e5e7eb' }}>
-              <div style={{ fontSize: 13, color: '#6b7280', marginBottom: 4 }}>Total Items: {items.filter(it => it.medicineId).length}</div>
-              <div style={{ fontSize: 17, fontWeight: 700, color: '#111827' }}>Total Amount: ₹{totalAmt.toFixed(2)}</div>
+            <div style={{ 
+              textAlign: 'right', 
+              marginTop: 12, 
+              padding: '12px 16px', 
+              background: '#f9fafb', 
+              borderRadius: 8, 
+              border: '1px solid #e5e7eb' 
+            }}>
+              <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 4 }}>
+                Total Items: {items.filter(it => it.medicineId).length}
+              </div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: '#111827' }}>
+                Total Amount: ₹{totalAmt.toFixed(2)}
+              </div>
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 16, paddingTop: 16, borderTop: '1px solid #e5e7eb' }}>
-            <button type="button" onClick={onClose} style={{ padding: '9px 20px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Cancel</button>
-            <button type="submit" disabled={loading || !selectedSupplier || items.filter(it => it.medicineId).length === 0} style={{ padding: '9px 22px', borderRadius: 8, border: 'none', background: loading || !selectedSupplier ? '#93c5fd' : '#0c3b73', color: '#fff', fontWeight: 700, fontSize: 13, cursor: loading || !selectedSupplier ? 'not-allowed' : 'pointer' }}>
+          {/* Footer buttons - Responsive */}
+          <div style={{ 
+            display: 'flex', 
+            gap: 10, 
+            justifyContent: 'flex-end', 
+            marginTop: 16, 
+            paddingTop: 16, 
+            borderTop: '1px solid #e5e7eb',
+            flexWrap: 'wrap'
+          }}>
+            <button 
+              type="button" 
+              onClick={onClose} 
+              style={{ 
+                padding: '8px 16px', 
+                borderRadius: 8, 
+                border: '1px solid #e5e7eb', 
+                background: '#fff', 
+                fontWeight: 600, 
+                fontSize: 12, 
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                whiteSpace: 'nowrap'
+              }}
+              onMouseEnter={(e) => e.target.style.background = '#f3f4f6'}
+              onMouseLeave={(e) => e.target.style.background = '#fff'}
+            >
+              Cancel
+            </button>
+            <button 
+              type="submit" 
+              disabled={loading || !selectedSupplier || items.filter(it => it.medicineId).length === 0} 
+              style={{ 
+                padding: '8px 18px', 
+                borderRadius: 8, 
+                border: 'none', 
+                background: loading || !selectedSupplier ? '#93c5fd' : '#0c3b73', 
+                color: '#fff', 
+                fontWeight: 700, 
+                fontSize: 12, 
+                cursor: loading || !selectedSupplier ? 'not-allowed' : 'pointer',
+                transition: 'background 0.2s',
+                whiteSpace: 'nowrap'
+              }}
+              onMouseEnter={(e) => {
+                if (!loading && selectedSupplier && items.filter(it => it.medicineId).length > 0) {
+                  e.target.style.background = '#0a2f5f'
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!loading && selectedSupplier && items.filter(it => it.medicineId).length > 0) {
+                  e.target.style.background = '#0c3b73'
+                }
+              }}
+            >
               {loading ? 'Submitting…' : 'Submit PO'}
             </button>
           </div>

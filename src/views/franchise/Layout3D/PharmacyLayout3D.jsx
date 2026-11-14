@@ -957,7 +957,7 @@ export default function PharmacyLayout3D() {
                   zoom={zoom}
                 />
               ) : (
-                <p className="text-center text-slate-400 pt-48">Rack select karo</p>
+                <p className="text-center text-slate-400 pt-48">Select The Rack</p>
               )}
               <div className="absolute bottom-2 left-3 text-xs text-slate-500 pointer-events-none">
                 🖱 Drag = rotate • Slider = zoom • Cube pe click = details

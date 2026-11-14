@@ -10,6 +10,10 @@ import {
   CInputGroupText,
   CFormCheck,
   CSpinner,
+  CToaster,
+  CToast,
+  CToastHeader,
+  CToastBody,
 } from '@coreui/react'
 import { Package, Plus, Edit, Trash2, Search, AlertCircle, TrendingDown } from 'lucide-react'
 import { getRequest, postRequest, putRequest, deleteRequest } from '../../Helpers'
@@ -21,6 +25,10 @@ const SupplierInventory = () => {
   const [editMode, setEditMode] = useState(false)
   const [currentMedicine, setCurrentMedicine] = useState(null)
   const [saving, setSaving] = useState(false)
+  const [searchingMedicine, setSearchingMedicine] = useState(false)
+  const [searchResults, setSearchResults] = useState([])
+  const [showSearchResults, setShowSearchResults] = useState(false)
+  const [toasts, setToasts] = useState([])
 
   const [filters, setFilters] = useState({
     search: '',
@@ -28,10 +36,22 @@ const SupplierInventory = () => {
     stockFilter: '',
   })
 
+  // Toast helper function
+  const showToast = (message, type = 'success') => {
+    const id = Date.now()
+    const newToast = { id, message, type }
+    setToasts(prev => [...prev, newToast])
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id))
+    }, 3000)
+  }
+
   const [formData, setFormData] = useState({
+    medicine_id: '',
     name: '',
-    genericName: '',
+    generic_name: '',
     manufacturer: '',
+    medical_system: '',
     category: '',
     strength: '',
     packSize: '',
@@ -39,10 +59,16 @@ const SupplierInventory = () => {
     supplierPrice: '',
     stock: '',
     minOrderQuantity: 1,
+    minStock: 10,
     scheme: '',
     description: '',
     isAvailable: true,
     expiryDate: '',
+    batchNumber: '',
+    discount: 0,
+    brand_names: [],
+    formulation: '',
+    primary_specialty: '',
   })
 
   useEffect(() => {
@@ -80,9 +106,11 @@ const SupplierInventory = () => {
     setEditMode(false)
     setCurrentMedicine(null)
     setFormData({
+      medicine_id: '',
       name: '',
-      genericName: '',
+      generic_name: '',
       manufacturer: '',
+      medical_system: '',
       category: '',
       strength: '',
       packSize: '',
@@ -90,21 +118,86 @@ const SupplierInventory = () => {
       supplierPrice: '',
       stock: '',
       minOrderQuantity: 1,
+      minStock: 10,
       scheme: '',
       description: '',
       isAvailable: true,
       expiryDate: '',
+      batchNumber: '',
+      discount: 0,
+      brand_names: [],
+      formulation: '',
+      primary_specialty: '',
     })
+    setSearchResults([])
+    setShowSearchResults(false)
     setShowModal(true)
+  }
+
+  // Search medicines from SuperAdmin API
+  const searchGlobalMedicines = async (searchTerm) => {
+    if (!searchTerm.trim()) {
+      setSearchResults([])
+      setShowSearchResults(false)
+      return
+    }
+
+    try {
+      setSearchingMedicine(true)
+      const response = await getRequest(`/superadmin/medicines?search=${searchTerm}&limit=20`)
+      
+      if (response?.data?.success) {
+        setSearchResults(response.data.data.medicines || [])
+        setShowSearchResults(true)
+      } else {
+        setSearchResults([])
+      }
+    } catch (error) {
+      console.error('Error searching medicines:', error)
+      setSearchResults([])
+    } finally {
+      setSearchingMedicine(false)
+    }
+  }
+
+  // Select medicine from search results - auto-fill fields
+  const selectMedicineFromGlobal = (medicine) => {
+    setFormData({
+      medicine_id: medicine.medicine_id || '',
+      name: medicine.name || medicine.generic_name || '',
+      generic_name: medicine.generic_name || '',
+      manufacturer: medicine.manufacturer || '',
+      medical_system: medicine.medical_system || 'Allopathy',
+      category: medicine.sub_category || medicine.category || '',
+      strength: medicine.strength || '',
+      packSize: medicine.pack_size || '',
+      mrp: medicine.mrp || '',
+      supplierPrice: '', // Supplier enters this
+      stock: '',
+      minOrderQuantity: 1,
+      minStock: 10,
+      scheme: '',
+      description: medicine.indications_symptoms || '',
+      isAvailable: true,
+      expiryDate: '',
+      batchNumber: medicine.batch_number || '',
+      discount: 0,
+      brand_names: medicine.brand_names || [],
+      formulation: medicine.formulation || '',
+      primary_specialty: medicine.primary_specialty || '',
+    })
+    setShowSearchResults(false)
   }
 
   const handleEditMedicine = (medicine) => {
     setEditMode(true)
     setCurrentMedicine(medicine)
     setFormData({
+      medicine_id: medicine.medicine_id || '',
       name: medicine.name || '',
-      genericName: medicine.genericName || '',
+      generic_name: medicine.genericName || '',
       manufacturer: medicine.manufacturer || '',
+      medical_system: medicine.medical_system || '',
       category: medicine.category || '',
       strength: medicine.strength || '',
       packSize: medicine.packSize || '',
@@ -112,15 +205,48 @@ const SupplierInventory = () => {
       supplierPrice: medicine.supplierPrice || '',
       stock: medicine.stock || '',
       minOrderQuantity: medicine.minOrderQuantity || 1,
+      minStock: medicine.minStock || 10,
       scheme: medicine.scheme || '',
       description: medicine.description || '',
       isAvailable: medicine.isAvailable !== false,
       expiryDate: medicine.expiryDate ? medicine.expiryDate.split('T')[0] : '',
+      batchNumber: medicine.batchNumber || '',
+      discount: medicine.discount || 0,
+      brand_names: medicine.brand_names || [],
+      formulation: medicine.formulation || '',
+      primary_specialty: medicine.primary_specialty || '',
     })
     setShowModal(true)
   }
 
   const handleSaveMedicine = async () => {
+    // ✅ VALIDATION
+    const errors = [];
+
+    // Required fields
+    if (!formData.generic_name?.trim()) errors.push('Generic name is required');
+    if (!formData.name?.trim()) errors.push('Brand/Product name is required');
+    if (!formData.manufacturer?.trim()) errors.push('Manufacturer is required');
+    if (!formData.strength?.trim()) errors.push('Strength is required');
+    if (!formData.packSize?.trim()) errors.push('Pack size is required');
+
+    // Numeric validations
+    if (!formData.mrp || parseFloat(formData.mrp) <= 0) errors.push('MRP must be greater than 0');
+    if (!formData.supplierPrice || parseFloat(formData.supplierPrice) <= 0) errors.push('Supplier price must be greater than 0');
+    if (!formData.stock || parseInt(formData.stock) < 0) errors.push('Stock cannot be negative');
+    if (formData.minOrderQuantity && parseInt(formData.minOrderQuantity) <= 0) errors.push('Min order quantity must be greater than 0');
+
+    // Price validation - supplier price should be <= MRP
+    if (parseFloat(formData.supplierPrice) > parseFloat(formData.mrp)) {
+      errors.push('Supplier price cannot be more than MRP');
+    }
+
+    // Show errors
+    if (errors.length > 0) {
+      showToast('❌ ' + errors[0], 'danger')
+      return;
+    }
+
     try {
       setSaving(true)
 
@@ -138,21 +264,21 @@ const SupplierInventory = () => {
           cred: medicineData,
         })
         
-        alert('Medicine updated successfully!')
+        showToast('✅ Medicine updated successfully!', 'success')
       } else {
         await postRequest({
           url: 'suppliers/medicines',
           cred: medicineData,
         })
         
-        alert('Medicine added successfully!')
+        showToast('✅ Medicine added successfully!', 'success')
       }
       
       setShowModal(false)
       await fetchMedicines()
     } catch (error) {
       console.error('Error saving medicine:', error)
-      alert(`Failed to save medicine: ${error.response?.data?.message || error.message}`)
+      showToast(`❌ ${error.response?.data?.message || error.message}`, 'danger')
     } finally {
       setSaving(false)
     }
@@ -163,11 +289,11 @@ const SupplierInventory = () => {
 
     try {
       await deleteRequest(`suppliers/medicines/${medicineId}`)
-      alert('Medicine deleted successfully!')
+      showToast('✅ Medicine deleted successfully!', 'success')
       await fetchMedicines()
     } catch (error) {
       console.error('Error deleting medicine:', error)
-      alert(`Failed to delete medicine: ${error.response?.data?.message || error.message}`)
+      showToast(`❌ Failed to delete medicine: ${error.response?.data?.message || error.message}`, 'danger')
     }
   }
 
@@ -248,6 +374,41 @@ const SupplierInventory = () => {
         @keyframes spin {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
+        }
+      `}</style>
+
+      {/* Toast Container */}
+      <div style={{ position: 'fixed', top: 20, right: 20, zIndex: 9999 }}>
+        {toasts.map(toast => (
+          <div
+            key={toast.id}
+            style={{
+              marginBottom: 10,
+              padding: '12px 16px',
+              borderRadius: 8,
+              color: '#fff',
+              fontWeight: 600,
+              fontSize: 13,
+              animation: 'slideIn 0.3s ease-out',
+              background: toast.type === 'success' ? '#10b981' : '#ef4444',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            }}
+          >
+            {toast.message}
+          </div>
+        ))}
+      </div>
+
+      <style>{`
+        @keyframes slideIn {
+          from {
+            transform: translateX(400px);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
         }
       `}</style>
 
@@ -387,7 +548,7 @@ const SupplierInventory = () => {
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ background: '#f9fafb' }}>
-                  {['Medicine Name', 'Generic Name', 'Manufacturer', 'Strength', 'Stock', 'MRP', 'My Price', 'Status', 'Actions'].map(h => (
+                  {['Medicine Name', 'Generic Name', 'Category', 'Manufacturer', 'Strength', 'Batch', 'Stock', 'Min Stock', 'MRP', 'My Price', 'Discount', 'Expiry', 'Status', 'Actions'].map(h => (
                     <th key={h} style={{ padding: '8px 10px', fontSize: 10, color: '#6b7280', fontWeight: 700, textTransform: 'uppercase', textAlign: 'left', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>{h}</th>
                   ))}
                 </tr>
@@ -424,10 +585,18 @@ const SupplierInventory = () => {
                         </span>
                       </td>
                       <td style={{ padding: '9px 10px', fontSize: 12, color: '#374151' }}>
+                        <span style={{ padding: '3px 8px', borderRadius: 5, background: '#e0e7ff', color: '#3730a3', fontSize: 11, fontWeight: 600 }}>
+                          {medicine.category || 'N/A'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '9px 10px', fontSize: 12, color: '#374151' }}>
                         {medicine.manufacturer}
                       </td>
                       <td style={{ padding: '9px 10px', fontSize: 12, color: '#374151' }}>
                         {medicine.strength}
+                      </td>
+                      <td style={{ padding: '9px 10px', fontSize: 11, color: '#6b7280' }}>
+                        {medicine.batchNumber || 'N/A'}
                       </td>
                       <td style={{ padding: '9px 10px' }}>
                         <span style={{
@@ -441,6 +610,9 @@ const SupplierInventory = () => {
                           {stockBadge.label}
                         </span>
                       </td>
+                      <td style={{ padding: '9px 10px', fontSize: 11, color: '#6b7280', fontWeight: 600 }}>
+                        {medicine.minStock || 10}
+                      </td>
                       <td style={{ padding: '9px 10px', fontSize: 12, color: '#6b7280' }}>
                         {formatCurrency(medicine.mrp || 0)}
                       </td>
@@ -448,6 +620,12 @@ const SupplierInventory = () => {
                         <span style={{ fontSize: 13, fontWeight: 700, color: '#0c3b73' }}>
                           {formatCurrency(medicine.supplierPrice || 0)}
                         </span>
+                      </td>
+                      <td style={{ padding: '9px 10px', fontSize: 11, color: '#16a34a', fontWeight: 700 }}>
+                        {medicine.discount || 0}%
+                      </td>
+                      <td style={{ padding: '9px 10px', fontSize: 11, color: '#6b7280' }}>
+                        {medicine.expiryDate ? new Date(medicine.expiryDate).toLocaleDateString('en-IN') : 'N/A'}
                       </td>
                       <td style={{ padding: '9px 10px' }}>
                         <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -514,6 +692,50 @@ const SupplierInventory = () => {
           <CModalTitle>{editMode ? 'Edit Medicine' : 'Add New Medicine'}</CModalTitle>
         </CModalHeader>
         <CModalBody style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+          {/* Search Global Medicines */}
+          {!editMode && (
+            <div style={{ marginBottom: 16, position: 'relative' }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4, display: 'block' }}>
+                🔍 Search Global Medicines Library
+              </label>
+              <input
+                type="text"
+                placeholder="Search by name, generic name, or manufacturer..."
+                onChange={(e) => searchGlobalMedicines(e.target.value)}
+                style={{ width: '100%', padding: '7px 12px', border: '1px solid #0c3b73', borderRadius: 7, fontSize: 13, outline: 'none' }}
+              />
+              {searchingMedicine && (
+                <div style={{ marginTop: 8, fontSize: 12, color: '#6b7280' }}>Searching...</div>
+              )}
+              {showSearchResults && searchResults.length > 0 && (
+                <div style={{ marginTop: 8, border: '1px solid #e5e7eb', borderRadius: 7, background: '#fff', maxHeight: '300px', overflowY: 'auto' }}>
+                  {searchResults.map((med) => (
+                    <div
+                      key={med._id}
+                      onClick={() => selectMedicineFromGlobal(med)}
+                      style={{
+                        padding: '10px 12px',
+                        borderBottom: '1px solid #f3f4f6',
+                        cursor: 'pointer',
+                        hover: { background: '#f9fafb' }
+                      }}
+                      onMouseEnter={(e) => e.target.style.background = '#f9fafb'}
+                      onMouseLeave={(e) => e.target.style.background = '#fff'}
+                    >
+                      <div style={{ fontSize: 12, fontWeight: 600, color: '#111827' }}>
+                        {med.generic_name} - {med.name}
+                      </div>
+                      <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>
+                        {med.manufacturer} | {med.strength} | ₹{med.mrp}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Form Fields */}
           <div style={{ marginBottom: 16 }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div>
@@ -522,11 +744,11 @@ const SupplierInventory = () => {
                 </label>
                 <input
                   type="text"
-                  value={formData.genericName}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, genericName: e.target.value }))}
+                  value={formData.generic_name}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, generic_name: e.target.value }))}
                   required
-                  placeholder="e.g., Paracetamol"
-                  style={{ width: '100%', padding: '7px 12px', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 13, outline: 'none' }}
+                  placeholder="Auto-filled from search"
+                  style={{ width: '100%', padding: '7px 12px', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 13, outline: 'none', background: '#f9fafb' }}
                 />
               </div>
               <div>
@@ -538,8 +760,8 @@ const SupplierInventory = () => {
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   required
-                  placeholder="e.g., Dolo 650"
-                  style={{ width: '100%', padding: '7px 12px', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 13, outline: 'none' }}
+                  placeholder="Auto-filled from search"
+                  style={{ width: '100%', padding: '7px 12px', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 13, outline: 'none', background: '#f9fafb' }}
                 />
               </div>
             </div>
@@ -556,8 +778,8 @@ const SupplierInventory = () => {
                   value={formData.manufacturer}
                   onChange={(e) => setFormData({ ...formData, manufacturer: e.target.value })}
                   required
-                  placeholder="e.g., Micro Labs"
-                  style={{ width: '100%', padding: '7px 12px', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 13, outline: 'none' }}
+                  placeholder="Auto-filled from search"
+                  style={{ width: '100%', padding: '7px 12px', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 13, outline: 'none', background: '#f9fafb' }}
                 />
               </div>
               <div>
@@ -569,8 +791,8 @@ const SupplierInventory = () => {
                   value={formData.strength}
                   onChange={(e) => setFormData({ ...formData, strength: e.target.value })}
                   required
-                  placeholder="e.g., 650mg"
-                  style={{ width: '100%', padding: '7px 12px', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 13, outline: 'none' }}
+                  placeholder="Auto-filled from search"
+                  style={{ width: '100%', padding: '7px 12px', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 13, outline: 'none', background: '#f9fafb' }}
                 />
               </div>
               <div>
@@ -582,7 +804,93 @@ const SupplierInventory = () => {
                   value={formData.packSize}
                   onChange={(e) => setFormData({ ...formData, packSize: e.target.value })}
                   required
-                  placeholder="e.g., 15 Tablets"
+                  placeholder="Auto-filled from search"
+                  style={{ width: '100%', padding: '7px 12px', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 13, outline: 'none', background: '#f9fafb' }}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4, display: 'block' }}>Category</label>
+                <select
+                  value={formData.category}
+                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '7px 12px',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: 7,
+                    fontSize: 13,
+                    outline: 'none',
+                    background: '#f9fafb',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <option value="">Select Category</option>
+                  <option value="Tablet">Tablet</option>
+                  <option value="Capsule">Capsule</option>
+                  <option value="Syrup">Syrup</option>
+                  <option value="Injection">Injection</option>
+                  <option value="Drops">Drops</option>
+                  <option value="Cream">Cream</option>
+                  <option value="Ointment">Ointment</option>
+                  <option value="Powder">Powder</option>
+                  <option value="Suspension">Suspension</option>
+                  <option value="Gel">Gel</option>
+                  <option value="Lotion">Lotion</option>
+                  <option value="Spray">Spray</option>
+                  <option value="Inhaler">Inhaler</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4, display: 'block' }}>Medical System</label>
+                <input
+                  type="text"
+                  value={formData.medical_system}
+                  onChange={(e) => setFormData({ ...formData, medical_system: e.target.value })}
+                  placeholder="e.g., Allopathy, Ayurveda"
+                  style={{ width: '100%', padding: '7px 12px', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 13, outline: 'none', background: '#f9fafb' }}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4, display: 'block' }}>Batch Number</label>
+                <input
+                  type="text"
+                  value={formData.batchNumber || ''}
+                  onChange={(e) => setFormData({ ...formData, batchNumber: e.target.value })}
+                  placeholder="e.g., BATCH001"
+                  style={{ width: '100%', padding: '7px 12px', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 13, outline: 'none' }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4, display: 'block' }}>Min Stock Alert</label>
+                <input
+                  type="number"
+                  value={formData.minStock || 10}
+                  onChange={(e) => setFormData({ ...formData, minStock: e.target.value })}
+                  placeholder="10"
+                  style={{ width: '100%', padding: '7px 12px', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 13, outline: 'none' }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4, display: 'block' }}>Discount (%)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.discount || 0}
+                  onChange={(e) => setFormData({ ...formData, discount: e.target.value })}
+                  placeholder="0"
+                  min="0"
+                  max="100"
                   style={{ width: '100%', padding: '7px 12px', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 13, outline: 'none' }}
                 />
               </div>
@@ -604,7 +912,7 @@ const SupplierInventory = () => {
                     onChange={(e) => setFormData({ ...formData, mrp: e.target.value })}
                     required
                     placeholder="0.00"
-                    style={{ flex: 1, padding: '7px 12px', border: '1px solid #e5e7eb', borderRadius: '0 7px 7px 0', fontSize: 13, outline: 'none' }}
+                    style={{ flex: 1, padding: '7px 12px', border: '1px solid #e5e7eb', borderRadius: '0 7px 7px 0', fontSize: 13, outline: 'none', background: '#f9fafb' }}
                   />
                 </CInputGroup>
               </div>
@@ -620,7 +928,7 @@ const SupplierInventory = () => {
                     value={formData.supplierPrice}
                     onChange={(e) => setFormData({ ...formData, supplierPrice: e.target.value })}
                     required
-                    placeholder="0.00"
+                    placeholder="Enter your price"
                     style={{ flex: 1, padding: '7px 12px', border: '1px solid #e5e7eb', borderRadius: '0 7px 7px 0', fontSize: 13, outline: 'none' }}
                   />
                 </CInputGroup>
@@ -691,38 +999,14 @@ const SupplierInventory = () => {
           </div>
 
           <div style={{ marginBottom: 16 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4, display: 'block' }}>Category</label>
-                <input
-                  type="text"
-                  value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  placeholder="Auto-filled from generic name"
-                  style={{ width: '100%', padding: '7px 12px', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 13, outline: 'none' }}
-                />
-              </div>
-              <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4, display: 'block' }}>Scheme/Offer</label>
-                <input
-                  type="text"
-                  value={formData.scheme}
-                  onChange={(e) => setFormData({ ...formData, scheme: e.target.value })}
-                  placeholder="e.g., Buy 10 Get 1 Free"
-                  style={{ width: '100%', padding: '7px 12px', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 13, outline: 'none' }}
-                />
-              </div>
-            </div>
-          </div>
-
-          <div style={{ marginBottom: 16 }}>
-            <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4, display: 'block' }}>Description</label>
+            <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4, display: 'block' }}>Description/Notes</label>
             <CFormTextarea
               rows="2"
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="Additional information about the medicine"
+              placeholder="Add any additional notes"
             />
+       
           </div>
 
           <div>
@@ -753,29 +1037,20 @@ const SupplierInventory = () => {
           </button>
           <button
             onClick={handleSaveMedicine}
-            disabled={
-              saving ||
-              !formData.name ||
-              !formData.genericName ||
-              !formData.manufacturer ||
-              !formData.strength ||
-              !formData.packSize ||
-              !formData.mrp ||
-              !formData.supplierPrice ||
-              !formData.stock
-            }
+            disabled={saving}
             style={{
               padding: '8px 16px',
-              background: '#0c3b73',
+              background: saving ? '#d1d5db' : '#0c3b73',
               color: '#fff',
               border: 'none',
               borderRadius: 7,
               fontSize: 13,
               fontWeight: 600,
-              cursor: 'pointer',
+              cursor: saving ? 'not-allowed' : 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: 6
+              gap: 6,
+              opacity: saving ? 0.6 : 1
             }}
           >
             {saving ? (
@@ -783,9 +1058,9 @@ const SupplierInventory = () => {
                 <CSpinner size="sm" /> Saving...
               </>
             ) : editMode ? (
-              'Update Medicine'
+              '✏️ Update Medicine'
             ) : (
-              'Add Medicine'
+              '✅ Add Medicine'
             )}
           </button>
         </CModalFooter>

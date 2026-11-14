@@ -8,6 +8,7 @@ import { getRequest, postRequest } from '../../../Helpers'
 import PTRInput from '../../../components/PTRInput'
 import MarginCalculator from '../../../components/MarginCalculator'
 import { calculateStandardPTR, batchValidatePTR } from '../../../utils/ptrValidation'
+import RackAssignmentPreview from './RackAssignmentPreview'
 
 const LIMIT = 20
 
@@ -18,11 +19,14 @@ const newItem = () => ({
   medicineName: '',
   category: '',
   batchNo: '',
-  expiry: '',
-  qty: 1,
-  freeQty: 0,
+  expiryDate: '',          // ← Changed from expiry to expiryDate
+  poOrderedQty: 0,         // ← From PO (read-only)
+  grnReceivedQty: 1,       // ← What we actually received
+  grnRejectedQty: 0,       // ← What we rejected
   ptr: '',
   mrp: '',
+  qcStatus: 'passed',      // ← Quality control status
+  qcReason: '',            // ← Reason if rejected
 })
 
 /* ───────── helpers ───────── */
@@ -214,6 +218,9 @@ const GRNInward = () => {
   const [saving, setSaving] = useState(false)
   const [suppliers, setSuppliers] = useState([])
   const [viewGrn, setViewGrn] = useState(null)
+  const [showPreview, setShowPreview] = useState(false)                    // ← NEW
+  const [rackConfig, setRackConfig] = useState(null)                       // ← NEW
+  const [previewAssignments, setPreviewAssignments] = useState([])         // ← NEW
 
   // list filters & pagination
   const [searchInput, setSearchInput] = useState('')
@@ -228,6 +235,9 @@ const GRNInward = () => {
 
   // new GRN form
   const [poRef, setPoRef] = useState('')
+  const [poId, setPoId] = useState('')                  // ← Link to PO MongoDB ID
+  const [poList, setPoList] = useState([])              // ← For PO dropdown
+  const [poLoading, setPoLoading] = useState(false)
   const [supplierId, setSupplierId] = useState('')
   const [supplierName, setSupplierName] = useState('')
   const [invoiceNo, setInvoice] = useState('')
@@ -291,8 +301,79 @@ const GRNInward = () => {
     setItems((p) => p.map((it, idx) => (idx === i && it.medicineId ? { ...it, medicineId: '', medicineName: '', category: '' } : it)))
 
   const resetForm = () => {
-    setPoRef(''); setSupplierId(''); setSupplierName(''); setInvoice(''); setInvoiceDate('')
+    setPoRef(''); setPoId(''); setSupplierId(''); setSupplierName(''); setInvoice(''); setInvoiceDate('')
     setItems([newItem()])
+  }
+
+  // Fetch PO list when entering "new" tab
+  useEffect(() => {
+    if (tab !== 'new') return
+    const fetchPOs = async () => {
+      setPoLoading(true)
+      try {
+        // Fetch all pending + partially_received orders (2 separate calls, then combine)
+        const [res1, res2] = await Promise.all([
+          getRequest('/franchise/purchase/orders?status=pending&limit=100').catch(() => ({ data: { data: { orders: [] } } })),
+          getRequest('/franchise/purchase/orders?status=partially_received&limit=100').catch(() => ({ data: { data: { orders: [] } } })),
+        ])
+        
+        const pending = Array.isArray(res1?.data?.data?.orders) ? res1.data.data.orders : []
+        const partial = Array.isArray(res2?.data?.data?.orders) ? res2.data.data.orders : []
+        const combined = [...pending, ...partial]
+        
+        // Now fetch full details for each PO (to get items with orderedQty)
+        const fullPOs = await Promise.all(
+          combined.map(po => 
+            getRequest(`/franchise/purchase/orders/${po._id}`)
+              .then(r => r?.data?.data || null)
+              .catch(() => null)
+          )
+        )
+        
+        const poList = fullPOs.filter(po => po && po._id)
+        console.log(`✅ Loaded ${poList.length} POs for GRN selection`)
+        setPoList(poList)
+      } catch (err) {
+        console.error('Failed to fetch POs:', err)
+        toast.error('Failed to load purchase orders')
+        setPoList([])
+      } finally {
+        setPoLoading(false)
+      }
+    }
+    fetchPOs()
+  }, [tab])
+
+  // When user selects a PO, auto-populate form
+  const handlePOSelect = async (po) => {
+    if (!po || !po._id) {
+      setPoRef('')
+      setPoId('')
+      return
+    }
+    
+    setPoRef(po.poNo)
+    setPoId(po._id)
+    setSupplierId(po.supplierId)
+    setSupplierName(po.supplier)
+    
+    // Auto-populate items from PO
+    if (po.items && Array.isArray(po.items)) {
+      const grnItems = po.items.map(poItem => ({
+        ...newItem(),
+        medicineId: poItem.medicineId,
+        medicineName: poItem.medicineName,
+        category: poItem.category || 'Generic',
+        poOrderedQty: poItem.orderedQty || 0,  // Read-only (may be 0 on old POs)
+        grnReceivedQty: poItem.orderedQty || 0, // Pre-fill with PO qty
+        ptr: poItem.ptr,
+        mrp: poItem.mrp,
+      }))
+      setItems(grnItems)
+      toast.success(`✓ Loaded ${grnItems.length} items from ${po.poNo}`)
+    } else {
+      toast.info('PO has no items')
+    }
   }
 
   /* ── save ── */
@@ -302,14 +383,36 @@ const GRNInward = () => {
     if (!invoiceNo.trim()) return toast.error('Invoice number is required')
     if (!invoiceDate) return toast.error('Invoice date is required')
 
+    // Batch & Expiry validation (MANDATORY)
+    const missingBatchOrExpiry = items.some(item => !item.batchNo || !item.expiryDate)
+    if (missingBatchOrExpiry) {
+      return toast.error('❌ Batch number and expiry date are MANDATORY for all items')
+    }
+
+    // At least one item with received qty
+    if (!items.some(it => (it.grnReceivedQty || 0) > 0)) {
+      return toast.error('At least one item must have received quantity > 0')
+    }
+
     const validItems = items.filter((it) => it.medicineName && it.medicineId)
     if (!validItems.length) return toast.error('Add at least one medicine')
 
-    const missing = validItems.filter(
-      (it) => !it.batchNo.trim() || !(Number(it.qty) > 0) || !(Number(it.ptr) > 0) || !(Number(it.mrp) > 0) || !it.expiry
-    )
+    // Enhanced validation with better error messages
+    // ONLY validate items that have received qty > 0 (others can be skipped)
+    const itemsToValidate = validItems.filter((it) => (it.grnReceivedQty || 0) > 0)
+    
+    const missing = itemsToValidate.filter((it) => {
+      const issues = []
+      if (!it.batchNo?.trim()) issues.push('Batch')
+      if (!it.expiryDate) issues.push('Expiry')  // ← Changed from it.expiry
+      if (!(Number(it.ptr) > 0)) issues.push('PTR')
+      if (!(Number(it.mrp) > 0)) issues.push('MRP')
+      return issues.length > 0
+    })
+    
     if (missing.length) {
-      return toast.error(`${missing.length} item(s) missing required fields (Batch, Expiry, Qty, PTR, MRP)`)
+      console.warn('❌ GRN Validation Failed', { missing, validItems })
+      return toast.error(`${missing.length} item(s) with missing fields. Check yellow rows.`)
     }
 
     const validation = batchValidatePTR(
@@ -321,6 +424,7 @@ const GRNInward = () => {
       }))
     )
     if (!validation.allValid && validation.critical > 0) {
+      console.warn('❌ PTR Critical Issues', { validation })
       return toast.error(`${validation.critical} items have critical PTR issues. Please review.`)
     }
     if (validation.warnings > 0) {
@@ -333,34 +437,58 @@ const GRNInward = () => {
       if (!proceed) return
     }
 
+    // ✅ FETCH RACK CONFIG + SHOW PREVIEW
+    try {
+      const configRes = await getRequest('/franchise/racks/rack-config').catch(() => null)
+      setRackConfig(configRes?.data || null)
+    } catch (err) {
+      console.warn('Could not fetch rack config:', err)
+    }
+
+    // Show preview modal instead of submitting
+    setShowPreview(true)
+  }
+
+  // ✅ NEW: Handle final submission after preview
+  const handleFinalSubmit = async () => {
     setSaving(true)
     try {
+      const payload = {
+        supplierId,
+        supplier: supplierName,
+        poId: poId || undefined,           // ← NEW: Link to PO MongoDB ID
+        poRef: poRef || undefined,
+        invoiceNo: invoiceNo.trim(),
+        invoiceDate,
+        items: items.filter(it => it.medicineName && it.medicineId && (it.grnReceivedQty || 0) > 0).map((it) => ({
+          medicineId: it.medicineId,
+          medicineName: it.medicineName,
+          category: it.category || 'Generic',
+          batchNo: it.batchNo.trim(),
+          expiryDate: it.expiryDate,        // ← Changed from expiry
+          poOrderedQty: Number(it.poOrderedQty) || 0,    // ← Read-only from PO
+          grnReceivedQty: Number(it.grnReceivedQty) || 0, // ← What we received
+          grnRejectedQty: Number(it.grnRejectedQty) || 0, // ← What we rejected
+          qcStatus: it.qcStatus || 'passed', // ← Quality control
+          qcReason: it.qcReason || '',      // ← Reason if rejected
+          ptr: Number(it.ptr),
+          mrp: Number(it.mrp),
+        })),
+      }
+      
+      console.log('📤 Sending GRN Payload:', payload)
       await postRequest({
         url: '/franchise/purchase/grn',
-        cred: {
-          supplierId,
-          supplier: supplierName,
-          poRef,
-          invoiceNo: invoiceNo.trim(),
-          invoiceDate,
-          items: validItems.map((it) => ({
-            medicineId: it.medicineId,
-            medicineName: it.medicineName,
-            batchNo: it.batchNo.trim(),
-            expiry: it.expiry,
-            qty: Number(it.qty),
-            freeQty: Number(it.freeQty) || 0,
-            ptr: Number(it.ptr),
-            mrp: Number(it.mrp),
-          })),
-        },
+        cred: payload,
       })
-      toast.success('GRN created and stock updated')
+      toast.success('✓ GRN created! Medicines auto-assigned to racks!')
       resetForm()
       setTab('list')
+      setShowPreview(false)
       if (page !== 1) setPage(1)
       else fetchGRNs()
     } catch (err) {
+      console.error('❌ GRN Submit Error:', err?.response?.data || err?.message)
       toast.error(err?.response?.data?.message || 'Failed to create GRN')
     } finally {
       setSaving(false)
@@ -530,7 +658,7 @@ const GRNInward = () => {
             {/* STEP 1 */}
             <div className="bg-gray-50 rounded-lg p-3.5 mb-5 border-l-[3px] border-[#0c3b73]">
               <h4 className="text-xs font-bold text-gray-700 m-0 mb-3">Step 1: Supplier & Invoice Details</h4>
-              <div className="grid gap-3.5 grid-cols-[repeat(auto-fill,minmax(220px,1fr))]">
+              <div className="grid gap-3.5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
                 <div>
                   <label className={fieldLabel}>Supplier *</label>
                   <select
@@ -557,15 +685,39 @@ const GRNInward = () => {
                   <input type="date" value={invoiceDate} onChange={(e) => setInvoiceDate(e.target.value)} className={fieldInput} />
                 </div>
                 <div>
-                  <label className={fieldLabel}>PO Reference (Optional)</label>
-                  <input value={poRef} onChange={(e) => setPoRef(e.target.value)} placeholder="e.g. PO-2401" className={fieldInput} />
+                  <label className={fieldLabel}>Select PO (Optional)</label>
+                  <select 
+                    value={poId} 
+                    onChange={(e) => {
+                      const po = poList.find(p => p._id === e.target.value)
+                      if (po) handlePOSelect(po)
+                      else { setPoRef(''); setPoId('') }
+                    }}
+                    disabled={poLoading}
+                    className={`${fieldInput} cursor-pointer`}
+                  >
+                    <option value="">{poLoading ? 'Loading POs...' : 'Select PO to auto-fill items'}</option>
+                    {poList.map(po => {
+                      const completion = po.completionPct || 0
+                      const status = po.status || 'pending'
+                      const displayText = `${po.poNo} - ${po.supplier || 'Unknown'} [${completion}% - ${status}]`
+                      return (
+                        <option key={po._id} value={po._id}>
+                          {displayText}
+                        </option>
+                      )
+                    })}
+                  </select>
+                  {poList.length === 0 && !poLoading && (
+                    <p className="text-[11px] text-orange-600 mt-1">No pending/partial POs found. Create a PO first.</p>
+                  )}
                 </div>
               </div>
             </div>
 
             {/* STEP 2 */}
             <div className="bg-gray-50 rounded-lg p-3.5 border-l-[3px] border-green-600">
-              <div className="flex justify-between items-center mb-2.5">
+              <div className="flex justify-between items-center mb-2.5 flex-wrap gap-2">
                 <h4 className="text-xs font-bold text-gray-700 m-0">
                   Step 2: Received Items ({items.filter((it) => it.medicineId).length} added)
                 </h4>
@@ -579,10 +731,10 @@ const GRNInward = () => {
               </div>
 
               <div className="border border-gray-200 rounded-lg overflow-x-auto bg-white">
-                <table className="w-full border-collapse text-xs min-w-[900px]">
+                <table className="w-full border-collapse text-xs min-w-[1000px]">
                   <thead>
                     <tr className="bg-gray-50">
-                      {['Medicine *', 'Batch No. *', 'Expiry *', 'Qty *', 'Free', 'PTR (₹) *', 'MRP (₹) *', 'Margin', ''].map((h) => (
+                      {['Medicine *', 'PO Qty', 'Batch No. *', 'Expiry *', 'Rcv. Qty *', 'Rej. Qty', 'QC Status', 'PTR (₹) *', 'MRP (₹) *', 'Margin', ''].map((h) => (
                         <th key={h} className="px-2.5 py-2 text-left font-semibold text-gray-700 whitespace-nowrap text-[11px]">{h}</th>
                       ))}
                     </tr>
@@ -590,6 +742,7 @@ const GRNInward = () => {
                   <tbody>
                     {items.map((item, i) => (
                       <tr key={item.uid} className={`border-t border-gray-100 ${!item.medicineId ? 'bg-amber-50' : ''}`}>
+                        {/* Medicine */}
                         <td className="px-2 py-1.5 min-w-[200px]">
                           <MedicineCell
                             value={item.medicineName}
@@ -597,18 +750,78 @@ const GRNInward = () => {
                             onType={() => clearMedForRow(i)}
                           />
                         </td>
-                        <td className="px-2 py-1.5">
-                          <input value={item.batchNo} onChange={(e) => setItem(i, 'batchNo', e.target.value)} placeholder="Batch" className={cellInput} />
+                        
+                        {/* PO Ordered Qty (Read-only) */}
+                        <td className="px-2 py-1.5 w-[70px] bg-gray-100">
+                          <input 
+                            type="number" 
+                            value={item.poOrderedQty} 
+                            disabled 
+                            className={`${cellInput} !bg-gray-200 !text-gray-600 !w-full`} 
+                          />
                         </td>
-                        <td className="px-2 py-1.5">
-                          <input type="month" value={item.expiry} onChange={(e) => setItem(i, 'expiry', e.target.value)} className={`${cellInput} !w-[120px]`} />
+                        
+                        {/* Batch No */}
+                        <td className="px-2 py-1.5 min-w-[120px]">
+                          <input 
+                            value={item.batchNo} 
+                            onChange={(e) => setItem(i, 'batchNo', e.target.value)} 
+                            placeholder="Batch" 
+                            required
+                            className={`${cellInput} ${!item.batchNo ? 'border-red-300' : ''}`} 
+                          />
                         </td>
-                        <td className="px-2 py-1.5">
-                          <input type="number" min={1} value={item.qty} onChange={(e) => setItem(i, 'qty', e.target.value)} className={`${cellInput} !w-[60px]`} />
+                        
+                        {/* Expiry Date */}
+                        <td className="px-2 py-1.5 min-w-[130px]">
+                          <input 
+                            type="date" 
+                            value={item.expiryDate} 
+                            onChange={(e) => setItem(i, 'expiryDate', e.target.value)} 
+                            required
+                            className={`${cellInput} !w-full ${!item.expiryDate ? 'border-red-300' : ''}`} 
+                          />
                         </td>
-                        <td className="px-2 py-1.5">
-                          <input type="number" min={0} value={item.freeQty} onChange={(e) => setItem(i, 'freeQty', e.target.value)} className={`${cellInput} !w-[50px]`} />
+                        
+                        {/* Received Qty */}
+                        <td className="px-2 py-1.5 w-[70px]">
+                          <input 
+                            type="number" 
+                            min={0} 
+                            value={item.grnReceivedQty} 
+                            onChange={(e) => setItem(i, 'grnReceivedQty', e.target.value)} 
+                            placeholder="0"
+                            required
+                            className={`${cellInput} !w-full`} 
+                          />
                         </td>
+                        
+                        {/* Rejected Qty */}
+                        <td className="px-2 py-1.5 w-[70px]">
+                          <input 
+                            type="number" 
+                            min={0} 
+                            value={item.grnRejectedQty} 
+                            onChange={(e) => setItem(i, 'grnRejectedQty', e.target.value)} 
+                            placeholder="0"
+                            className={`${cellInput} !w-full`} 
+                          />
+                        </td>
+                        
+                        {/* QC Status */}
+                        <td className="px-2 py-1.5 w-[90px]">
+                          <select 
+                            value={item.qcStatus} 
+                            onChange={(e) => setItem(i, 'qcStatus', e.target.value)}
+                            className={`${cellInput} !w-full cursor-pointer`}
+                          >
+                            <option value="passed">Passed ✓</option>
+                            <option value="partial">Partial ⚠</option>
+                            <option value="rejected">Rejected ✗</option>
+                          </select>
+                        </td>
+                        
+                        {/* PTR */}
                         <td className="px-2 py-1.5 w-[100px]">
                           <PTRInput
                             value={item.ptr}
@@ -620,9 +833,22 @@ const GRNInward = () => {
                             style={{ fontSize: 12 }}
                           />
                         </td>
-                        <td className="px-2 py-1.5">
-                          <input type="number" step="0.01" min={0} value={item.mrp} onChange={(e) => setItem(i, 'mrp', e.target.value)} placeholder="0.00" className={`${cellInput} !w-[80px]`} />
+                        
+                        {/* MRP */}
+                        <td className="px-2 py-1.5 w-[80px]">
+                          <input 
+                            type="number" 
+                            step="0.01" 
+                            min={0} 
+                            value={item.mrp} 
+                            onChange={(e) => setItem(i, 'mrp', e.target.value)} 
+                            placeholder="0.00" 
+                            required
+                            className={`${cellInput} !w-full`} 
+                          />
                         </td>
+                        
+                        {/* Margin */}
                         <td className="px-2 py-1.5 w-[100px]">
                           {item.ptr && item.mrp ? (
                             <MarginCalculator ptr={item.ptr} mrp={item.mrp} compact={true} />
@@ -630,7 +856,9 @@ const GRNInward = () => {
                             <span className="text-[11px] text-gray-400">—</span>
                           )}
                         </td>
-                        <td className="px-2 py-1.5 text-center">
+                        
+                        {/* Delete */}
+                        <td className="px-2 py-1.5 text-center w-[40px]">
                           {items.length > 1 && (
                             <button type="button" onClick={() => delItem(i)} className="bg-transparent border-0 cursor-pointer text-rose-600 hover:text-rose-800">
                               <Trash2 size={13} />
@@ -643,11 +871,11 @@ const GRNInward = () => {
                 </table>
               </div>
               <p className="text-[11px] text-gray-500 mt-2 mb-0">
-                * Required fields. Medicine search list se select karna zaroori hai (yellow row = medicine select nahi hui).
+                * Required fields. Batch & Expiry are MANDATORY. Select medicine from search list. Yellow row = medicine not selected.
               </p>
             </div>
 
-            <div className="flex gap-2.5 justify-end mt-5">
+            <div className="flex gap-2.5 justify-end mt-5 flex-wrap">
               <button
                 type="button"
                 onClick={() => { resetForm(); setTab('list') }}
@@ -658,7 +886,7 @@ const GRNInward = () => {
               <button
                 type="submit"
                 disabled={saving}
-                className="flex items-center gap-1.5 px-[22px] py-[9px] rounded-lg border-0 bg-green-600 hover:bg-green-700 disabled:bg-green-300 disabled:cursor-not-allowed text-white font-bold text-[13px] cursor-pointer"
+                className="flex items-center gap-1.5 px-[22px] py-[9px] rounded-lg border-0 bg-green-600 hover:bg-green-700 disabled:bg-green-300 disabled:cursor-not-allowed text-white font-bold text-[13px] cursor-pointer whitespace-nowrap"
               >
                 <Save size={14} /> {saving ? 'Saving…' : 'Create GRN & Update Stock'}
               </button>
@@ -668,6 +896,28 @@ const GRNInward = () => {
       )}
 
       <ItemsModal grn={viewGrn} onClose={() => setViewGrn(null)} />
+      
+      {/* ✨ RACK ASSIGNMENT PREVIEW */}
+      {showPreview && (
+        <RackAssignmentPreview
+          items={items.filter(it => it.medicineName && it.medicineId && (it.grnReceivedQty || 0) > 0)}
+          rackConfig={rackConfig}
+          onClose={() => setShowPreview(false)}
+          onUpdateAssignments={setPreviewAssignments}
+        />
+      )}
+      
+      {/* Hidden button to submit after preview */}
+      {showPreview && (
+        <button
+          hidden
+          id="final-submit-btn"
+          onClick={handleFinalSubmit}
+          disabled={saving}
+        >
+          Submit
+        </button>
+      )}
     </div>
   )
 }

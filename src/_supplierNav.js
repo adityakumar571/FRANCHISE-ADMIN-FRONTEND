@@ -34,12 +34,12 @@ const supplierNav = [
   },
 
   /* Medicine Masters */
-  {
-    component: CNavItem,
-    name: 'Medicine Masters',
-    to: '/supplier/masters',
-    icon: ic(BookOpen),
-  },
+  // {
+  //   component: CNavItem,
+  //   name: 'Medicine Masters',
+  //   to: '/supplier/masters',
+  //   icon: ic(BookOpen),
+  // },
 
   /* Reports */
   {

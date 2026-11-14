@@ -11,10 +11,12 @@ import PageHeader from '../components/PageHeader'
 import DataTable from '../components/DataTable'
 import StatusBadge from '../components/StatusBadge'
 import CreatePOModal from './CreatePOModal'
+import BulkCreatePOModal from './BulkCreatePOModal'
 import PODetailModal from './PODetailModal'
 
 const PurchaseOrders = () => {
   const location = useLocation()
+  const [tab, setTab] = useState('list') // 'list', 'create', 'bulk'
   const [data, setData]         = useState([])
   const [loading, setLoading]   = useState(true)
   const [search, setSearch]     = useState('')
@@ -23,6 +25,7 @@ const PurchaseOrders = () => {
   const [page, setPage]         = useState(1)
   const [limit, setLimit]       = useState(20)
   const [createOpen, setCreateOpen] = useState(false)
+  const [bulkOpen, setBulkOpen] = useState(false)
   const [detailOpen, setDetailOpen] = useState(false)
   const [selected, setSelected] = useState(null)
   const [prefilledData, setPrefilledData] = useState({ supplier: null, medicine: null })
@@ -80,66 +83,130 @@ const PurchaseOrders = () => {
     )},
   ]
 
-  return (
-    <div>
-      <PageHeader icon={FileText} title="Purchase Orders" subtitle="Create and track all purchase orders" color="#7c3aed">
-        <button onClick={() => setCreateOpen(true)} style={primaryBtn}><Plus size={14} /> Create PO</button>
-      </PageHeader>
+  // Tab view
+  if (tab === 'list') {
+    return (
+      <div>
+        <PageHeader icon={FileText} title="Purchase Orders" subtitle="Create and track all purchase orders" color="#7c3aed">
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              onClick={() => setTab('create')}
+              style={{
+                ...primaryBtn,
+                background: '#0c3b73',
+                color: '#fff',
+              }}
+            >
+              <Plus size={14} /> Create PO
+            </button>
+            <button
+              onClick={() => setTab('bulk')}
+              style={{
+                ...primaryBtn,
+                background: '#16a34a',
+                color: '#fff',
+              }}
+            >
+              <Plus size={14} /> Bulk Order
+            </button>
+          </div>
+        </PageHeader>
 
-      <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
-        <div style={{ position: 'relative', flex: '1 1 260px' }}>
-          <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
-          <input type="text" placeholder="Search PO number, supplier…" value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1) }}
-            style={{ ...searchInput, paddingLeft: 32 }} />
+        <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
+          <div style={{ position: 'relative', flex: '1 1 260px' }}>
+            <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
+            <input type="text" placeholder="Search PO number, supplier…" value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(1) }}
+              style={{ ...searchInput, paddingLeft: 32 }} />
+          </div>
+          <select value={statusFilter} onChange={(e) => { setStatus(e.target.value); setPage(1) }} style={selectStyle}>
+            <option value="">All Status</option>
+            <option value="draft">Draft</option>
+            <option value="pending">Pending</option>
+            <option value="accepted">Accepted</option>
+            <option value="dispatched">Dispatched</option>
+            <option value="completed">Completed</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
         </div>
-        <select value={statusFilter} onChange={(e) => { setStatus(e.target.value); setPage(1) }} style={selectStyle}>
-          <option value="">All Status</option>
-          <option value="draft">Draft</option>
-          <option value="pending">Pending</option>
-          <option value="accepted">Accepted</option>
-          <option value="dispatched">Dispatched</option>
-          <option value="completed">Completed</option>
-          <option value="cancelled">Cancelled</option>
-        </select>
+
+        <DataTable
+          columns={columns}
+          data={data}
+          loading={loading}
+          total={total}
+          page={page}
+          limit={limit}
+          onPageChange={setPage}
+          onLimitChange={(s) => { setLimit(s); setPage(1) }}
+        />
+
+        {detailOpen && <PODetailModal open={detailOpen} onClose={() => setDetailOpen(false)} data={selected} />}
       </div>
+    )
+  }
 
-      <DataTable
-        columns={columns}
-        data={data}
-        loading={loading}
-        total={total}
-        page={page}
-        limit={limit}
-        onPageChange={setPage}
-        onLimitChange={(s) => { setLimit(s); setPage(1) }}
-      />
-
-      {createOpen && (
+  // Create PO Screen
+  if (tab === 'create') {
+    return (
+      <div>
+        <PageHeader icon={FileText} title="Create Purchase Order" subtitle="Quick order for 1-2 medicines" color="#0c3b73">
+          <button
+            onClick={() => setTab('list')}
+            style={{
+              ...primaryBtn,
+              background: '#f3f4f6',
+              color: '#374151',
+              border: '1px solid #d1d5db',
+            }}
+          >
+            ← Back to List
+          </button>
+        </PageHeader>
+        
         <CreatePOModal
-          open={createOpen}
-          onClose={() => {
-            setCreateOpen(false)
-            setPrefilledData({ supplier: null, medicine: null })
-          }}
-          onSaved={() => { 
-            console.log('✅ PO saved callback triggered')
-            setCreateOpen(false)
-            setPrefilledData({ supplier: null, medicine: null })
-            
-            // Small delay to ensure backend has saved
-            setTimeout(() => {
-              console.log('🔄 Refreshing purchase orders list...')
-              fetchOrders()
-            }, 500)
+          open={true}
+          onClose={() => setTab('list')}
+          onSaved={() => {
+            setTab('list')
+            setTimeout(() => fetchOrders(), 500)
           }}
           prefilledSupplier={prefilledData.supplier}
           prefilledMedicine={prefilledData.medicine}
         />
-      )}
-      {detailOpen && <PODetailModal open={detailOpen} onClose={() => setDetailOpen(false)} data={selected} />}
-    </div>
-  )
+      </div>
+    )
+  }
+
+  // Bulk Order Screen
+  if (tab === 'bulk') {
+    return (
+      <div>
+        <PageHeader icon={FileText} title="Bulk Purchase Order" subtitle="Order 100+ medicines at once" color="#16a34a">
+          <button
+            onClick={() => setTab('list')}
+            style={{
+              ...primaryBtn,
+              background: '#f3f4f6',
+              color: '#374151',
+              border: '1px solid #d1d5db',
+            }}
+          >
+            ← Back to List
+          </button>
+        </PageHeader>
+        
+        <BulkCreatePOModal
+          open={true}
+          onClose={() => setTab('list')}
+          onSaved={() => {
+            setTab('list')
+            setTimeout(() => fetchOrders(), 500)
+          }}
+        />
+      </div>
+    )
+  }
 }
 
 const primaryBtn = { display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 8, border: 'none', background: '#0c3b73', color: '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer' }
